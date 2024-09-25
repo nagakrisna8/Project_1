@@ -1,14 +1,14 @@
 {
-    "partnerId": "7e162ca3-e62c-4f7b-9df6-14faf347061d",
-    "companyId": "68762bf2-0e38-415d-81c7-be3ca5647d95",
-    "reportId": "88089615-72a2-4e67-a130-c064194ef51d",
+    "partnerId": "7c25a5fb-88ae-4d13-a34a-6c106b7a2eb9",
+    "companyId": "d8d8a03e-a074-4998-8cf6-bd6e2cb16223",
+    "reportId": "070da79e-8734-4439-aea9-a43730875345",
     "inputReportFilters": [
         {
             "name": "Partner",
             "referenceEntityName": null,
             "values": [
                 {
-                    "id": "7e162ca3-e62c-4f7b-9df6-14faf347061d",
+                    "id": "7c25a5fb-88ae-4d13-a34a-6c106b7a2eb9",
                     "value": null,
                     "referenceEntityId": "a3599dbe-b889-4e6a-984b-c250de077757"
                 }
@@ -19,85 +19,33 @@
             "referenceEntityName": "Partner",
             "values": [
                 {
-                    "id": "68762bf2-0e38-415d-81c7-be3ca5647d95",
-                    "value": "ASTY",
-                    "referenceEntityId": "7e162ca3-e62c-4f7b-9df6-14faf347061d"
+                    "id": "d8d8a03e-a074-4998-8cf6-bd6e2cb16223",
+                    "value": "BajajFin",
+                    "referenceEntityId": "7c25a5fb-88ae-4d13-a34a-6c106b7a2eb9"
                 }
             ]
         },
         {
-            "name": "Product",
-            "referenceEntityName": "Company",
-            "reportFilterSelectionType": 1,
-            "values": [
-                {
-                    "id": "47555bc1-d00f-4252-b743-02a747565401",
-                    "value": "d",
-                    "referenceEntityId": "68762bf2-0e38-415d-81c7-be3ca5647d95"
-                },
-                {
-                    "id": "d0024d57-5d9d-4898-ab4e-e45e11050cf1",
-                    "value": "sayep1",
-                    "referenceEntityId": "68762bf2-0e38-415d-81c7-be3ca5647d95"
-                },
-                {
-                    "id": "47555bc1-d00f-4252-b743-02a747565401",
-                    "value": "d",
-                    "referenceEntityId": "68762bf2-0e38-415d-81c7-be3ca5647d95"
-                },
-                {
-                    "id": "d0024d57-5d9d-4898-ab4e-e45e11050cf1",
-                    "value": "sayep1",
-                    "referenceEntityId": "68762bf2-0e38-415d-81c7-be3ca5647d95"
-                }
-            ]
-        },
-        {
-            "name": "Award",
-            "referenceEntityName": "Company",
-            "reportFilterSelectionType": 0,
-            "values": [
-                {
-                    "id": "91262b52-3b80-47d2-ae4f-07a0c7448208",
-                    "value": "FEB24",
-                    "referenceEntityId": "68762bf2-0e38-415d-81c7-be3ca5647d95"
-                },
-                {
-                    "id": "e85c71ba-c7ae-4f2c-bcdd-bd1f3d0227a0",
-                    "value": "Werwerwer",
-                    "referenceEntityId": "68762bf2-0e38-415d-81c7-be3ca5647d95"
-                },
-                {
-                    "id": "91262b52-3b80-47d2-ae4f-07a0c7448208",
-                    "value": "FEB24",
-                    "referenceEntityId": "68762bf2-0e38-415d-81c7-be3ca5647d95"
-                },
-                {
-                    "id": "e85c71ba-c7ae-4f2c-bcdd-bd1f3d0227a0",
-                    "value": "Werwerwer",
-                    "referenceEntityId": "68762bf2-0e38-415d-81c7-be3ca5647d95"
-                }
-            ]
-        },
-        {
-            "name": "Division",
+            "name": "ParticipantCode",
             "referenceEntityName": "Company",
             "values": [
                 {
-                    "id": "",
-                    "value": "",
-                    "referenceEntityId": "68762bf2-0e38-415d-81c7-be3ca5647d95"
+                    "id": "121",
+                    "value": "121",
+                    "referenceEntityId": "d8d8a03e-a074-4998-8cf6-bd6e2cb16223"
                 }
             ]
         }
     ],
     "recurrence": {
         "startDate": "2024-09-01T00:00:00.000+05:30",
-        "endDate": null,
-        "timeToTrigger": "11:00:18",
+        "endDate": "2024-09-30T00:00:00.000+05:30",
+        "timeToTrigger": "12:45:00",
         "frequency": "Daily",
         "interval": 1,
-        "daysOfWeek": null,
+        "daysOfWeek": [
+            "Monday"
+        ],
         "dayOfMonth": 0,
         "monthOfYear": [
             1,
