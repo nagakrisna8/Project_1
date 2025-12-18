@@ -1,0 +1,54 @@
+const editorContainerRef = useRef<HTMLDivElement>(null);
+const inlineAIRef = useRef<HTMLDivElement>(null);
+
+return (
+  <div ref={editorContainerRef} id="editor-wrapper">
+
+    <Editor
+      defaultEditMode="div"
+      ...
+
+
+{ShowPrompt && (
+  <div ref={inlineAIRef}>
+    <InlineAIPrompt
+      width={544}
+      streaming={Streaming}
+      enableSpeechToText={true}
+      outputs={Outputs}
+      anchor={AnchorEl}
+      commands={Commands}
+      onCommandExecute={onCommandExecute}
+      onPromptRequest={onPromptRequest}
+      onPromptCancel={onPromptCancel}
+      outputActions={outputActions}
+      onOutputAction={onOutputAction}
+      onDiscard={(o) => setOutputs(prev => prev.filter(x => x.id !== o.id))}
+      show={ShowPrompt}
+    />
+  </div>
+)}
+
+useEffect(() => {
+  const handleClickOutside = (e: MouseEvent) => {
+
+    const editorEl = editorContainerRef.current;
+    const aiEl = inlineAIRef.current;
+
+    // If clicked inside the editor → keep prompt open
+    if (editorEl && editorEl.contains(e.target as Node)) return;
+
+    // If clicked inside the InlineAI prompt → keep prompt open
+    if (aiEl && aiEl.contains(e.target as Node)) return;
+
+    // Otherwise → hide prompt
+    setShowPrompt(false);
+    setOutputs([]);
+    setSelectedText('');
+    setAnchorEl(undefined);
+  };
+
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
+
