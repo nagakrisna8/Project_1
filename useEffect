@@ -1,0 +1,30 @@
+useEffect(() => {
+  const handleOutsideClick = (ev: MouseEvent) => {
+    const target = ev.target as HTMLElement;
+
+    // 👉 1️⃣ Inside InlineAIPrompt? (DON’T CLOSE)
+    if (
+      target.closest(".k-inline-ai") ||
+      target.closest(".k-inline-ai-prompt") ||
+      target.closest(".k-popup")
+    ) {
+      clickedInsideRef.current = true;
+      return;
+    }
+
+    // 👉 2️⃣ Inside Kendo Editor? (DON’T CLOSE)
+    const editorDom = textAreaRef.current?.view?.dom;
+    if (editorDom && editorDom.contains(target)) {
+      return;
+    }
+
+    // 👉 3️⃣ Otherwise → clicking outside → close
+    setShowPrompt(false);
+    setOutputs([]);
+    setSelectedText('');
+    setAnchorEl(undefined);
+  };
+
+  document.addEventListener("mousedown", handleOutsideClick, true);
+  return () => document.removeEventListener("mousedown", handleOutsideClick, true);
+}, []);
