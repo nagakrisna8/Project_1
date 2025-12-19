@@ -1,27 +1,31 @@
 useEffect(() => {
   const handleOutsideClick = (ev: MouseEvent) => {
-    const target = ev.target as HTMLElement;
+    const target = ev.target as HTMLElement | null;
+    if (!target) return;
 
-    // 👉 1️⃣ Inside InlineAIPrompt? (DON’T CLOSE)
+    // 1️⃣ Inside InlineAIPrompt? → DO NOT CLOSE
     if (
       target.closest(".k-inline-ai") ||
       target.closest(".k-inline-ai-prompt") ||
       target.closest(".k-popup")
     ) {
-      clickedInsideRef.current = true;
       return;
     }
 
-    // 👉 2️⃣ Inside Kendo Editor? (DON’T CLOSE)
-    const editorDom = textAreaRef.current?.view?.dom;
-    if (editorDom && editorDom.contains(target)) {
+    // 2️⃣ Inside ANY Kendo Editor area? → DO NOT CLOSE
+    if (
+      target.closest(".k-editor") ||              // whole editor wrapper
+      target.closest(".k-editor-content") ||      // editable area
+      target.closest(".ProseMirror") ||           // ProseMirror root
+      target.closest(".k-editor-toolbar")         // toolbar
+    ) {
       return;
     }
 
-    // 👉 3️⃣ Otherwise → clicking outside → close
+    // 3️⃣ Otherwise → Click outside → close prompt
     setShowPrompt(false);
+    setSelectedText("");
     setOutputs([]);
-    setSelectedText('');
     setAnchorEl(undefined);
   };
 
