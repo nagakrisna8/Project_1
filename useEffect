@@ -1,34 +1,343 @@
-useEffect(() => {
-  const handleOutsideClick = (ev: MouseEvent) => {
-    const target = ev.target as HTMLElement | null;
-    if (!target) return;
+// src/EditorInlineAIPromptWithMenuFix.tsx
+import React from 'react';
+import {
+  InlineAIPrompt,
+  InlineAIPromptOutputInterface,
+  CommandItemInterface,
+  OutputActionInterface,
+} from '@progress/kendo-react-conversational-ui';
+import { Editor, EditorTools } from '@progress/kendo-react-editor';
+import '@progress/kendo-theme-default/dist/all.css';
+import content from './shared-ed-content-overview.tsx'; 
 
-    // 1️⃣ Inside InlineAIPrompt? → DO NOT CLOSE
-    if (
-      target.closest(".k-inline-ai") ||
-      target.closest(".k-inline-ai-prompt") ||
-      target.closest(".k-popup")
-    ) {
-      return;
+// ------------------ Commands ------------------
+const commands: CommandItemInterface[] = [
+  { id: 'rewrite', text: 'Rewrite', prompt: (s) => `Rewrite the following text: ${s}` },
+  { id: 'fix-spelling', text: 'Fix Spelling', prompt: (s) => `Fix spelling and grammar: ${s}` },
+  { id: 'change-tone', text: 'Change Tone', prompt: (s) => `Change tone to professional: ${s}` },
+];
+
+// ------------------ Output actions ------------------
+const outputActions: OutputActionInterface[] = [
+  { id: 'copy', text: 'Copy' },
+  { id: 'insert', text: 'Insert' },
+  { id: 'replace', text: 'Replace' },
+  { id: 'discard', text: 'Discard' },
+];
+
+// ------------------ Editor tools ------------------
+const {
+  Bold, Italic, Underline, Strikethrough,
+  Subscript, Superscript,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  Indent, Outdent,
+  OrderedList, UnorderedList,
+  Undo, Redo,
+  FontSize, FontName, FormatBlock,
+  Link, Unlink, InsertImage, ViewHtml,
+  InsertTable, AddRowBefore, AddRowAfter, AddColumnBefore, AddColumnAfter,
+  DeleteRow, DeleteColumn, DeleteTable,
+  MergeCells, SplitCell
+} = EditorTools;
+
+// ------------------ Backend AI Call ------------------
+const getSuggestion = async (
+  prompt: string,
+  htmlContent?: string,
+  signal?: AbortSignal
+): Promise<string> => {
+  const res = await fetch('http://localhost:3001/api/conversation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, html: htmlContent }),
+    signal
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+
+  const result = await res.json();
+
+  if (result?.message?.content) return result.message.content;
+  return JSON.stringify(result);
+};
+
+// ------------------ Selection Anchor Hook ------------------
+function useSelectionAnchor(editorRef: React.RefObject<any>) {
+  const anchorRef = React.useRef<HTMLDivElement | null>(null);
+
+  const ensureAnchor = React.useCallback(() => {
+    if (!anchorRef.current) {
+      const el = document.createElement('div');
+      el.style.position = 'absolute';
+      el.style.width = '1px';
+      el.style.height = '1px';
+      el.style.pointerEvents = 'none';
+      el.style.zIndex = '2147483647';
+      document.body.appendChild(el);
+      anchorRef.current = el;
+    }
+    return anchorRef.current;
+  }, []);
+
+  const updateAnchorToSelection = React.useCallback(
+    (pos: number) => {
+      const ed = editorRef.current;
+      const anchorEl = ensureAnchor();
+      if (!ed || !ed.view) return anchorEl;
+
+      try {
+        const coords = ed.view.coordsAtPos(pos);
+        anchorEl.style.left = `${coords.left}px`;
+        anchorEl.style.top = `${coords.bottom + window.scrollY + 6}px`;
+        anchorEl.style.display = 'block';
+      } catch {
+        anchorEl.style.display = 'none';
+      }
+      return anchorEl;
+    },
+    [editorRef, ensureAnchor]
+  );
+
+  const cleanup = React.useCallback(() => {
+    if (anchorRef.current) {
+      document.body.removeChild(anchorRef.current);
+      anchorRef.current = null;
+    }
+  }, []);
+
+  return { updateAnchorToSelection, cleanup, anchorRef };
+}
+
+// ===============================================================
+// MAIN COMPONENT (Your original behaviors preserved 100%)
+// PLUS: Outside-click fixed properly with Kendo portal-safe code
+// ===============================================================
+export default function EditorInlineAIPromptWithMenuFix(): JSX.Element {
+
+  const editorRef = React.useRef<any>(null);
+  const abortControllerRef = React.useRef<AbortController | null>(null);
+  const { updateAnchorToSelection, cleanup, anchorRef } = useSelectionAnchor(editorRef);
+
+  const [outputs, setOutputs] = React.useState<InlineAIPromptOutputInterface[]>([]);
+  const [streaming, setStreaming] = React.useState(false);
+  const [selectedText, setSelectedText] = React.useState('');
+  const [selectionRange, setSelectionRange] = React.useState({ start: 0, end: 0 });
+  const [showPrompt, setShowPrompt] = React.useState(false);
+  const [anchorEl, setAnchorEl] = React.useState<HTMLElement | undefined>(undefined);
+
+  const clickedInsidePromptRef = React.useRef(false);
+
+  // ------------------ Read Selection ------------------
+  const readSelection = React.useCallback(() => {
+    const ed = editorRef.current;
+    if (!ed?.view) return { text: '', from: 0, to: 0 };
+
+    const { from, to } = ed.view.state.selection;
+    const text = ed.view.state.doc.textBetween(from, to, '\n');
+
+    return { text, from, to };
+  }, []);
+
+  // ------------------ Outside Click (Fixed, Portal-safe) ------------------
+  React.useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+
+      // INSIDE PROMPT? (Kendo renders prompt in a portal)
+      if (
+        target.closest('.k-inline-ai') ||
+        target.closest('.k-inline-ai-prompt') ||
+        target.closest('.k-popup')
+      ) {
+        clickedInsidePromptRef.current = true;
+        return;
+      }
+
+      // INSIDE EDITOR?
+      const editorDom = editorRef.current?.view?.dom;
+      if (editorDom && editorDom.contains(target)) {
+        return;
+      }
+
+      // OUTSIDE BOTH → close
+      setShowPrompt(false);
+      setOutputs([]);
+      setSelectedText('');
+      setAnchorEl(undefined);
+    };
+
+    document.addEventListener('mousedown', handleClick, true);
+    return () => document.removeEventListener('mousedown', handleClick, true);
+  }, []);
+
+  // ------------------ Attach selection listeners ------------------
+  React.useEffect(() => {
+    let mounted = true;
+
+    const attachListeners = () => {
+      if (!mounted) return;
+      const ed = editorRef.current;
+      if (!ed?.view?.dom) return setTimeout(attachListeners, 200);
+
+      const dom = ed.view.dom as HTMLElement;
+
+      const onSelect = () => {
+        const { text, from, to } = readSelection();
+
+        if (text.trim().length > 0) {
+          setSelectedText(text);
+          setSelectionRange({ start: from, end: to });
+
+          const el = updateAnchorToSelection(from);
+          setAnchorEl(el || undefined);
+          setShowPrompt(true);
+        } else {
+          setTimeout(() => {
+            if (!clickedInsidePromptRef.current) {
+              setShowPrompt(false);
+              setOutputs([]);
+              setAnchorEl(undefined);
+            }
+            clickedInsidePromptRef.current = false;
+          }, 50);
+        }
+      };
+
+      dom.addEventListener('mouseup', onSelect);
+      dom.addEventListener('keyup', onSelect);
+
+      return () => {
+        dom.removeEventListener('mouseup', onSelect);
+        dom.removeEventListener('keyup', onSelect);
+      };
+    };
+
+    const cleanupListener = attachListeners();
+    return () => {
+      mounted = false;
+      if (typeof cleanupListener === 'function') cleanupListener();
+    };
+  }, [readSelection, updateAnchorToSelection]);
+
+  // ------------------ Cleanup on unmount ------------------
+  React.useEffect(() => cleanup, [cleanup]);
+
+  // ------------------ AI request ------------------
+  const onPromptRequest = async (prompt: string) => {
+    if (!prompt || !selectedText) return;
+
+    setStreaming(true);
+
+    const ac = new AbortController();
+    abortControllerRef.current = ac;
+
+    try {
+      const reply = await getSuggestion(prompt, selectedText, ac.signal);
+      if (!ac.signal.aborted) {
+        setOutputs([{ id: Date.now(), responseContent: reply, prompt }]);
+      }
+    } catch (err: any) {
+      setOutputs([{ id: Date.now(), responseContent: 'Error: ' + err.message, prompt }]);
+    } finally {
+      setStreaming(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  // ------------------ Cancel Request ------------------
+  const onPromptCancel = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setStreaming(false);
+  };
+
+  // ------------------ Command Execute ------------------
+  const onCommandExecute = (cmd: CommandItemInterface) => {
+    if (!cmd.prompt || !selectedText) return;
+    onPromptRequest(cmd.prompt(selectedText));
+  };
+
+  // ------------------ Output action handler ------------------
+  const onOutputAction = (action: OutputActionInterface, output: InlineAIPromptOutputInterface) => {
+    const ed = editorRef.current?.view;
+    if (!ed) return;
+
+    const { state, dispatch } = ed;
+    const { start, end } = selectionRange;
+
+    switch (action.id) {
+      case 'copy':
+        navigator.clipboard.writeText(output.responseContent);
+        break;
+
+      case 'insert': {
+        const pNode = state.schema.nodes.paragraph.create(null, state.schema.text(output.responseContent));
+        dispatch(state.tr.insert(end, pNode));
+        break;
+      }
+
+      case 'replace':
+        dispatch(state.tr.insertText(output.responseContent, start, end));
+        break;
+
+      case 'discard':
+        setOutputs((prev) => prev.filter((o) => o.id !== output.id));
+        return;
     }
 
-    // 2️⃣ Inside ANY Kendo Editor area? → DO NOT CLOSE
-    if (
-      target.closest(".k-editor") ||              // whole editor wrapper
-      target.closest(".k-editor-content") ||      // editable area
-      target.closest(".ProseMirror") ||           // ProseMirror root
-      target.closest(".k-editor-toolbar")         // toolbar
-    ) {
-      return;
-    }
-
-    // 3️⃣ Otherwise → Click outside → close prompt
     setShowPrompt(false);
-    setSelectedText("");
+    setSelectedText('');
     setOutputs([]);
     setAnchorEl(undefined);
   };
 
-  document.addEventListener("mousedown", handleOutsideClick, true);
-  return () => document.removeEventListener("mousedown", handleOutsideClick, true);
-}, []);
+  // ------------------ Render ------------------
+  return (
+    <div style={{ width: '100%', padding: 12 }}>
+      <div style={{ marginBottom: 8, color: '#555' }}>
+        Select text inside the editor to trigger the inline AI prompt.
+      </div>
+
+      <Editor
+        ref={editorRef}
+        tools={[
+          [Bold, Italic, Underline, Strikethrough],
+          [Subscript, Superscript],
+          [AlignLeft, AlignCenter, AlignRight, AlignJustify],
+          [Indent, Outdent],
+          [OrderedList, UnorderedList],
+          FontSize,
+          FontName,
+          FormatBlock,
+          [Undo, Redo],
+          [Link, Unlink, InsertImage, ViewHtml],
+          [InsertTable],
+          [AddRowBefore, AddRowAfter, AddColumnBefore, AddColumnAfter],
+          [DeleteRow, DeleteColumn, DeleteTable],
+          [MergeCells, SplitCell],
+        ]}
+        defaultEditMode="div"
+        defaultContent={content}
+        contentStyle={{ height: 480 }}
+      />
+
+      {showPrompt && (
+        <InlineAIPrompt
+          width={544}
+          streaming={streaming}
+          enableSpeechToText={true}
+          outputs={outputs}
+          anchor={anchorEl || editorRef.current?.view?.dom}
+          commands={commands}
+          onCommandExecute={onCommandExecute}
+          onPromptRequest={onPromptRequest}
+          onPromptCancel={onPromptCancel}
+          outputActions={outputActions}
+          onOutputAction={onOutputAction}
+          onDiscard={(o) => setOutputs((prev) => prev.filter((x) => x.id !== o.id))} 
+          show={showPrompt}
+        />
+      )}
+    </div>
+  );
+}
