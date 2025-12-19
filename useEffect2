@@ -1,49 +1,31 @@
-React.useEffect(() => {
-  const onDocMouseDown = (ev: MouseEvent) => {
-    try {
-      const path = (ev as any).composedPath?.() || (ev as any).path || [];
-      let inside = false;
+// ------------------ FIXED Outside Click Handler (same logic as your working file) ------------------
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null;
 
-      // Detect click inside AI prompt
-      for (const p of path) {
-        if (
-          p &&
-          p.classList &&
-          (
-            p.classList.contains('k-inlineai') ||
-            p.classList.contains('k-inline-ai-prompt') ||
-            p.classList.contains('k-inline-ai')
-          )
-        ) {
-          inside = true;
-          break;
-        }
-      }
-
-      // Detect click inside editor or editor UI
-      if (!inside) {
-        const target = ev.target as HTMLElement | null;
-        if (
-          target &&
-          target.closest &&
-          (
-            target.closest('.k-inlineai, .k-inline-ai-prompt, .k-inline-ai') ||
-            target.closest('.k-editor') ||
-            target.closest('.k-editor-content') ||
-            target.closest('.ProseMirror') ||
-            target.closest('.k-editor-toolbar')
-          )
-        ) {
-          inside = true;
-        }
-      }
-
-      clickedInsidePromptRef.current = inside;
-    } catch {
-      clickedInsidePromptRef.current = false;
+    // 1️⃣ Click inside Inline AI Prompt → DO NOT CLOSE
+    if (
+      target?.closest(".k-inline-ai") ||
+      target?.closest(".k-inline-ai-prompt") ||
+      target?.closest(".k-popup")
+    ) {
+      clickedInsideRef.current = true;
+      return;
     }
+
+    // 2️⃣ Click inside Kendo Editor → DO NOT CLOSE
+    const editorDom = textAreaRef.current?.view?.dom;
+    if (editorDom && editorDom.contains(target)) {
+      return;
+    }
+
+    // 3️⃣ Click outside → CLOSE PROMPT
+    setShowPrompt(false);
+    setSelectedText("");
+    setOutputs([]);
+    setAnchorEl(undefined);
   };
 
-  document.addEventListener('mousedown', onDocMouseDown, true);
-  return () => document.removeEventListener('mousedown', onDocMouseDown, true);
+  document.addEventListener("mousedown", handleClickOutside, true);
+  return () => document.removeEventListener("mousedown", handleClickOutside, true);
 }, []);
