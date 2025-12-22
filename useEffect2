@@ -1,11 +1,18 @@
 useEffect(() => {
-  const cmdPopup = document.querySelector(".k-popup.k-inline-ai");
-  const promptBox = document.querySelector(".k-inline-ai-prompt");
+  if (!ShowPrompt) return;
 
-  if (!cmdPopup || !promptBox) return;
+  setTimeout(() => {
+    const promptEl = document.querySelector(".k-inline-ai-prompt") as HTMLElement | null;
+    const popupEl = document.querySelector(".k-popup.k-inline-ai") as HTMLElement | null;
 
-  const rect = promptBox.getBoundingClientRect();
+    if (promptEl && popupEl) {
+      const rect = promptEl.getBoundingClientRect();
 
-  cmdPopup.style.setProperty("--ai-cmd-top", `${rect.bottom + 6}px`);
-  cmdPopup.style.setProperty("--ai-cmd-left", `${rect.left}px`);
-}, [ShowPrompt, Outputs, AnchorEl, Streaming]);
+      // Safe → popupEl is HTMLElement, so .style works
+      popupEl.style.position = "fixed";
+      popupEl.style.transform = "none";
+      popupEl.style.top = `${rect.bottom + 8}px`;
+      popupEl.style.left = `${rect.left}px`;
+    }
+  }, 10);
+}, [ShowPrompt, Outputs, Streaming, AnchorEl]);
