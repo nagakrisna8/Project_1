@@ -1216,41 +1216,30 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
   };
 
   // Document mousedown listener to detect clicks inside prompt (prevents immediate close)
-  useEffect(() => {
-    const onDocMouseDown = (ev: MouseEvent) => {
-      try {
-        const path = (ev as any).composedPath?.() || (ev as any).path || [];
-        let inside = false;
-        for (const p of path) {
-          if (
-            p &&
-            p.classList &&
-            (p.classList.contains('k-inlineai') ||
-              p.classList.contains('k-inline-ai-prompt') ||
-              p.classList.contains('k-inline-ai'))
-          ) {
-            inside = true;
-            break;
-          }
-        }
-        if (!inside) {
-          const target = ev.target as HTMLElement | null;
-          if (
-            target &&
-            target.closest &&
-            target.closest('.k-inlineai, .k-inline-ai-prompt, .k-inline-ai')
-          )
-            inside = true;
-        }
-        clickedInsideRef.current = inside;
-      } catch {
-        clickedInsideRef.current = false;
-      }
-    };
+useEffect(() => {
+  const onDocMouseDown = (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.closest(".k-inline-ai") ||
+      target?.closest(".k-inline-ai-prompt") ||
+      target?.closest(".k-popup")
+    ) {
+      clickedInsideRef.current = true;
+      return;
+    }
+    const editorDom = textAreaRef.current?.view?.dom;
+    if (editorDom && editorDom.contains(target)) {
+      return;
+    }
+    setShowPrompt(false);
+    setSelectedText("");
+    setOutputs([]);
+    setAnchorEl(undefined);
+  };
 
-    document.addEventListener('mousedown', onDocMouseDown, true);
-    return () => document.removeEventListener('mousedown', onDocMouseDown, true);
-  }, []);
+  document.addEventListener('mousedown', onDocMouseDown, true);
+  return () => document.removeEventListener('mousedown', onDocMouseDown, true);
+}, []);
 
   // Attach native listeners once editor view is available; detect selection changes
   useEffect(() => {
