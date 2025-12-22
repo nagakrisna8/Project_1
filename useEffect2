@@ -1,8 +1,67 @@
-const startCoords = ed.view.coordsAtPos(start);
-const endCoords = ed.view.coordsAtPos(end);
+/* Inline AI prompt + command popup must be fixed positioned */
+.k-inline-ai,
+.k-inline-ai-prompt,
+.k-popup.k-inline-ai {
+    position: fixed !important;
+    z-index: 999999 !important;
+}
 
-// middle horizontally
-const x = (startCoords.left + endCoords.left) / 2;
+/* Anchor element we create */
+.pm-ai-anchor {
+    position: fixed !important;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+    z-index: 999999 !important;
+}
 
-// top of selection (works for multi-line)
-const y = Math.min(startCoords.top, endCoords.top) - 35 + window.scrollY;
+
+function useSelectionAnchor(editorRef: React.RefObject<any>) {
+  const anchorRef = React.useRef<HTMLDivElement | null>(null);
+
+  const ensureAnchor = React.useCallback(() => {
+    if (!anchorRef.current) {
+      const el = document.createElement('div');
+      el.className = 'pm-ai-anchor';
+      document.body.appendChild(el);
+      anchorRef.current = el;
+    }
+    return anchorRef.current;
+  }, []);
+
+  const updateAnchorToSelection = React.useCallback(
+    (from: number, to: number) => {
+      const ed = editorRef.current?.view;
+      if (!ed) return;
+
+      const anchorEl = ensureAnchor();
+
+      try {
+        const start = ed.coordsAtPos(from);
+        const end = ed.coordsAtPos(to);
+
+        // viewport coordinates (NO SCROLL OFFSET ADDED)
+        const x = (start.left + end.left) / 2;
+        const y = Math.min(start.top, end.top) - 40; // place above selection
+
+        anchorEl.style.left = `${x}px`;
+        anchorEl.style.top = `${y}px`;
+        anchorEl.style.display = "block";
+      } catch (e) {
+        anchorEl.style.display = "none";
+      }
+
+      return anchorEl;
+    },
+    [editorRef, ensureAnchor]
+  );
+
+  const cleanup = React.useCallback(() => {
+    if (anchorRef.current) {
+      document.body.removeChild(anchorRef.current);
+      anchorRef.current = null;
+    }
+  }, []);
+
+  return { updateAnchorToSelection, cleanup, anchorRef };
+}
