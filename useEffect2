@@ -1,31 +1,8 @@
-// ------------------ FIXED Outside Click Handler (same logic as your working file) ------------------
-useEffect(() => {
-  const handleClickOutside = (event: MouseEvent) => {
-    const target = event.target as HTMLElement | null;
+const startCoords = ed.view.coordsAtPos(start);
+const endCoords = ed.view.coordsAtPos(end);
 
-    // 1️⃣ Click inside Inline AI Prompt → DO NOT CLOSE
-    if (
-      target?.closest(".k-inline-ai") ||
-      target?.closest(".k-inline-ai-prompt") ||
-      target?.closest(".k-popup")
-    ) {
-      clickedInsideRef.current = true;
-      return;
-    }
+// middle horizontally
+const x = (startCoords.left + endCoords.left) / 2;
 
-    // 2️⃣ Click inside Kendo Editor → DO NOT CLOSE
-    const editorDom = textAreaRef.current?.view?.dom;
-    if (editorDom && editorDom.contains(target)) {
-      return;
-    }
-
-    // 3️⃣ Click outside → CLOSE PROMPT
-    setShowPrompt(false);
-    setSelectedText("");
-    setOutputs([]);
-    setAnchorEl(undefined);
-  };
-
-  document.addEventListener("mousedown", handleClickOutside, true);
-  return () => document.removeEventListener("mousedown", handleClickOutside, true);
-}, []);
+// top of selection (works for multi-line)
+const y = Math.min(startCoords.top, endCoords.top) - 35 + window.scrollY;
