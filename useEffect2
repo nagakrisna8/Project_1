@@ -16,3 +16,15 @@ useEffect(() => {
     }
   }, 10);
 }, [ShowPrompt, Outputs, Streaming, AnchorEl]);
+
+
+<style>
+{`
+  /* Force the AI command popup to position OUTSIDE the editor container */
+  .k-popup.k-inline-ai {
+      position: fixed !important;
+      transform: none !important;
+      z-index: 999999 !important;
+  }
+`}
+</style>
