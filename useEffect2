@@ -1,30 +1,46 @@
-useEffect(() => {
-  if (!ShowPrompt) return;
+ React.useEffect(() => {
+  const fixPosition = () => {
+    const prompt = document.querySelector('.k-ai-inline-prompt') as HTMLElement;
+    const menu = document.querySelector('.k-ai-command-menu') as HTMLElement;
+    const wrapper = editorWrapperRef.current;
 
-  setTimeout(() => {
-    const promptEl = document.querySelector(".k-inline-ai-prompt") as HTMLElement | null;
-    const popupEl = document.querySelector(".k-popup.k-inline-ai") as HTMLElement | null;
+    if (!prompt || !menu || !wrapper) return;
 
-    if (promptEl && popupEl) {
-      const rect = promptEl.getBoundingClientRect();
+    const promptRect = prompt.getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
 
-      // Safe → popupEl is HTMLElement, so .style works
-      popupEl.style.position = "fixed";
-      popupEl.style.transform = "none";
-      popupEl.style.top = `${rect.bottom + 8}px`;
-      popupEl.style.left = `${rect.left}px`;
+    const menuHeight = menu.offsetHeight;
+    const scrollTop = wrapper.scrollTop;
+
+    // calculate position INSIDE editor
+    const topRelativeToEditor =
+      promptRect.top - wrapperRect.top + scrollTop;
+
+    const spaceBelow =
+      wrapper.scrollHeight -
+      (topRelativeToEditor + prompt.offsetHeight);
+
+    menu.style.position = 'absolute';
+    menu.style.left = `${promptRect.left - wrapperRect.left}px`;
+
+    if (spaceBelow < menuHeight + 8) {
+      // ABOVE
+      menu.style.top = `${topRelativeToEditor - menuHeight - 8}px`;
+    } else {
+      // BELOW
+      menu.style.top = `${topRelativeToEditor + prompt.offsetHeight + 8}px`;
     }
-  }, 10);
-}, [ShowPrompt, Outputs, Streaming, AnchorEl]);
+  };
 
+  const observer = new MutationObserver(fixPosition);
+  observer.observe(document.body, { childList: true, subtree: true });
 
-<style>
-{`
-  /* Force the AI command popup to position OUTSIDE the editor container */
-  .k-popup.k-inline-ai {
-      position: fixed !important;
-      transform: none !important;
-      z-index: 999999 !important;
-  }
-`}
-</style>
+  editorWrapperRef.current?.addEventListener('scroll', fixPosition);
+  window.addEventListener('resize', fixPosition);
+
+  return () => {
+    observer.disconnect();
+    editorWrapperRef.current?.removeEventListener('scroll', fixPosition);
+    window.removeEventListener('resize', fixPosition);
+  };
+}, []);
