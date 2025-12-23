@@ -44,3 +44,8 @@
     window.removeEventListener('resize', fixPosition);
   };
 }, []);
+popupSettings={{
+    anchorAlign: { vertical: "bottom", horizontal: "left" },
+    popupAlign: { vertical: "top", horizontal: "left" },
+    collision: { vertical: "none", horizontal: "none" }
+  }}
