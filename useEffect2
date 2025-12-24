@@ -1,25 +1,34 @@
-const commandItems = commands.map(cmd => ({
-  text: cmd.text,
-  id: cmd.id,
-  prompt: cmd.prompt
-}));
+const moveAndFix = (container: HTMLElement, anchorEl?: HTMLElement | null) => {
+  try {
+    // 1️⃣ Hide immediately to avoid flicker
+    container.style.visibility = 'hidden';
 
- const GenerateDropdownButton = () => {
-  return (
-    <DropDownButton
-      text="Comands"
-      themeColor="primary"
-      disabled={streaming}
-      items={commandItems}
-      onItemClick={(e) => {
-        const cmd = commands.find(c => c.id === e.item.id);
+    if (!root.contains(container)) {
+      root.appendChild(container);
+    }
 
-        if (!cmd || !cmd.prompt || !selectedText) {
-          return;
-        }
+    // 2️⃣ Remove animation & transform ONCE
+    container.style.transition = 'none';
+    container.style.transform = 'none';
 
-        onPromptRequest(cmd.prompt(selectedText));
-      }}
-    />
-  );
+    // 3️⃣ Apply fixed position
+    applyFixedPosition(container, anchorEl);
+    disableFocusOnMenu(container);
+
+    // 4️⃣ Show after positioning (next frame)
+    requestAnimationFrame(() => {
+      container.style.visibility = 'visible';
+    });
+  } catch {
+    // ignore
+  }
 };
+
+
+
+container.style.setProperty('position', 'fixed', 'important');
+container.style.setProperty('left', `${Math.round(rect.left)}px`, 'important');
+container.style.setProperty('top', `${Math.round(rect.bottom - 80)}px`, 'important');
+container.style.setProperty('transform', 'none', 'important');
+container.style.setProperty('transition', 'none', 'important');
+container.style.setProperty('will-change', 'auto', 'important');
