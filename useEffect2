@@ -1,43 +1,17 @@
-const moveAndFix = (container: HTMLElement, anchorEl?: HTMLElement | null) => {
-  try {
-    // 1️⃣ Hide immediately to avoid flicker
-    container.style.visibility = 'hidden';
-
-    if (!root.contains(container)) {
-      root.appendChild(container);
-    }
-
-    // 2️⃣ Remove animation & transform ONCE
-    container.style.transition = 'none';
-    container.style.transform = 'none';
-
-    // 3️⃣ Apply fixed position
-    applyFixedPosition(container, anchorEl);
-    disableFocusOnMenu(container);
-
-    // 4️⃣ Show after positioning (next frame)
-    requestAnimationFrame(() => {
-      container.style.visibility = 'visible';
-    });
-  } catch {
-    // ignore
-  }
-};
-
-
-
-container.style.setProperty('position', 'fixed', 'important');
-container.style.setProperty('left', `${Math.round(rect.left)}px`, 'important');
-container.style.setProperty('top', `${Math.round(rect.bottom - 80)}px`, 'important');
-container.style.setProperty('transform', 'none', 'important');
-container.style.setProperty('transition', 'none', 'important');
-container.style.setProperty('will-change', 'auto', 'important');
-
-/* Force commands menu to open BELOW the chat box */
-.k-inlineai .k-menu-popup,
-.k-inline-ai-prompt .k-menu-popup {
-  top: 100% !important;     /* place below trigger */
-  bottom: auto !important;
-  transform: translateY(8px) !important; /* gap */
+/* Only affects this editor */
+.bcai-kendo-editor .k-editor {
+  border-radius: 4px;
 }
 
+/* Inline AI prompt */
+.bcai-kendo-editor .k-inlineai,
+.bcai-kendo-editor .k-inline-ai-prompt {
+  z-index: 2147483647;
+}
+
+/* Force commands popup below prompt */
+.bcai-kendo-editor .k-inlineai .k-menu-popup {
+  top: 100% !important;
+  bottom: auto !important;
+  transform: translateY(8px) !important;
+}
