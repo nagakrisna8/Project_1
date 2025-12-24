@@ -1,6 +1,19 @@
-/* Force Inline AI commands popup to open BELOW the chat box */
+const editorRect = ed.view.dom.getBoundingClientRect();
+
+// clamp X so anchor never exceeds editor width
+const x = Math.min(
+  Math.max(coords.left, editorRect.left + 8),
+  editorRect.right - 300 // 300 ≈ popup width
+);
+/* Disable Kendo auto flip for Inline AI */
+.k-inlineai,
+.k-inline-ai-prompt {
+  --kendo-popup-flip: false;
+}
+
+/* Force popup placement below */
 .k-animation-container.k-animation-container-shown .k-menu-popup {
-  top: 100% !important;      /* below the prompt */
-  bottom: auto !important;  /* disable top placement */
-  transform: translateY(8px) !important; /* small gap */
+  top: 100% !important;
+  bottom: auto !important;
+  transform: translateY(8px) !important;
 }
