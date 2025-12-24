@@ -32,3 +32,12 @@ container.style.setProperty('top', `${Math.round(rect.bottom - 80)}px`, 'importa
 container.style.setProperty('transform', 'none', 'important');
 container.style.setProperty('transition', 'none', 'important');
 container.style.setProperty('will-change', 'auto', 'important');
+
+/* Force commands menu to open BELOW the chat box */
+.k-inlineai .k-menu-popup,
+.k-inline-ai-prompt .k-menu-popup {
+  top: 100% !important;     /* place below trigger */
+  bottom: auto !important;
+  transform: translateY(8px) !important; /* gap */
+}
+
