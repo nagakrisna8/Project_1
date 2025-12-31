@@ -29,6 +29,11 @@ import {
   CommandItemInterface,
   OutputActionInterface,
 } from '@progress/kendo-react-conversational-ui';
+import { InsertImageFiles } from '../../../../../utils/InlineImgutils';
+import { insertImagePlugin } from './inline-img-upload-popup/InsertImagePlugin';
+import { InsertImage } from './inline-img-upload-popup/InsertImageTool';
+import SymbolTool from './symbol-tool/SymbolTool';
+import InlineAIPromptWrapper from './InlineAIPromptWrapper';
 
 const Commands: CommandItemInterface[] = [
   { id: 'rewrite', text: 'Rewrite', prompt: (s: string) => `Rewrite the following text: ${s}` },
@@ -47,7 +52,7 @@ const getSuggestion = async (
   htmlContent?: string,
   signal?: AbortSignal
 ): Promise<string> => {
-  const body = {dataSourse: "BCAI Documentation",prompt};
+  const body = { dataSourse: "BCAI Documentation", prompt };
 
   const url = 'https://bcai-cftest.taspre-phx.apps.boeing.com/conversation/conversation';
 
@@ -85,7 +90,7 @@ const getSuggestion = async (
   if (Array.isArray(result.messages) && result.messages[0]?.contents) {
     try {
       return result.messages[0].contents[0].text;
-    } catch {}
+    } catch { }
   }
 
   if (typeof result === 'string') return result;
@@ -119,7 +124,7 @@ interface Position {
 }
 
 const { tableResizing } = EditorUtils; // imageResizing
-const { Schema, EditorState, Plugin, PluginKey } = ProseMirror;
+const { Schema, EditorState, Plugin, PluginKey, NodeSelection } = ProseMirror;
 const EditorView = ProseMirror.EditorView;
 const styles = `
   .k-content {
@@ -281,7 +286,7 @@ function useSelectionAnchor(editorRef: React.RefObject<any>) {
 
   return { updateAnchorToSelection, cleanup, anchorRef };
 }
-const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selectedRowId, contentID, openHistoryPopup, handleCloseHistoryPopup, editorRef, currentTabComments, reportLevelTagList, content, tools, contentStyle, onEditorChange, item, contentKey, headerData, IsError, totalComment, sendDataToRootParent, refreshAllEditor, IsNonDynamicTab, CompGridDetails, setTableName, updateTotalCompGridCommentCount, SectionSerialNumber, sectionTitle, uploadImagePopup, tableCode }) => {
+const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selectedRowId, contentID, openHistoryPopup, handleCloseHistoryPopup, editorRef, currentTabComments, reportLevelTagList, content, tools, contentStyle, onEditorChange, item, contentKey, headerData, IsError, totalComment, sendDataToRootParent, refreshAllEditor, IsNonDynamicTab, IsBadgeIconClick, CompGridDetails, setTableName, updateTotalCompGridCommentCount, SectionSerialNumber, sectionTitle, uploadImagePopup, tableCode }) => {
   const userToken = new UserToken();
   const userBemsId = userToken.getUserBemsId();
   const dispatch = useDispatch();
@@ -328,6 +333,7 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
   const [openAddMentionPopup, setOpenAddMentionPopup] = React.useState<boolean>(false);
   const [openMentionPopup, setOpenMentionPopup] = React.useState(false);
   const [getMentionData, setMentionData] = useState<any[]>([]);
+  const [nodeSelectionFlag, setNodeSelectionFlag] = useState(false);
 
   const AbortControllerRef = useRef<AbortController | null>(null);
   const { updateAnchorToSelection: UpdateAnchor, cleanup: Cleanup, anchorRef: AnchorRef } = useSelectionAnchor(textAreaRef);
@@ -388,6 +394,10 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
       AbortControllerRef.current = null;
       setStreaming(false);
     }
+    // hide and clear anchor
+    setShowPrompt(false);
+    setAnchorEl(undefined);
+    (window as any).__kendoAnchorForInlineAI = undefined;
   };
 
   const onCommandExecute = (commandData: CommandItemInterface) => {
@@ -461,6 +471,18 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
       }
     }
   });
+
+  const onImageInsert = (args) => {
+    const { files, view, event } = args;
+    const nodeType = view.state.schema.nodes.image;
+
+    const position = event.type === 'drop' ? view.posAtCoords({ left: event.clientX, top: event.clientY }) : null;
+
+    InsertImageFiles({ view, files, nodeType, position });
+
+    return files.length > 0;
+  };
+
 
   const handleChildComponentData = (childData, targetId, totalCommentCount) => {
     setCommentResolved({ resolvedComments: childData, targetId: targetId, totalSectionComment: totalCommentCount })
@@ -834,6 +856,26 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
       },
     });
 
+  const retryMeasurePopup = (selector: string, attempts = 6, delay = 60): Promise<HTMLElement | null> => {
+    return new Promise((resolve) => {
+      let tries = 0;
+      const tick = () => {
+        tries++;
+        const el = document.querySelector(selector);
+        if (el && el instanceof HTMLElement) {
+          resolve(el);
+          return;
+        }
+        if (tries >= attempts) {
+          resolve(null);
+          return;
+        }
+        setTimeout(tick, delay);
+      };
+      tick();
+    });
+  };
+
   const selectionToolsPlugin = () =>
     new Plugin({
       key: new PluginKey("selection-tools"),
@@ -841,44 +883,92 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
         update: (newView, _prevState) => {
           const state = newView.state;
           const selection = state.selection;
+          //check if the selection has changed
 
-          // Check if the selection has changed
+          const figSelectedFlag =
+            selection instanceof NodeSelection &&
+            selection.node?.type?.name === 'image';
+
+          if(figSelectedFlag){
+            setNodeSelectionFlag(true);
+          }else{
+            setNodeSelectionFlag(false);
+          }
+
           if (selection.from !== _prevState.selection.from || selection.to !== _prevState.selection.to) {
             let newState = { view: newView, showTools: false, position: { top: 0, left: 0 } };
             const selectionCollapsed = state.selection.empty;
-            let { from, to } = state.selection;
+            const popupHeightEstimate = 40;
+            const popupMargin = 8;
+            const { from, to } = state.selection;
             const start = newView.coordsAtPos(from);
             const end = newView.coordsAtPos(to);
-            let centerClientX = Math.max((start.left + end.left) / 2, start.left);
-            let selectionClientTop = Math.min(start.top, end.top);
-            let clientTopForPopup = selectionClientTop;
-            if (clientTopForPopup < 0) {
-              clientTopForPopup = Math.max(start.bottom, 0);
-            }
-            let clientLeftForPopup = centerClientX - 70;
-            const pageTop = clientTopForPopup + window.scrollY;
+            const selTop = Math.min(start.top, end.top);
+            const selBottom = Math.max(start.bottom || end.bottom, end.bottom || start.bottom);
+            const centerClientX = Math.max((start.left + (end.left || start.left)) / 2, start.left);
+            const clientLeftForPopup = centerClientX - 70;
             const pageLeft = clientLeftForPopup + window.scrollX;
+            const pageSelTop = selTop + window.scrollY;
+            const pageSelBottom = selBottom + window.scrollY;
             const viewportWidth = window.innerWidth;
             const viewportHeight = window.innerHeight;
             const minMargin = 8;
             const maxLeft = window.scrollX + viewportWidth - minMargin;
             const maxTop = window.scrollY + viewportHeight - minMargin;
-            const finalLeft = Math.min(Math.max(pageLeft, window.scrollX + minMargin), maxLeft);
-            const finalTop = Math.min(Math.max(pageTop, window.scrollY + minMargin), maxTop);
-            newState.showTools = !selectionCollapsed ? true : false;
+            const minLeft = window.scrollX + minMargin;
+            const minTop = window.scrollY + minMargin;
+            const spaceAbove = pageSelTop - minTop;
+            const spaceBelow = maxTop - pageSelBottom;
+            let measuredPopupHeight = popupHeightEstimate;
+            let popupEl: HTMLElement | null = (document.querySelector('.comment-popover') as HTMLElement | null);
+            if (popupEl && popupEl.offsetHeight) {
+              measuredPopupHeight = popupEl.offsetHeight;
+            }
+            const computeTop = (measured: number) => {
+              if (spaceAbove >= spaceBelow) {
+                return pageSelTop - measured - popupMargin;
+              } else  {
+                return pageSelBottom + popupHeightEstimate - minMargin + 20;
+              }
+            };
+            let finalTop = computeTop(measuredPopupHeight);
+            const finalLeft = Math.min(Math.max(pageLeft, minLeft), maxLeft);
+            newState.showTools = !selectionCollapsed;
             newState.position = { top: finalTop, left: finalLeft };
-
-
             setPosition(newState.position);
             setView(newState.view);
             setState(newState);
+            if (!popupEl) {
+              retryMeasurePopup('.comment-popover', 6, 60).then((mountedEl) => {
+                const el = mountedEl
+                  || (document.querySelector('.comment-popover') as HTMLElement | null);
+                if (el && el instanceof HTMLElement) {
+                  const h = el.offsetHeight || popupHeightEstimate;
+                  const recomputedTop = computeTop(h);
+                  const recomputedLeft = Math.min(Math.max(pageLeft, minLeft), maxLeft);
+                  const newStateAfterMount = { view: newView, showTools: !selectionCollapsed, position: { top: recomputedTop, left: recomputedLeft } };
+                  setPosition(newStateAfterMount.position);
+                  setView(newStateAfterMount.view);
+                  setState(newStateAfterMount);
+                  try {
+                    if (recomputedTop < pageSelTop) el.setAttribute('data-placement', 'above');
+                    else el.setAttribute('data-placement', 'below');
+                  } catch (e) { }
+                }
+              }).catch(() => {
+              });
+            } else {
+              try {
+                if (finalTop < pageSelTop) popupEl.setAttribute('data-placement', 'above');
+                else popupEl.setAttribute('data-placement', 'below');
+              } catch (e) { }
+            }
 
             // Changes to Show Content Comment 
-            const { doc, selection } = newView.state;
+            const { doc } = newView.state;
             let selectionHtml = '';
             let selectionText = '';
-            let newTo = selection.to;
-            const node = doc.cut(selection.from, newTo + 1);
+            const node = doc.cut(selection.from, selection.to + 1);
             selectionHtml = EditorUtils.getHtml({
               doc: node,
               schema: node.type.schema,
@@ -975,7 +1065,7 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
     const marks = schema.spec.marks;
     // const nodes = schema.spec.nodes;
 
-    plugins = [...state.plugins, selectionToolsPlugin()];
+    plugins = [...state.plugins, selectionToolsPlugin(), insertImagePlugin(onImageInsert)];
 
     // Append a new node.
     let nodes = schema.spec.nodes.addToEnd('nonEditable', nonEditable);
@@ -1042,7 +1132,7 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
           <button
             onMouseDown={(e) => e.preventDefault()}
             onPointerDown={(e) => e.preventDefault()}
-            disabled={!state.showTools || item?.ContentId < 0 || headerData?.EditEnabledFlag == "N" || openMentionPopup}
+            disabled={!state.showTools || item?.ContentId < 0 || headerData?.EditEnabledFlag == "N" || openMentionPopup || nodeSelectionFlag}
             onClick={() => onToggle("success", "acronym")} className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" > Add To Acronym</button >
           : ''}
       </>
@@ -1064,7 +1154,7 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
     return (
       <>
         {((headerData?.AuthorBemsId == parseInt(userBemsId)) ?
-          <button disabled={item?.ContentId < 0} title='Add Comment' style={{ color: "rgba(0, 0, 0, 0.54)", height: "30px", width: "30px" }} onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.preventDefault()} onClick={() => onToggle("success", "comment")}
+          <button disabled={item?.ContentId < 0 || nodeSelectionFlag} title='Add Comment' style={{ color: "rgba(0, 0, 0, 0.54)", height: "30px", width: "30px" }} onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.preventDefault()} onClick={() => onToggle("success", "comment")}
             className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" >
             <SpeakerNotesOutlinedIcon />
           </button> :
@@ -1216,30 +1306,41 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
   };
 
   // Document mousedown listener to detect clicks inside prompt (prevents immediate close)
-useEffect(() => {
-  const onDocMouseDown = (event: MouseEvent) => {
-    const target = event.target as HTMLElement | null;
-    if (
-      target?.closest(".k-inline-ai") ||
-      target?.closest(".k-inline-ai-prompt") ||
-      target?.closest(".k-popup")
-    ) {
-      clickedInsideRef.current = true;
-      return;
-    }
-    const editorDom = textAreaRef.current?.view?.dom;
-    if (editorDom && editorDom.contains(target)) {
-      return;
-    }
-    setShowPrompt(false);
-    setSelectedText("");
-    setOutputs([]);
-    setAnchorEl(undefined);
-  };
+  useEffect(() => {
+    const onDocMouseDown = (ev: MouseEvent) => {
+      try {
+        const path = (ev as any).composedPath?.() || (ev as any).path || [];
+        let inside = false;
+        for (const p of path) {
+          if (
+            p &&
+            p.classList &&
+            (p.classList.contains('k-inlineai') ||
+              p.classList.contains('k-inline-ai-prompt') ||
+              p.classList.contains('k-inline-ai'))
+          ) {
+            inside = true;
+            break;
+          }
+        }
+        if (!inside) {
+          const target = ev.target as HTMLElement | null;
+          if (
+            target &&
+            target.closest &&
+            target.closest('.k-inlineai, .k-inline-ai-prompt, .k-inline-ai')
+          )
+            inside = true;
+        }
+        clickedInsideRef.current = inside;
+      } catch {
+        clickedInsideRef.current = false;
+      }
+    };
 
-  document.addEventListener('mousedown', onDocMouseDown, true);
-  return () => document.removeEventListener('mousedown', onDocMouseDown, true);
-}, []);
+    document.addEventListener('mousedown', onDocMouseDown, true);
+    return () => document.removeEventListener('mousedown', onDocMouseDown, true);
+  }, []);
 
   // Attach native listeners once editor view is available; detect selection changes
   useEffect(() => {
@@ -1257,6 +1358,8 @@ useEffect(() => {
             setSelectionRange({ start: from, end: to });
             const el = UpdateAnchor(from);
             setAnchorEl(el || undefined);
+            // <-- add this line to expose anchor to wrapper fallback
+            (window as any).__kendoAnchorForInlineAI = el || undefined;
             setShowPrompt(true);
           } else {
             window.setTimeout(() => {
@@ -1265,6 +1368,8 @@ useEffect(() => {
                 setSelectedText('');
                 setOutputs([]);
                 setAnchorEl(undefined);
+                // clear global fallback anchor
+                (window as any).__kendoAnchorForInlineAI = undefined;
               } else {
                 clickedInsideRef.current = false;
               }
@@ -1294,6 +1399,96 @@ useEffect(() => {
       Cleanup();
     };
   }, [Cleanup]);
+  const renderSymbolTool = (): JSX.Element => {
+    return <SymbolTool textAreaRef={textAreaRef} />;
+  };
+
+
+
+  const [promptRoot, setPromptRoot] = useState<HTMLElement | undefined>(() => {
+    return (document.querySelector('.k-prompt-content') as HTMLElement | null) ?? document.body;
+  });
+
+
+
+useEffect(() => {
+  if (!promptRoot) return;
+
+  // Tweak selector if your three-line button differs.
+  const buttonSelector = 'button[title="Commands Button"], button[aria-label="Commands Button"], .k-button.k-icon-button';
+
+  const handler = (ev: PointerEvent | MouseEvent) => {
+    try {
+      const target = ev.target as HTMLElement | null;
+      if (!target) return;
+
+      // Find the actual button element (handles clicks on svg/span inside the button)
+      const btn = target.closest && (target.closest(buttonSelector) as HTMLElement | null);
+      if (!btn) return;
+
+      // Only handle buttons that are inside the prompt area (safety)
+      if (!promptRoot.contains(btn) && !btn.closest('.k-prompt-content') && !btn.closest('.k-inlineai')) return;
+
+      // Save scroll position (backup)
+      const sx = window.scrollX || window.pageXOffset || 0;
+      const sy = window.scrollY || window.pageYOffset || 0;
+
+      // Prevent browser default action (this prevents native focus/scroll)
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      // Fire a real click so the library receives it (next tick)
+      setTimeout(() => {
+        const clickEvent = new MouseEvent('click', { view: window, bubbles: true, cancelable: true });
+        btn.dispatchEvent(clickEvent);
+      }, 0);
+
+      // Restore scroll immediately and a few times after to cover any late reflows
+      setTimeout(() => window.scrollTo(sx, sy), 0);
+      setTimeout(() => window.scrollTo(sx, sy), 30);
+      setTimeout(() => window.scrollTo(sx, sy), 150);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // Use capture so we run before browser focus behavior
+  document.addEventListener('pointerdown', handler, true);
+  document.addEventListener('mousedown', handler, true);
+
+  return () => {
+    document.removeEventListener('pointerdown', handler, true);
+    document.removeEventListener('mousedown', handler, true);
+  };
+}, [promptRoot]);
+
+// 1) Mark the commands button when user interacts (run inside your component)
+useEffect(() => {
+  const selectorForThreeLineButton = '.k-button.k-icon-button .k-svg-i-menu, .k-button.k-icon-button[title="Commands Button"], .k-button.k-icon-button[aria-label="Commands Button"]';
+  // selector to match the exact element for your three-line icon.
+
+  const onBtnPointerDown = (ev: PointerEvent | MouseEvent) => {
+    const target = ev.target as HTMLElement | null;
+    if (!target) return;
+    // find the nearest button (the markup may have inner svg/span)
+    const btn = target.closest && (target.closest('button, .k-button') as HTMLElement | null);
+    if (!btn) return;
+    // quick test to ensure it's the commands icon/button (tweak as needed)
+    if (btn.matches && (btn.matches(selectorForThreeLineButton) || btn.title === 'Commands Button' || btn.getAttribute('aria-label') === 'Commands Button')) {
+      // set a short-lived global flag (or use ref)
+      (window as any).__lastClickedKendoCommandsButton = Date.now();
+      // keep the flag for a short period (e.g., 1s) then clear
+      setTimeout(() => { (window as any).__lastClickedKendoCommandsButton = undefined; }, 1000);
+    }
+  };
+
+  document.addEventListener('pointerdown', onBtnPointerDown, true);
+  document.addEventListener('mousedown', onBtnPointerDown, true);
+  return () => {
+    document.removeEventListener('pointerdown', onBtnPointerDown, true);
+    document.removeEventListener('mousedown', onBtnPointerDown, true);
+  };
+}, []);
 
   return (
     <>
@@ -1318,9 +1513,9 @@ useEffect(() => {
             (((item && item.IsParagraph === 'Y') || (item && item.IsTable === 'Y') || (item && item.IsFigure === 'Y') || IsNonDynamicTab) ? [[customBlankTool], [CustomStrikethrough], headerData?.CommentEnabledFlag == "Y" ? [CustomAddCommentButton] : [customBlankTool]] : [[customBlankTool]]) :
             (headerData?.PARENT_RPT_ID == null || headerData?.PARENT_RPT_ID == 0 ?
               [...toolsEditor[tools], [Strikethrough], headerData?.CommentEnabledFlag == "Y" ?
-                [CustomAddCommentButton] : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool]]
+                [CustomAddCommentButton] : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [InsertImage], [renderSymbolTool]]
               : [...toolsEditor[tools], [Strikethrough], headerData?.CommentEnabledFlag == "Y" ? [CustomAddCommentButton]
-                : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [CustomRevisionButton]])}
+                : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [CustomRevisionButton], [InsertImage], [renderSymbolTool]])}
         contentStyle={{ minHeight: CompGridDetails ? '100px' : 'auto' }}
         defaultContent={content}
         onChange={(event: EditorChangeEvent) => { onEditorChange && onEditorChange(event as EditorChangeEvent, item as any, contentKey as string), setValue(event.html) }}
@@ -1330,18 +1525,18 @@ useEffect(() => {
       />
       {openAddAcronymPopup && <AddAcronymPopup isOpen={openAddAcronymPopup} reportId={reportId} selectedText={selectedText} handleCloseAcronymPopup={handleCloseAcronymPopup} />}
       {openContentCommentPopup && <ContentCommentPopup handleCheckbox={handleCheckbox} RptId={reportId} headerData={headerData} handleOpenCommentHistoryPopup={handleOpenCommentHistoryPopup} openContentCommentPopup={openContentCommentPopup} handleCloseContentCommentPopup={handleCloseContentCommentPopup} contentCommentData={contentCommentData} position={position} />}
-      {openCommentHistoryPopup && <CommentHistoryPopup isControlLevelComment={false} tabName={tabName} controlName={controlName} selectedTabRowId={selectedTabRowId} selectedRowId={selectedRowId} editFileCount={editFileCount} IsNonDynamicTab={IsNonDynamicTab} addNewComment={addNewComment} updateAddNewComment={updateAddNewComment} CompGridDetails={getCompGridDetails} contentID={contentID} openHistoryPopup={openHistoryPopup} handleCloseHistoryPopup={handleCloseHistoryPopup} RptId={reportId} item={item} TabSectionId={item?.TabSectionId} headerData={headerData} getFormatedHtmlData={GetUpdatedHtmlWithCommentId(true)} getFormatedEditorHtml={GetUpdatedHtmlWithCommentId(false)}
+      {openCommentHistoryPopup && <CommentHistoryPopup isControlLevelComment={false} tabName={tabName} controlName={controlName} selectedTabRowId={selectedTabRowId} selectedRowId={selectedRowId} editFileCount={editFileCount} IsNonDynamicTab={IsNonDynamicTab} IsBadgeIconClick={IsBadgeIconClick} addNewComment={addNewComment} updateAddNewComment={updateAddNewComment} CompGridDetails={getCompGridDetails} contentID={contentID} openHistoryPopup={openHistoryPopup} handleCloseHistoryPopup={handleCloseHistoryPopup} RptId={reportId} item={item} TabSectionId={item?.TabSectionId} headerData={headerData} getFormatedHtmlData={GetUpdatedHtmlWithCommentId(true)} getFormatedEditorHtml={GetUpdatedHtmlWithCommentId(false)}
         showEditModeForCommentID={showEditModeForCommentID} comment={comment} commetType={commetType} SectionSerialNumber={SectionSerialNumber} seletedTargetText={seletedTargetText} addCommentAsAuthor={addCommentAsAuthor} currentContentID={currentContentID} openCommentHistoryPopup={openCommentHistoryPopup} handleCloseCommentHistoryPopup={handleCloseCommentHistoryPopup} currentTabComments={currentTabComments} showReplyCommentId={showReplyCommentId} />}
       {openAddRevisionPopup && <AddRevisionPopup openRevisionPopup={openAddRevisionPopup} reportId={reportId} selectedText={selectedText} handleCloseRevisionPopup={handleCloseRevisionPopup} tabId={tabIndex} TabSectionId={item?.TabSectionId} ContentID={item?.ContentId} secIndex={SectionSerialNumber} item={item} sectionTitle={sectionTitle} tableCode={tableCode} />}
       {openAddMentionPopup && <AddMentionPopup openMentionPopup={openAddMentionPopup} handleCloseMentionPopup={handleCloseMentionPopup} />}
       {openMentionPopup && <MentionPopup RptId={reportId} headerData={headerData} openMentionOnPopup={openMentionPopup} handleCloseMentionOnPopup={handleCloseMentionOnPopup} position={position} mentionData={getMentionData} />}
       {ShowPrompt && (
-        <InlineAIPrompt
+        <InlineAIPromptWrapper
           width={544}
           streaming={Streaming}
           enableSpeechToText={true}
           outputs={Outputs}
-          anchor={AnchorEl || textAreaRef.current?.view?.dom || undefined}
+          anchor={AnchorEl}
           commands={Commands}
           onCommandExecute={onCommandExecute}
           onPromptRequest={onPromptRequest}
@@ -1350,6 +1545,7 @@ useEffect(() => {
           onOutputAction={onOutputAction}
           onDiscard={(o) => setOutputs((prev) => prev.filter((x) => x.id !== o.id))}
           show={ShowPrompt}
+          promptRoot={promptRoot}
         />
       )}
     </>
