@@ -3,50 +3,37 @@ import React, { useEffect, useRef } from 'react';
 import { InlineAIPrompt as KendoInlineAIPrompt } from '@progress/kendo-react-conversational-ui';
 
 type InlineAIPromptWrapperProps = React.ComponentProps<typeof KendoInlineAIPrompt> & {
-  promptRoot?: HTMLElement | undefined;
-  anchor?: HTMLElement | undefined;
+  promptRoot?: HTMLElement;
+  anchor?: HTMLElement;
 };
 
 export default function InlineAIPromptWrapper(props: InlineAIPromptWrapperProps) {
   const { promptRoot, anchor, ...rest } = props;
 
-  const currentRootRef = useRef<HTMLElement | undefined>(
+  const rootRef = useRef<HTMLElement | undefined>(
     promptRoot ??
       (document.querySelector('.k-prompt-content') as HTMLElement | null) ??
       document.body
   );
 
   useEffect(() => {
-    currentRootRef.current =
+    rootRef.current =
       promptRoot ??
       (document.querySelector('.k-prompt-content') as HTMLElement | null) ??
       document.body;
   }, [promptRoot]);
 
   useEffect(() => {
-    const root = currentRootRef.current ?? document.body;
-
     const getAnchor = (): HTMLElement | undefined => {
       return anchor ?? ((window as any).__kendoAnchorForInlineAI as HTMLElement | undefined);
     };
 
-    /* ---------------- Focus helpers ---------------- */
-
-    const preserveFocus = () => document.activeElement as HTMLElement | null;
-
-    const restoreFocus = (el: HTMLElement | null) => {
+    /* ---------------------------------------------------
+     * Position popup WITHOUT moving it in the DOM
+     * --------------------------------------------------- */
+    const applyFixedPosition = (container: HTMLElement) => {
       try {
-        el?.focus({ preventScroll: true });
-      } catch {
-        /* ignore */
-      }
-    };
-
-    /* ---------------- Positioning ---------------- */
-
-    const applyFixedPosition = (container: HTMLElement, anchorEl?: HTMLElement | null) => {
-      try {
-        const a = anchorEl ?? getAnchor();
+        const a = getAnchor();
         if (!a) return;
 
         const rect = a.getBoundingClientRect();
@@ -62,87 +49,49 @@ export default function InlineAIPromptWrapper(props: InlineAIPromptWrapperProps)
       }
     };
 
-    const moveAndFix = (el: HTMLElement, anchorEl?: HTMLElement | null) => {
+    const isCommandPopup = (el: HTMLElement) => {
       try {
-        const active = preserveFocus();
-
-        if (!root.contains(el)) {
-          root.appendChild(el);
-        }
-
-        applyFixedPosition(el, anchorEl);
-        restoreFocus(active);
-      } catch {
-        /* ignore */
-      }
-    };
-
-    const retryFix = (
-      container: HTMLElement,
-      anchorEl?: HTMLElement | null,
-      attempts = 6,
-      delay = 80
-    ) => {
-      let tries = 0;
-
-      const tick = () => {
-        tries++;
-        const active = preserveFocus();
-        applyFixedPosition(container, anchorEl);
-        restoreFocus(active);
-
-        if (tries >= attempts) return;
-        setTimeout(tick, delay);
-      };
-
-      setTimeout(tick, delay);
-    };
-
-    /* ---------------- Helpers ---------------- */
-
-    const isCommandPopup = (container: HTMLElement) => {
-      try {
-        return !!container.querySelector('.k-menu-popup, .k-popup.k-menu-popup, .k-menu');
+        return !!el.querySelector('.k-menu, .k-menu-popup, .k-popup.k-menu-popup');
       } catch {
         return false;
       }
     };
 
-    /* ---------------- Initial scan ---------------- */
-
+    /* ---------------------------------------------------
+     * Initial scan (already opened popup)
+     * --------------------------------------------------- */
     document
-      .querySelectorAll('.k-animation-container.k-animation-container-shown')
-      .forEach((n) => {
-        if (n instanceof HTMLElement && isCommandPopup(n)) {
-          moveAndFix(n, anchor);
-          retryFix(n, anchor);
+      .querySelectorAll<HTMLElement>('.k-animation-container.k-animation-container-shown')
+      .forEach((el) => {
+        if (isCommandPopup(el)) {
+          applyFixedPosition(el);
         }
       });
 
-    /* ---------------- Mutation observer (new popups) ---------------- */
-
+    /* ---------------------------------------------------
+     * Observe popup creation
+     * --------------------------------------------------- */
     const mo = new MutationObserver((mutations) => {
       for (const m of mutations) {
-        if (m.type !== 'childList' || !m.addedNodes.length) continue;
+        if (m.type !== 'childList') continue;
 
         m.addedNodes.forEach((node) => {
           if (!(node instanceof HTMLElement)) return;
 
           if (
-            node.matches?.('.k-animation-container.k-animation-container-shown') &&
+            node.matches('.k-animation-container.k-animation-container-shown') &&
             isCommandPopup(node)
           ) {
-            moveAndFix(node, anchor);
-            retryFix(node, anchor);
+            applyFixedPosition(node);
             return;
           }
 
-          const found =
-            node.querySelector?.('.k-animation-container.k-animation-container-shown');
+          const found = node.querySelector?.(
+            '.k-animation-container.k-animation-container-shown'
+          );
 
           if (found instanceof HTMLElement && isCommandPopup(found)) {
-            moveAndFix(found, anchor);
-            retryFix(found, anchor);
+            applyFixedPosition(found);
           }
         });
       }
@@ -150,18 +99,18 @@ export default function InlineAIPromptWrapper(props: InlineAIPromptWrapperProps)
 
     mo.observe(document.body, { childList: true, subtree: true });
 
-    /* ---------------- Attribute observer (Kendo style resets) ---------------- */
-
+    /* ---------------------------------------------------
+     * Observe style/class mutations (Kendo repositions)
+     * --------------------------------------------------- */
     const attrObserver = new MutationObserver((mutations) => {
       for (const m of mutations) {
         const target = m.target as HTMLElement;
+
         if (
           target?.matches?.('.k-animation-container.k-animation-container-shown') &&
           isCommandPopup(target)
         ) {
-          const active = preserveFocus();
-          applyFixedPosition(target, anchor);
-          restoreFocus(active);
+          applyFixedPosition(target);
         }
       }
     });
@@ -178,10 +127,11 @@ export default function InlineAIPromptWrapper(props: InlineAIPromptWrapperProps)
     };
   }, [anchor, promptRoot]);
 
-  /* ---------------- Render ---------------- */
-
-  const appendToValue = currentRootRef.current ?? undefined;
+  /* ---------------------------------------------------
+   * Render
+   * --------------------------------------------------- */
   const InlineAny = KendoInlineAIPrompt as any;
+  const appendToValue = rootRef.current ?? undefined;
 
   return <InlineAny {...(rest as any)} appendTo={appendToValue} anchor={anchor} />;
 }
