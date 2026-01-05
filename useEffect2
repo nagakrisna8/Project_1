@@ -1,137 +1,41 @@
-// InlineAIPromptWrapper.tsx
-import React, { useEffect, useRef } from 'react';
-import { InlineAIPrompt as KendoInlineAIPrompt } from '@progress/kendo-react-conversational-ui';
+const closeInlineAI = useCallback(() => {
+  setShowPrompt(false);
+  setOutputs([]);
+  setAnchorEl(undefined);
+  setSelectedText('');
+  (window as any).__kendoAnchorForInlineAI = undefined;
+}, []);
 
-type InlineAIPromptWrapperProps = React.ComponentProps<typeof KendoInlineAIPrompt> & {
-  promptRoot?: HTMLElement;
-  anchor?: HTMLElement;
-};
+useEffect(() => {
+  if (!ShowPrompt) return; // only attach when AI is open
 
-export default function InlineAIPromptWrapper(props: InlineAIPromptWrapperProps) {
-  const { promptRoot, anchor, ...rest } = props;
+  const closeOnAnyEvent = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
 
-  const rootRef = useRef<HTMLElement | undefined>(
-    promptRoot ??
-      (document.querySelector('.k-prompt-content') as HTMLElement | null) ??
-      document.body
-  );
+    // ❌ DO NOT close if interacting INSIDE Inline AI itself
+    if (
+      target.closest('.k-inline-ai') ||
+      target.closest('.k-inline-ai-prompt') ||
+      target.closest('.k-popup')
+    ) {
+      return;
+    }
 
-  useEffect(() => {
-    rootRef.current =
-      promptRoot ??
-      (document.querySelector('.k-prompt-content') as HTMLElement | null) ??
-      document.body;
-  }, [promptRoot]);
+    // ✅ Any other interaction → close AI
+    closeInlineAI();
+  };
 
-  useEffect(() => {
-    const getAnchor = (): HTMLElement | undefined => {
-      return anchor ?? ((window as any).__kendoAnchorForInlineAI as HTMLElement | undefined);
-    };
+  // Capture phase so we beat focus/selection changes
+  document.addEventListener('mousedown', closeOnAnyEvent, true);
+  document.addEventListener('keydown', closeOnAnyEvent, true);
+  document.addEventListener('wheel', closeOnAnyEvent, true);
+  document.addEventListener('touchstart', closeOnAnyEvent, true);
 
-    /* ---------------------------------------------------
-     * Position popup WITHOUT moving it in the DOM
-     * --------------------------------------------------- */
-    const applyFixedPosition = (container: HTMLElement) => {
-      try {
-        const a = getAnchor();
-        if (!a) return;
-
-        const rect = a.getBoundingClientRect();
-
-        container.style.setProperty('position', 'fixed', 'important');
-        container.style.setProperty('left', `${Math.round(rect.left)}px`, 'important');
-        container.style.setProperty('top', `${Math.round(rect.bottom - 80)}px`, 'important');
-        container.style.setProperty('margin', '0', 'important');
-        container.style.setProperty('transform', 'none', 'important');
-        container.style.setProperty('z-index', '2147483647', 'important');
-      } catch {
-        /* ignore */
-      }
-    };
-
-    const isCommandPopup = (el: HTMLElement) => {
-      try {
-        return !!el.querySelector('.k-menu, .k-menu-popup, .k-popup.k-menu-popup');
-      } catch {
-        return false;
-      }
-    };
-
-    /* ---------------------------------------------------
-     * Initial scan (already opened popup)
-     * --------------------------------------------------- */
-    document
-      .querySelectorAll<HTMLElement>('.k-animation-container.k-animation-container-shown')
-      .forEach((el) => {
-        if (isCommandPopup(el)) {
-          applyFixedPosition(el);
-        }
-      });
-
-    /* ---------------------------------------------------
-     * Observe popup creation
-     * --------------------------------------------------- */
-    const mo = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        if (m.type !== 'childList') continue;
-
-        m.addedNodes.forEach((node) => {
-          if (!(node instanceof HTMLElement)) return;
-
-          if (
-            node.matches('.k-animation-container.k-animation-container-shown') &&
-            isCommandPopup(node)
-          ) {
-            applyFixedPosition(node);
-            return;
-          }
-
-          const found = node.querySelector?.(
-            '.k-animation-container.k-animation-container-shown'
-          );
-
-          if (found instanceof HTMLElement && isCommandPopup(found)) {
-            applyFixedPosition(found);
-          }
-        });
-      }
-    });
-
-    mo.observe(document.body, { childList: true, subtree: true });
-
-    /* ---------------------------------------------------
-     * Observe style/class mutations (Kendo repositions)
-     * --------------------------------------------------- */
-    const attrObserver = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        const target = m.target as HTMLElement;
-
-        if (
-          target?.matches?.('.k-animation-container.k-animation-container-shown') &&
-          isCommandPopup(target)
-        ) {
-          applyFixedPosition(target);
-        }
-      }
-    });
-
-    attrObserver.observe(document.body, {
-      attributes: true,
-      subtree: true,
-      attributeFilter: ['style', 'class'],
-    });
-
-    return () => {
-      mo.disconnect();
-      attrObserver.disconnect();
-    };
-  }, [anchor, promptRoot]);
-
-  /* ---------------------------------------------------
-   * Render
-   * --------------------------------------------------- */
-  const InlineAny = KendoInlineAIPrompt as any;
-  const appendToValue = rootRef.current ?? undefined;
-
-  return <InlineAny {...(rest as any)} appendTo={appendToValue} anchor={anchor} />;
-}
+  return () => {
+    document.removeEventListener('mousedown', closeOnAnyEvent, true);
+    document.removeEventListener('keydown', closeOnAnyEvent, true);
+    document.removeEventListener('wheel', closeOnAnyEvent, true);
+    document.removeEventListener('touchstart', closeOnAnyEvent, true);
+  };
+}, [ShowPrompt, closeInlineAI]);
