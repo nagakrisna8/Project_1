@@ -1,29 +1,9 @@
-useEffect(() => {
-  const onDocumentClick = (event: MouseEvent) => {
-    const target = event.target as HTMLElement | null;
-
-    // Allow clicks inside Inline AI
-    if (
-      target?.closest('.k-inline-ai') ||
-      target?.closest('.k-inline-ai-prompt') ||
-      target?.closest('.k-popup')
-    ) {
-      return;
-    }
-
-    // Allow clicks inside editor
-    const editorDom = textAreaRef.current?.view?.dom;
-    if (editorDom && editorDom.contains(target)) {
-      return;
-    }
-
-    // Close prompt ONLY after click completes
-    setShowPrompt(false);
-    setSelectedText('');
-    setOutputs([]);
-    setAnchorEl(undefined);
-  };
-
-  document.addEventListener('click', onDocumentClick);
-  return () => document.removeEventListener('click', onDocumentClick);
-}, []);
+if (text && text.trim().length > 0) {
+  selectedTextRef.current = text;     // ✅ ADD
+  setSelectedText(text);
+  setSelectionRange({ start: from, end: to });
+  const el = UpdateAnchor(from);
+  setAnchorEl(el || undefined);
+  (window as any).__kendoAnchorForInlineAI = el || undefined;
+  setShowPrompt(true);
+}
