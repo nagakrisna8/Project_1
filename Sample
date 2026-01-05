@@ -1,4 +1,4 @@
-import { Editor, EditorChangeEvent, EditorTools, ProseMirror, EditorMountEvent, EditorFocusEvent, EditorBlurEvent, EditorUtils, EditorExecuteEvent, MarkSpec, EditorToolsSettings, NodeSpec } from '@progress/kendo-react-editor';
+import { Editor, EditorChangeEvent, EditorTools, ProseMirror, EditorMountEvent, EditorFocusEvent, EditorBlurEvent, EditorUtils, NodeSpec } from '@progress/kendo-react-editor';
 import { CompGridDetails, KendoEditorProps } from '../../../../../model/PropsModel';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch } from "react-redux";
@@ -12,7 +12,7 @@ import StorageService from '../../../../../utils/StorageService';
 import EnvDetail from '../../../../../utils/EnvDetail';
 import { userDefinedConfirm } from '../../../../../utils/ConfirmDialog';
 import CustomStrikethrough from './CustomStrikethrough';
-import { addMentionNodes, addTagNodes, getMentionsPlugin } from 'prosemirror-mentions';
+import { getMentionsPlugin } from 'prosemirror-mentions';
 import CSRDetailsBaseService from '../CSRDetailsBaseService';
 import ContentCommentPopup from './content-comment-popup/ContentCommentPopup';
 import { KendoEditorPlaceholder } from './KendoEditorPlaceholder';
@@ -23,17 +23,20 @@ import AddMentionPopup from './add-mention-popup/AddMentionPopup';
 import MentionPopup from './mention-popup/MentionPopup';
 import UserToken from '../../../../../utils/UserToken';
 import CommonFunction from '../../../../../utils/CommonFunction';
-import {
-  InlineAIPrompt,
-  InlineAIPromptOutputInterface,
-  CommandItemInterface,
-  OutputActionInterface,
-} from '@progress/kendo-react-conversational-ui';
 import { InsertImageFiles } from '../../../../../utils/InlineImgutils';
 import { insertImagePlugin } from './inline-img-upload-popup/InsertImagePlugin';
 import { InsertImage } from './inline-img-upload-popup/InsertImageTool';
 import SymbolTool from './symbol-tool/SymbolTool';
 import InlineAIPromptWrapper from './InlineAIPromptWrapper';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+import '../../../../../../node_modules/katex/dist/katex.min.css';
+import EquationTool from './equation-tool/EquationTool';
+import {
+  InlineAIPromptOutputInterface,
+  CommandItemInterface,
+  OutputActionInterface
+} from '@progress/kendo-react-conversational-ui';
 
 const Commands: CommandItemInterface[] = [
   { id: 'rewrite', text: 'Rewrite', prompt: (s: string) => `Rewrite the following text: ${s}` },
@@ -52,10 +55,8 @@ const getSuggestion = async (
   htmlContent?: string,
   signal?: AbortSignal
 ): Promise<string> => {
-  const body = { dataSourse: "BCAI Documentation", prompt };
-
-  const url = 'https://bcai-cftest.taspre-phx.apps.boeing.com/conversation/conversation';
-
+  const body = { dataSource: "Foundation Model", prompt };
+  const url = (`${EnvDetail.AIPromptURL}`)
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -237,6 +238,59 @@ const nonEditable: NodeSpec = {
     0,
   ],
 };
+const mathNodeSpec: NodeSpec = {
+  name: 'math',
+  inline: true,
+  group: 'inline',
+  content: 'inline+',
+  marks: '',
+  atom: true,
+  selectable: true,
+  attrs: {
+    latex: { default: "" },
+    display: { default: false },
+    class: { default: "math-node" }
+  },
+  parseDOM: [
+    {
+      tag: 'span[data-latex]',
+      priority: 60,
+      getAttrs: (dom: any) => {
+        if (dom.hasAttribute('data-latex')) {
+          const raw = dom.getAttribute('data-latex');
+          try { return { latex: decodeURIComponent(raw), display: dom.getAttribute('data-display') === 'true' }; }
+          catch { return { latex: raw, display: dom.getAttribute('data-display') === 'true' }; }
+        }
+        return false;
+      }
+    },
+  ],
+  toDOM: (node) => {
+    const latex = node.attrs.latex || "";
+    const display = !!node.attrs.display;
+
+    // Create a span so parseDOM can read data-latex back
+    const span = document.createElement("span");
+    span.className = node.attrs.class || "math-node";
+    span.setAttribute("data-latex", latex);
+    span.setAttribute("data-display", display ? "true" : "false");
+    // Prevent editing inside the math atom (treat as atomic inline)
+    span.setAttribute("contenteditable", "false");
+
+    try {
+      // render KaTeX into the span
+      span.innerHTML = katex.renderToString(latex, {
+        throwOnError: false,
+        displayMode: display
+      });
+    } catch (err) {
+      // fallback: show raw latex text if render fails
+      span.textContent = latex;
+    }
+    return span;
+  }
+};
+
 function useSelectionAnchor(editorRef: React.RefObject<any>) {
   const anchorRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -334,7 +388,6 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
   const [openMentionPopup, setOpenMentionPopup] = React.useState(false);
   const [getMentionData, setMentionData] = useState<any[]>([]);
   const [nodeSelectionFlag, setNodeSelectionFlag] = useState(false);
-
   const AbortControllerRef = useRef<AbortController | null>(null);
   const { updateAnchorToSelection: UpdateAnchor, cleanup: Cleanup, anchorRef: AnchorRef } = useSelectionAnchor(textAreaRef);
 
@@ -437,7 +490,6 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
     setOutputs([]);
     setAnchorEl(undefined);
   };
-
   const getMentionSuggestionsHTML = items => {
     return '<div class="suggestion-item-list">' +
       items.map(i => '<div class="suggestion-item">' + i.name + '</div>').join('') + '</div>';
@@ -889,9 +941,9 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
             selection instanceof NodeSelection &&
             selection.node?.type?.name === 'image';
 
-          if(figSelectedFlag){
+          if (figSelectedFlag) {
             setNodeSelectionFlag(true);
-          }else{
+          } else {
             setNodeSelectionFlag(false);
           }
 
@@ -927,7 +979,7 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
             const computeTop = (measured: number) => {
               if (spaceAbove >= spaceBelow) {
                 return pageSelTop - measured - popupMargin;
-              } else  {
+              } else {
                 return pageSelBottom + popupHeightEstimate - minMargin + 20;
               }
             };
@@ -1068,14 +1120,13 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
     plugins = [...state.plugins, selectionToolsPlugin(), insertImagePlugin(onImageInsert)];
 
     // Append a new node.
-    let nodes = schema.spec.nodes.addToEnd('nonEditable', nonEditable);
+    let nodes = schema.spec.nodes.addToEnd('nonEditable', nonEditable).addToEnd('math', mathNodeSpec);
 
     // Create the new schema.
     const mySchema = new Schema({
       nodes: nodes,
       marks: schema.spec.marks,
     });
-
     // NOTE: ----> Placeholder is set in App.scss file
     // const editorDocument = event.dom.ownerDocument;
     // const styleElement = editorDocument && editorDocument.querySelector('style');
@@ -1307,35 +1358,24 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
 
   // Document mousedown listener to detect clicks inside prompt (prevents immediate close)
   useEffect(() => {
-    const onDocMouseDown = (ev: MouseEvent) => {
-      try {
-        const path = (ev as any).composedPath?.() || (ev as any).path || [];
-        let inside = false;
-        for (const p of path) {
-          if (
-            p &&
-            p.classList &&
-            (p.classList.contains('k-inlineai') ||
-              p.classList.contains('k-inline-ai-prompt') ||
-              p.classList.contains('k-inline-ai'))
-          ) {
-            inside = true;
-            break;
-          }
-        }
-        if (!inside) {
-          const target = ev.target as HTMLElement | null;
-          if (
-            target &&
-            target.closest &&
-            target.closest('.k-inlineai, .k-inline-ai-prompt, .k-inline-ai')
-          )
-            inside = true;
-        }
-        clickedInsideRef.current = inside;
-      } catch {
-        clickedInsideRef.current = false;
+    const onDocMouseDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(".k-inline-ai") ||
+        target?.closest(".k-inline-ai-prompt") ||
+        target?.closest(".k-popup")
+      ) {
+        clickedInsideRef.current = true;
+        return;
       }
+      const editorDom = textAreaRef.current?.view?.dom;
+      if (editorDom && editorDom.contains(target)) {
+        return;
+      }
+      setShowPrompt(false);
+      setSelectedText("");
+      setOutputs([]);
+      setAnchorEl(undefined);
     };
 
     document.addEventListener('mousedown', onDocMouseDown, true);
@@ -1402,93 +1442,92 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
   const renderSymbolTool = (): JSX.Element => {
     return <SymbolTool textAreaRef={textAreaRef} />;
   };
-
-
+  const renderEquationTool = (): JSX.Element => {
+    return <EquationTool textAreaRef={textAreaRef} />;
+  };
 
   const [promptRoot, setPromptRoot] = useState<HTMLElement | undefined>(() => {
     return (document.querySelector('.k-prompt-content') as HTMLElement | null) ?? document.body;
   });
 
+  useEffect(() => {
+    if (!promptRoot) return;
 
+    // Tweak selector if your three-line button differs.
+    const buttonSelector = 'button[title="Commands Button"], button[aria-label="Commands Button"], .k-button.k-icon-button';
 
-useEffect(() => {
-  if (!promptRoot) return;
+    const handler = (ev: PointerEvent | MouseEvent) => {
+      try {
+        const target = ev.target as HTMLElement | null;
+        if (!target) return;
 
-  // Tweak selector if your three-line button differs.
-  const buttonSelector = 'button[title="Commands Button"], button[aria-label="Commands Button"], .k-button.k-icon-button';
+        // Find the actual button element (handles clicks on svg/span inside the button)
+        const btn = target.closest && (target.closest(buttonSelector) as HTMLElement | null);
+        if (!btn) return;
 
-  const handler = (ev: PointerEvent | MouseEvent) => {
-    try {
+        // Only handle buttons that are inside the prompt area (safety)
+        if (!promptRoot.contains(btn) && !btn.closest('.k-prompt-content') && !btn.closest('.k-inlineai')) return;
+
+        // Save scroll position (backup)
+        const sx = window.scrollX || window.pageXOffset || 0;
+        const sy = window.scrollY || window.pageYOffset || 0;
+
+        // Prevent browser default action (this prevents native focus/scroll)
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        // Fire a real click so the library receives it (next tick)
+        setTimeout(() => {
+          const clickEvent = new MouseEvent('click', { view: window, bubbles: true, cancelable: true });
+          btn.dispatchEvent(clickEvent);
+        }, 0);
+
+        // Restore scroll immediately and a few times after to cover any late reflows
+        setTimeout(() => window.scrollTo(sx, sy), 0);
+        setTimeout(() => window.scrollTo(sx, sy), 30);
+        setTimeout(() => window.scrollTo(sx, sy), 150);
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    // Use capture so we run before browser focus behavior
+    document.addEventListener('pointerdown', handler, true);
+    document.addEventListener('mousedown', handler, true);
+
+    return () => {
+      document.removeEventListener('pointerdown', handler, true);
+      document.removeEventListener('mousedown', handler, true);
+    };
+  }, [promptRoot]);
+
+  // 1) Mark the commands button when user interacts (run inside your component)
+  useEffect(() => {
+    const selectorForThreeLineButton = '.k-button.k-icon-button .k-svg-i-menu, .k-button.k-icon-button[title="Commands Button"], .k-button.k-icon-button[aria-label="Commands Button"]';
+    // selector to match the exact element for your three-line icon.
+
+    const onBtnPointerDown = (ev: PointerEvent | MouseEvent) => {
       const target = ev.target as HTMLElement | null;
       if (!target) return;
-
-      // Find the actual button element (handles clicks on svg/span inside the button)
-      const btn = target.closest && (target.closest(buttonSelector) as HTMLElement | null);
+      // find the nearest button (the markup may have inner svg/span)
+      const btn = target.closest && (target.closest('button, .k-button') as HTMLElement | null);
       if (!btn) return;
+      // quick test to ensure it's the commands icon/button (tweak as needed)
+      if (btn.matches && (btn.matches(selectorForThreeLineButton) || btn.title === 'Commands Button' || btn.getAttribute('aria-label') === 'Commands Button')) {
+        // set a short-lived global flag (or use ref)
+        (window as any).__lastClickedKendoCommandsButton = Date.now();
+        // keep the flag for a short period (e.g., 1s) then clear
+        setTimeout(() => { (window as any).__lastClickedKendoCommandsButton = undefined; }, 1000);
+      }
+    };
 
-      // Only handle buttons that are inside the prompt area (safety)
-      if (!promptRoot.contains(btn) && !btn.closest('.k-prompt-content') && !btn.closest('.k-inlineai')) return;
-
-      // Save scroll position (backup)
-      const sx = window.scrollX || window.pageXOffset || 0;
-      const sy = window.scrollY || window.pageYOffset || 0;
-
-      // Prevent browser default action (this prevents native focus/scroll)
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      // Fire a real click so the library receives it (next tick)
-      setTimeout(() => {
-        const clickEvent = new MouseEvent('click', { view: window, bubbles: true, cancelable: true });
-        btn.dispatchEvent(clickEvent);
-      }, 0);
-
-      // Restore scroll immediately and a few times after to cover any late reflows
-      setTimeout(() => window.scrollTo(sx, sy), 0);
-      setTimeout(() => window.scrollTo(sx, sy), 30);
-      setTimeout(() => window.scrollTo(sx, sy), 150);
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  // Use capture so we run before browser focus behavior
-  document.addEventListener('pointerdown', handler, true);
-  document.addEventListener('mousedown', handler, true);
-
-  return () => {
-    document.removeEventListener('pointerdown', handler, true);
-    document.removeEventListener('mousedown', handler, true);
-  };
-}, [promptRoot]);
-
-// 1) Mark the commands button when user interacts (run inside your component)
-useEffect(() => {
-  const selectorForThreeLineButton = '.k-button.k-icon-button .k-svg-i-menu, .k-button.k-icon-button[title="Commands Button"], .k-button.k-icon-button[aria-label="Commands Button"]';
-  // selector to match the exact element for your three-line icon.
-
-  const onBtnPointerDown = (ev: PointerEvent | MouseEvent) => {
-    const target = ev.target as HTMLElement | null;
-    if (!target) return;
-    // find the nearest button (the markup may have inner svg/span)
-    const btn = target.closest && (target.closest('button, .k-button') as HTMLElement | null);
-    if (!btn) return;
-    // quick test to ensure it's the commands icon/button (tweak as needed)
-    if (btn.matches && (btn.matches(selectorForThreeLineButton) || btn.title === 'Commands Button' || btn.getAttribute('aria-label') === 'Commands Button')) {
-      // set a short-lived global flag (or use ref)
-      (window as any).__lastClickedKendoCommandsButton = Date.now();
-      // keep the flag for a short period (e.g., 1s) then clear
-      setTimeout(() => { (window as any).__lastClickedKendoCommandsButton = undefined; }, 1000);
-    }
-  };
-
-  document.addEventListener('pointerdown', onBtnPointerDown, true);
-  document.addEventListener('mousedown', onBtnPointerDown, true);
-  return () => {
-    document.removeEventListener('pointerdown', onBtnPointerDown, true);
-    document.removeEventListener('mousedown', onBtnPointerDown, true);
-  };
-}, []);
+    document.addEventListener('pointerdown', onBtnPointerDown, true);
+    document.addEventListener('mousedown', onBtnPointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', onBtnPointerDown, true);
+      document.removeEventListener('mousedown', onBtnPointerDown, true);
+    };
+  }, []);
 
   return (
     <>
@@ -1513,9 +1552,10 @@ useEffect(() => {
             (((item && item.IsParagraph === 'Y') || (item && item.IsTable === 'Y') || (item && item.IsFigure === 'Y') || IsNonDynamicTab) ? [[customBlankTool], [CustomStrikethrough], headerData?.CommentEnabledFlag == "Y" ? [CustomAddCommentButton] : [customBlankTool]] : [[customBlankTool]]) :
             (headerData?.PARENT_RPT_ID == null || headerData?.PARENT_RPT_ID == 0 ?
               [...toolsEditor[tools], [Strikethrough], headerData?.CommentEnabledFlag == "Y" ?
-                [CustomAddCommentButton] : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [InsertImage], [renderSymbolTool]]
+                [CustomAddCommentButton] : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [InsertImage], [renderSymbolTool], [renderEquationTool]]
               : [...toolsEditor[tools], [Strikethrough], headerData?.CommentEnabledFlag == "Y" ? [CustomAddCommentButton]
-                : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [CustomRevisionButton], [InsertImage], [renderSymbolTool]])}
+                : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [CustomRevisionButton], [InsertImage], [renderSymbolTool], [renderEquationTool]])}
+
         contentStyle={{ minHeight: CompGridDetails ? '100px' : 'auto' }}
         defaultContent={content}
         onChange={(event: EditorChangeEvent) => { onEditorChange && onEditorChange(event as EditorChangeEvent, item as any, contentKey as string), setValue(event.html) }}
