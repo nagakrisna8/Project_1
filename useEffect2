@@ -7,3 +7,13 @@ if (text && text.trim().length > 0) {
   (window as any).__kendoAnchorForInlineAI = el || undefined;
   setShowPrompt(true);
 }
+
+const onCommandExecute = (commandData: CommandItemInterface) => {
+  const text = selectedTextRef.current;
+
+  if (!commandData?.prompt || !text) return;
+
+  const prompt = commandData.prompt(text);
+  onPromptRequest(prompt);
+};
+
