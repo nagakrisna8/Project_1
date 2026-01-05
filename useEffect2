@@ -1,19 +1,37 @@
-const editorRect = ed.view.dom.getBoundingClientRect();
+const handler = (ev: PointerEvent | MouseEvent) => {
+  try {
+    const target = ev.target as HTMLElement | null;
+    if (!target) return;
 
-// clamp X so anchor never exceeds editor width
-const x = Math.min(
-  Math.max(coords.left, editorRect.left + 8),
-  editorRect.right - 300 // 300 ≈ popup width
-);
-/* Disable Kendo auto flip for Inline AI */
-.k-inlineai,
-.k-inline-ai-prompt {
-  --kendo-popup-flip: false;
-}
+    const btn = target.closest(buttonSelector) as HTMLElement | null;
+    if (!btn) return;
 
-/* Force popup placement below */
-.k-animation-container.k-animation-container-shown .k-menu-popup {
-  top: 100% !important;
-  bottom: auto !important;
-  transform: translateY(8px) !important;
-}
+    // 🚫 Allow menu items to work normally
+    if (
+      target.closest('.k-menu-item') ||
+      target.closest('.k-item') ||
+      target.closest('.k-menu-link') ||
+      target.closest('.k-popup')
+    ) {
+      return;
+    }
+
+    // Save scroll
+    const sx = window.scrollX || 0;
+    const sy = window.scrollY || 0;
+
+    ev.preventDefault(); // ✔ stop scroll
+    // ❌ NO stopPropagation
+
+    // Replay click
+    setTimeout(() => {
+      btn.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true })
+      );
+    }, 0);
+
+    // Restore scroll
+    setTimeout(() => window.scrollTo(sx, sy), 0);
+    setTimeout(() => window.scrollTo(sx, sy), 30);
+  } catch {}
+};
