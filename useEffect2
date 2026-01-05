@@ -1,19 +1,15 @@
-if (text && text.trim().length > 0) {
-  selectedTextRef.current = text;     // ✅ ADD
-  setSelectedText(text);
-  setSelectionRange({ start: from, end: to });
-  const el = UpdateAnchor(from);
-  setAnchorEl(el || undefined);
-  (window as any).__kendoAnchorForInlineAI = el || undefined;
-  setShowPrompt(true);
-}
+const moveAndFix = (el: HTMLElement, anchorEl?: HTMLElement | null) => {
+  try {
+    if (!root.contains(el)) {
+      root.appendChild(el);
+    }
 
-const onCommandExecute = (commandData: CommandItemInterface) => {
-  const text = selectedTextRef.current;
+    // 🔒 prevent blur / outside click
+    el.addEventListener('mousedown', e => e.stopPropagation());
+    el.addEventListener('click', e => e.stopPropagation());
 
-  if (!commandData?.prompt || !text) return;
-
-  const prompt = commandData.prompt(text);
-  onPromptRequest(prompt);
+    applyFixedPosition(el, anchorEl);
+  } catch (e) {
+    // ignore
+  }
 };
-
