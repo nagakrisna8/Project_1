@@ -1,37 +1,29 @@
-const handler = (ev: PointerEvent | MouseEvent) => {
-  try {
-    const target = ev.target as HTMLElement | null;
-    if (!target) return;
+useEffect(() => {
+  const onDocumentClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null;
 
-    const btn = target.closest(buttonSelector) as HTMLElement | null;
-    if (!btn) return;
-
-    // 🚫 Allow menu items to work normally
+    // Allow clicks inside Inline AI
     if (
-      target.closest('.k-menu-item') ||
-      target.closest('.k-item') ||
-      target.closest('.k-menu-link') ||
-      target.closest('.k-popup')
+      target?.closest('.k-inline-ai') ||
+      target?.closest('.k-inline-ai-prompt') ||
+      target?.closest('.k-popup')
     ) {
       return;
     }
 
-    // Save scroll
-    const sx = window.scrollX || 0;
-    const sy = window.scrollY || 0;
+    // Allow clicks inside editor
+    const editorDom = textAreaRef.current?.view?.dom;
+    if (editorDom && editorDom.contains(target)) {
+      return;
+    }
 
-    ev.preventDefault(); // ✔ stop scroll
-    // ❌ NO stopPropagation
+    // Close prompt ONLY after click completes
+    setShowPrompt(false);
+    setSelectedText('');
+    setOutputs([]);
+    setAnchorEl(undefined);
+  };
 
-    // Replay click
-    setTimeout(() => {
-      btn.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, cancelable: true })
-      );
-    }, 0);
-
-    // Restore scroll
-    setTimeout(() => window.scrollTo(sx, sy), 0);
-    setTimeout(() => window.scrollTo(sx, sy), 30);
-  } catch {}
-};
+  document.addEventListener('click', onDocumentClick);
+  return () => document.removeEventListener('click', onDocumentClick);
+}, []);
