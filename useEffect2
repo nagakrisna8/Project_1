@@ -4,11 +4,21 @@ const moveAndFix = (el: HTMLElement, anchorEl?: HTMLElement | null) => {
       root.appendChild(el);
     }
 
-    // 🔒 prevent blur / outside click
+    // Prevent outside click / blur
     el.addEventListener('mousedown', e => e.stopPropagation());
     el.addEventListener('click', e => e.stopPropagation());
 
     applyFixedPosition(el, anchorEl);
+
+    // ✅ RESTORE FOCUS (IMPORTANT)
+    requestAnimationFrame(() => {
+      const focusable =
+        el.querySelector<HTMLElement>(
+          '.k-menu-item, .k-item, .k-link, [tabindex]'
+        );
+
+      focusable?.focus();
+    });
   } catch (e) {
     // ignore
   }
