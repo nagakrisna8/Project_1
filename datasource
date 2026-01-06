@@ -19,13 +19,21 @@ export const DataSourceDropdownTool: React.FC<Props> = ({
   ];
 
   return (
-    <span className="k-toolbar-item">
+    <span
+      className="k-toolbar-item"
+      onMouseDown={(e) => e.preventDefault()}     // 🔥 critical
+      onPointerDown={(e) => e.preventDefault()}  // 🔥 critical
+      onClick={(e) => e.stopPropagation()}       // optional safety
+    >
       <DropDownList
         data={data}
         size="small"
         style={{ width: 220 }}
         value={value}
         onChange={(e) => onChange(e.value)}
+        onMouseDown={(e) => e.preventDefault()}     // 🔥 critical
+        onPointerDown={(e) => e.preventDefault()}  // 🔥 critical
+        onClick={(e) => e.stopPropagation()}       // optional safety
       />
     </span>
   );
