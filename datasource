@@ -1,0 +1,32 @@
+import * as React from 'react';
+import { DropDownList } from '@progress/kendo-react-dropdowns';
+
+interface Props {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+export const DataSourceDropdownTool: React.FC<Props> = ({
+  value,
+  onChange
+}) => {
+  const data = [
+    'Foundation Model',
+    'BCAI Documentation',
+    'UDAL Documentation',
+    'ITAR Assistant',
+    'Boeing Private Cloud'
+  ];
+
+  return (
+    <span className="k-toolbar-item">
+      <DropDownList
+        data={data}
+        size="small"
+        style={{ width: 220 }}
+        value={value}
+        onChange={(e) => onChange(e.value)}
+      />
+    </span>
+  );
+};
