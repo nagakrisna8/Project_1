@@ -1,0 +1,1553 @@
+import { Editor, EditorChangeEvent, EditorTools, ProseMirror, EditorMountEvent, EditorFocusEvent, EditorBlurEvent, EditorUtils, NodeSpec } from '@progress/kendo-react-editor';
+import { CompGridDetails, KendoEditorProps } from '../../../../../model/PropsModel';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useDispatch } from "react-redux";
+import { showSnackbar } from "../../../../core/snackbar/CustomSnackBarSlice";
+import AddAcronymPopup from './add-acronym-popup/AddAcronymPopup';
+import { useParams } from 'react-router-dom';
+import { ReportStepId } from '../../../../../model/Model';
+import SpeakerNotesOutlinedIcon from '@mui/icons-material/SpeakerNotesOutlined';
+import AuthorizationService from '../../../../core/services/AuthorizationService';
+import StorageService from '../../../../../utils/StorageService';
+import EnvDetail from '../../../../../utils/EnvDetail';
+import { userDefinedConfirm } from '../../../../../utils/ConfirmDialog';
+import CustomStrikethrough from './CustomStrikethrough';
+import { getMentionsPlugin } from 'prosemirror-mentions';
+import CSRDetailsBaseService from '../CSRDetailsBaseService';
+import ContentCommentPopup from './content-comment-popup/ContentCommentPopup';
+import { KendoEditorPlaceholder } from './KendoEditorPlaceholder';
+import CommentHistoryPopup from './comment-history-popup/CommentHistoryPopup';
+import CommentHistoryPopupService from './comment-history-popup/CommentHistoryPopupService';
+import AddRevisionPopup from './add-revision-popup/AddRevisionPopup';
+import AddMentionPopup from './add-mention-popup/AddMentionPopup';
+import MentionPopup from './mention-popup/MentionPopup';
+import UserToken from '../../../../../utils/UserToken';
+import CommonFunction from '../../../../../utils/CommonFunction';
+import { InsertImageFiles } from '../../../../../utils/InlineImgutils';
+import { insertImagePlugin } from './inline-img-upload-popup/InsertImagePlugin';
+import { InsertImage } from './inline-img-upload-popup/InsertImageTool';
+import SymbolTool from './symbol-tool/SymbolTool';
+import InlineAIPromptWrapper from './InlineAIPromptWrapper';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+import '../../../../../../node_modules/katex/dist/katex.min.css';
+import EquationTool from './equation-tool/EquationTool';
+import {
+  InlineAIPromptOutputInterface,
+  CommandItemInterface,
+  OutputActionInterface
+} from '@progress/kendo-react-conversational-ui';
+
+const Commands: CommandItemInterface[] = [
+  { id: 'rewrite', text: 'Rewrite', prompt: (s: string) => `Rewrite the following text: ${s}` },
+  { id: 'fix-spelling', text: 'Fix Spelling', prompt: (s: string) => `Fix spelling and grammar: ${s}` },
+  { id: 'change-tone', text: 'Change Tone', prompt: (s: string) => `Change tone to professional: ${s}` },
+];
+
+const outputActions: OutputActionInterface[] = [
+  { id: 'copy', text: 'Copy' },
+  { id: 'insert', text: 'Insert' },
+  { id: 'replace', text: 'Replace' },
+  { id: 'discard', text: 'Discard' },
+];
+const getSuggestion = async (
+  prompt: string,
+  htmlContent?: string,
+  signal?: AbortSignal
+): Promise<string> => {
+  const body = { dataSource: "Foundation Model", prompt };
+  const url = (`${EnvDetail.AIPromptURL}`)
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text}`);
+  }
+
+  const result = await res.json();
+
+  // Try multiple common response shapes
+  if (Array.isArray(result.choices)) {
+    for (const choice of result.choices) {
+      if (choice.finish_reason === 'stop' && choice.message) {
+        if (typeof choice.message.content === 'string') return choice.message.content;
+        if (choice.message.content?.text) return choice.message.content.text;
+        return JSON.stringify(choice.message.content);
+      }
+    }
+    const c = result.choices[0];
+    if (c?.message) {
+      if (typeof c.message.content === 'string') return c.message.content;
+      if (c.message.content?.text) return c.message.content.text;
+      return JSON.stringify(c.message.content);
+    }
+  }
+
+  if (Array.isArray(result.messages) && result.messages[0]?.contents) {
+    try {
+      return result.messages[0].contents[0].text;
+    } catch { }
+  }
+
+  if (typeof result === 'string') return result;
+  if (result?.message && typeof result.message === 'string') return result.message;
+  if (result?.message?.content && typeof result.message.content === 'string') return result.message.content;
+
+  return JSON.stringify(result);
+};
+interface State {
+  success: boolean;
+  error: boolean;
+  warning: boolean;
+  info: boolean;
+  none: boolean;
+}
+
+interface AppState {
+  view: any; // Change type to allow null or EditorView
+  showTools: boolean;
+  position: Position;
+}
+
+interface ToolSize {
+  width: number;
+  height: number;
+}
+
+interface Position {
+  top: number | string;
+  left: number;
+}
+
+const { tableResizing } = EditorUtils; // imageResizing
+const { Schema, EditorState, Plugin, PluginKey, NodeSelection } = ProseMirror;
+const EditorView = ProseMirror.EditorView;
+const styles = `
+  .k-content {
+      font-family: "Roboto", sans-serif !important;
+      font-size: 14px;
+      color: #253746;
+  }
+  .ProseMirror td {
+      border: 0.5px solid black !important; 
+      // text-align: left !important;
+      // vertical-align: top !important;
+      padding-left: 7.68px !important; 
+      padding-right: 7.68px !important;
+  }
+  .ProseMirror tr:first-child td {
+    font-weight: 600;
+    background-color: #D1D1D1 !important; 
+    background-clip: padding-box !important;
+    text-align: center !important;
+    padding-left: 7.68px !important; 
+    padding-right: 7.68px !important; 
+}
+`;
+
+const {
+  Bold, Italic, Underline, Strikethrough,
+  Subscript, Superscript,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  Undo, Redo,
+  FontSize, FontName, FormatBlock,
+  InsertTable, AddRowBefore, AddRowAfter, AddColumnBefore, AddColumnAfter,
+  DeleteRow, DeleteColumn, DeleteTable,
+  MergeCells, SplitCell,
+  TableProperties, TableCellProperties, OrderedList,
+  UnorderedList, Indent, Outdent,
+}: any = EditorTools;
+
+
+const customBlankTool = () => {
+  <div style={{ display: "none" }}></div>
+}
+
+const easaReportFlag = new CommonFunction().IsEASAReport() || false;
+
+let toolsEditor: any = {
+  PARAGRAPH: [
+    [Bold, Italic, Underline],
+    [Subscript, Superscript],
+    [AlignLeft, AlignCenter, AlignRight, AlignJustify],
+    [OrderedList, UnorderedList],
+    [Indent, Outdent]
+  ],
+  TABLE:
+    [
+      [InsertTable, TableProperties, TableCellProperties],
+      [AddRowBefore, AddRowAfter, AddColumnBefore, AddColumnAfter],
+      [DeleteRow, DeleteColumn, DeleteTable],
+      [MergeCells, SplitCell],
+      [Bold, Italic, Underline],
+      [OrderedList, UnorderedList],
+      easaReportFlag ? [AlignLeft, AlignCenter, AlignRight, AlignJustify] : [customBlankTool],
+      [Subscript, Superscript],
+    ],
+};
+
+const constraints = {
+  // maxHeight: 420,
+  // maxWidth: 750,
+  // minWidth: 950,
+  // minHeight: 200
+};
+
+const nonEditable: NodeSpec = {
+  name: 'nonEditable',
+  inline: true,
+  group: 'inline',
+  content: 'inline+',
+  marks: '',
+  attrs: {
+    contenteditable: { default: null },
+    class: { default: 'non-editable-node' },
+    //style: { default: 'color: red;' },
+    tagid: { default: null },
+    name: { default: null },
+    tagcolor: { default: null }
+  },
+  atom: true,
+  parseDOM: [
+    {
+      tag: 'span.uneditable',
+      priority: 51,
+      getAttrs: (dom: any) => ({
+        tagid: dom.getAttribute('tagid'),
+        name: dom.getAttribute('name'),
+        tagcolor: dom.getAttribute('tagcolor'),
+      }),
+    },
+  ],
+  // The styles can be added via the class as well
+  toDOM: (node) => [
+    'span',
+    {
+      contenteditable: false,
+      class: 'uneditable ' + 'onClickPointer ' + node.attrs.class,
+      tagid: node.attrs.tagid,
+      name: node.attrs.name,
+      tagcolor: node.attrs.tagcolor,
+      style: `user-select: none; opacity: 1; color: ${node.attrs.tagcolor}`,
+    },
+    0,
+  ],
+};
+const mathNodeSpec: NodeSpec = {
+  name: 'math',
+  inline: true,
+  group: 'inline',
+  content: 'inline+',
+  marks: '',
+  atom: true,
+  selectable: true,
+  attrs: {
+    latex: { default: "" },
+    display: { default: false },
+    class: { default: "math-node" }
+  },
+  parseDOM: [
+    {
+      tag: 'span[data-latex]',
+      priority: 60,
+      getAttrs: (dom: any) => {
+        if (dom.hasAttribute('data-latex')) {
+          const raw = dom.getAttribute('data-latex');
+          try { return { latex: decodeURIComponent(raw), display: dom.getAttribute('data-display') === 'true' }; }
+          catch { return { latex: raw, display: dom.getAttribute('data-display') === 'true' }; }
+        }
+        return false;
+      }
+    },
+  ],
+  toDOM: (node) => {
+    const latex = node.attrs.latex || "";
+    const display = !!node.attrs.display;
+
+    // Create a span so parseDOM can read data-latex back
+    const span = document.createElement("span");
+    span.className = node.attrs.class || "math-node";
+    span.setAttribute("data-latex", latex);
+    span.setAttribute("data-display", display ? "true" : "false");
+    // Prevent editing inside the math atom (treat as atomic inline)
+    span.setAttribute("contenteditable", "false");
+
+    try {
+      // render KaTeX into the span
+      span.innerHTML = katex.renderToString(latex, {
+        throwOnError: false,
+        displayMode: display
+      });
+    } catch (err) {
+      // fallback: show raw latex text if render fails
+      span.textContent = latex;
+    }
+    return span;
+  }
+};
+
+function useSelectionAnchor(editorRef: React.RefObject<any>) {
+  const anchorRef = React.useRef<HTMLDivElement | null>(null);
+
+  const ensureAnchor = React.useCallback(() => {
+    if (!anchorRef.current) {
+      const el = document.createElement('div');
+      el.style.position = 'absolute';
+      el.style.width = '1px';
+      el.style.height = '1px';
+      el.style.pointerEvents = 'none';
+      el.style.zIndex = '2147483647';
+      document.body.appendChild(el);
+      anchorRef.current = el;
+    }
+    return anchorRef.current;
+  }, []);
+
+  const updateAnchorToSelection = React.useCallback(
+    (pos: number) => {
+      const ed = editorRef.current;
+      const anchorEl = ensureAnchor();
+      if (!ed || !ed.view || !anchorEl) return anchorEl;
+
+      try {
+        const coords = ed.view.coordsAtPos(pos);
+        const x = coords.left;
+        const y = coords.bottom + window.scrollY + 6; // offset below the selection
+        anchorEl.style.left = `${x}px`;
+        anchorEl.style.top = `${y}px`;
+        anchorEl.style.display = 'block';
+      } catch {
+        anchorEl.style.display = 'none';
+      }
+      return anchorEl;
+    },
+    [editorRef, ensureAnchor]
+  );
+
+  const cleanup = React.useCallback(() => {
+    if (anchorRef.current) {
+      try {
+        document.body.removeChild(anchorRef.current);
+      } catch { }
+      anchorRef.current = null;
+    }
+  }, []);
+
+  return { updateAnchorToSelection, cleanup, anchorRef };
+}
+const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selectedRowId, contentID, openHistoryPopup, handleCloseHistoryPopup, editorRef, currentTabComments, reportLevelTagList, content, tools, contentStyle, onEditorChange, item, contentKey, headerData, IsError, totalComment, sendDataToRootParent, refreshAllEditor, IsNonDynamicTab, IsBadgeIconClick, CompGridDetails, setTableName, updateTotalCompGridCommentCount, SectionSerialNumber, sectionTitle, uploadImagePopup, tableCode }) => {
+  const userToken = new UserToken();
+  const userBemsId = userToken.getUserBemsId();
+  const dispatch = useDispatch();
+  const { reportId, tabIndex } = useParams();
+  const [openAddAcronymPopup, setOpenAddAcronymPopup] = React.useState<boolean>(false);
+  const [openAddRevisionPopup, setOpenAddRevisionPopup] = React.useState<boolean>(false);
+  const [selectedText, setSelectedText] = React.useState<string>('');
+  const [commentResolved, setCommentResolved] = useState({ resolvedComments: [], targetId: 0, totalSectionComment: '' });
+  const [totalCommentObj, setTotalCommentObj] = useState({ 'resolvedComment': 0, 'totalCommentCount': 0 });
+  const [getCompGridDetails, setCompGridDetails] = useState<CompGridDetails>();
+  const [state, setState] = useState<AppState>({
+    view: null,
+    showTools: false,
+    position: { top: 0, left: 0 },
+  });
+  const toolSize = useRef<ToolSize>({ width: 36, height: 36 });
+  const toolsCount = useRef(3);
+  const offset = React.useRef({ top: -5, left: 0 });
+  var storageService = new StorageService();
+  const [value, setValue] = useState<string>("");
+  const textAreaRef = useRef<any>({
+    state: null,
+    view: null,
+    iframe: null,
+    contentDocument: null,
+    scrollHeight: 0
+  });
+  const [currentContentID, setCurrentContentID] = useState<number>(0);
+  const [seletedTargetText, setSeletedTargetText] = useState<string>("");
+  const [openContentCommentPopup, setOpenContentCommentPopup] = React.useState(false);
+  const [openCommentHistoryPopup, setOpenCommentHistoryPopup] = React.useState(false);
+  const [contentCommentData, setContentCommentData] = React.useState<any>([]);
+  const [position, setPosition] = React.useState({});
+  const [view, setView] = React.useState<any | undefined>(undefined);
+  const [addNewComment, setAddNewComment] = React.useState(false);
+  const [addCommentAsAuthor, setAddCommentAsAuthor] = React.useState(false);
+  const [showEditModeForCommentID, setShowEditModeForCommentID] = useState<number>(0);
+  const [commetType, setCommentType] = useState<number>(0);
+  const [comment, setComment] = useState<string>("");
+  const [commentStatus, setCommentStatus] = useState('0');
+  const [editFileCount, setEditFileCount] = useState(0);
+  const [selectedTabRowId, setSelectedTabRowId] = useState(0);
+  const [showReplyCommentId, setShowReplyCommentId] = useState<number>(0);
+  const [openAddMentionPopup, setOpenAddMentionPopup] = React.useState<boolean>(false);
+  const [openMentionPopup, setOpenMentionPopup] = React.useState(false);
+  const [getMentionData, setMentionData] = useState<any[]>([]);
+  const [nodeSelectionFlag, setNodeSelectionFlag] = useState(false);
+  const AbortControllerRef = useRef<AbortController | null>(null);
+  const { updateAnchorToSelection: UpdateAnchor, cleanup: Cleanup, anchorRef: AnchorRef } = useSelectionAnchor(textAreaRef);
+
+  const [Outputs, setOutputs] = useState<InlineAIPromptOutputInterface[]>([]);
+  const [Streaming, setStreaming] = useState<boolean>(false);
+  const [SelectionRange, setSelectionRange] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
+  const [ShowPrompt, setShowPrompt] = useState<boolean>(false);
+  const [AnchorEl, setAnchorEl] = useState<HTMLElement | undefined>(undefined);
+  const clickedInsideRef = useRef(false);
+
+  const readSelection = useCallback(() => {
+    const ed = textAreaRef.current;
+    if (!ed || !ed.view) return { text: '', from: 0, to: 0 };
+    const { from, to } = ed.view.state.selection;
+    const text = ed.view.state.doc.textBetween(from, to, '\n');
+    return { text, from, to };
+  }, [textAreaRef]);
+
+  const getEditorDomHtml = useCallback(() => {
+    const ed = textAreaRef.current;
+    if (!ed || !ed.view) return '';
+    try {
+      const dom = ed.view.dom as HTMLElement;
+      return dom.innerHTML;
+    } catch {
+      return '';
+    }
+  }, [textAreaRef]);
+  const onPromptRequest = async (prompt: string) => {
+    if (!prompt || !selectedText) return;
+    setStreaming(true);
+    const ac = new AbortController();
+    AbortControllerRef.current = ac;
+
+    try {
+      const reply = await getSuggestion(prompt, selectedText, ac.signal);
+      if (!ac.signal.aborted) {
+        setOutputs([{ id: Date.now(), responseContent: reply, prompt }]);
+      }
+    } catch (err: any) {
+      setOutputs([
+        {
+          id: Date.now(),
+          responseContent: 'Error contacting AI service: ',
+          prompt,
+        },
+      ]);
+    } finally {
+      setStreaming(false);
+      AbortControllerRef.current = null;
+    }
+  };
+
+  const onPromptCancel = () => {
+    if (AbortControllerRef.current) {
+      AbortControllerRef.current.abort();
+      AbortControllerRef.current = null;
+      setStreaming(false);
+    }
+    // hide and clear anchor
+    setShowPrompt(false);
+    setAnchorEl(undefined);
+    (window as any).__kendoAnchorForInlineAI = undefined;
+  };
+
+  const onCommandExecute = (commandData: CommandItemInterface) => {
+    if (commandData.prompt && selectedText) {
+      const prompt = commandData.prompt(selectedText);
+      onPromptRequest(prompt);
+    }
+  };
+
+  const onOutputAction = (action: OutputActionInterface, output: InlineAIPromptOutputInterface) => {
+    const ed = textAreaRef.current;
+    if (!ed || !ed.view) return;
+    const { state, dispatch } = ed.view;
+    const { start, end } = SelectionRange;
+
+    switch (action.id) {
+      case 'copy':
+        try { navigator.clipboard.writeText(output.responseContent); } catch { }
+        break;
+      case 'insert': {
+        const pNode = state.schema.nodes.paragraph.create(null, state.schema.text(output.responseContent));
+        dispatch(state.tr.insert(end, pNode));
+        break;
+      }
+      case 'replace':
+        dispatch(state.tr.insertText(output.responseContent, start, end));
+        break;
+      case 'discard':
+        setOutputs((prev) => prev.filter((o) => o.id !== output.id));
+        break;
+      default:
+        break;
+    }
+
+    setShowPrompt(false);
+    setSelectedText('');
+    setOutputs([]);
+    setAnchorEl(undefined);
+  };
+  const getMentionSuggestionsHTML = items => {
+    return '<div class="suggestion-item-list">' +
+      items.map(i => '<div class="suggestion-item">' + i.name + '</div>').join('') + '</div>';
+  };
+
+  const getTagSuggestionsHTML = items => {
+    return '<div class="suggestion-item-list">' +
+      items.map(i => '<div class="suggestion-item">' + i.tag + '</div>').join('') + '</div>';
+  };
+
+  const mentionPlugin = getMentionsPlugin({
+    getSuggestions: async (type, text, done) => {
+      try {
+        if (type === 'mention') {
+          const response = await CSRDetailsBaseService.GetMentions(text);
+          done(response.data);
+        } else {
+          // const response = await CSRDetailsBaseService.GetTags(text);
+          // done(response.data);
+        }
+      }
+      catch (err) {
+        console.log(err)
+      }
+    },
+    getSuggestionsHTML: (items, type) => {
+      if (type === 'mention') {
+        return getMentionSuggestionsHTML(items);
+      } else if (type === 'tag') {
+        return getTagSuggestionsHTML(items);
+      }
+    }
+  });
+
+  const onImageInsert = (args) => {
+    const { files, view, event } = args;
+    const nodeType = view.state.schema.nodes.image;
+
+    const position = event.type === 'drop' ? view.posAtCoords({ left: event.clientX, top: event.clientY }) : null;
+
+    InsertImageFiles({ view, files, nodeType, position });
+
+    return files.length > 0;
+  };
+
+
+  const handleChildComponentData = (childData, targetId, totalCommentCount) => {
+    setCommentResolved({ resolvedComments: childData, targetId: targetId, totalSectionComment: totalCommentCount })
+  }
+
+  const handleOpenAddCommentPopup = (tabSectionId: number, ContentId: number) => {
+    let isTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'IsTabDirty');
+    let IsComplianceGridTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'compliancedirtygriddetail');
+    if (isTabDirty && headerData && headerData.WorkFlowStep == ReportStepId.CREATE_STEP) {
+      let message = `unsaved changes in current session`;
+      userDefinedConfirm({ message: `There are ${message}. Please save the data before adding comment.`, editorUnSavedDataCheck: true, okBtnText: "Yes", cancelBtnText: "Ok" }).then(
+        ({ button, input }) => {
+        },
+        () => {
+          return;
+        }
+      );
+    }
+    else if (IsComplianceGridTabDirty && headerData && headerData.WorkFlowStep == ReportStepId.CREATE_STEP) {
+      let dirtyGridLength = IsComplianceGridTabDirty.split(',').length;
+      // CID 435633: (#1 of 1): Logically dead code (DEADCODE)
+      let message = `unsaved changes in ${dirtyGridLength > 1 ? IsComplianceGridTabDirty.replace(/,(?=[^,]*$)/, " and ") : IsComplianceGridTabDirty}`;
+      userDefinedConfirm({ message: `There are ${message}. Please save the grid data before adding comment.`, editorUnSavedDataCheck: true, okBtnText: "Yes", cancelBtnText: "Ok" }).then(
+        ({ button, input }) => {
+        },
+        () => {
+          return;
+        }
+      );
+    } else {
+      if (IsNonDynamicTab) {
+        setAddNewComment(true);
+        handleOpenCommentHistoryPopup(item, 0, true, getHtml(), 0, false);
+      } else {
+        if (item) {
+          const rowId = CompGridDetails?.RowId ? CompGridDetails.RowId : 0;
+          setAddNewComment(true);
+          if (item.TabSectionId === tabSectionId) {
+            setTotalCommentObj({
+              resolvedComment: item?.SectionCommentResolveStatus == null ? 0 : parseInt(item?.SectionCommentResolveStatus),
+              totalCommentCount: item?.SectionCommentNumber
+            });
+          } else {
+            if (item.ContentId === ContentId) {
+              setTotalCommentObj({
+                resolvedComment: item?.CommentResolveStatus == null ? 0 : parseInt(item?.CommentResolveStatus),
+                totalCommentCount: item?.ContentCommentCount
+              });
+            }
+          }
+          handleOpenCommentHistoryPopup(item, item.ContentId, true, getHtml(), rowId, false);
+        }
+      }
+    }
+  }
+
+  const extractTextFromHTML = (htmlString) => {
+    return htmlString?.replace(/<[^>]*>/g, '');
+  };
+
+  const handleOpenCommentHistoryPopup = (items: any, contentID: any, value: boolean, targetText: any, rowId: any, addNewReply: boolean) => {
+    setOpenContentCommentPopup(false);
+    setOpenCommentHistoryPopup(true);
+    setSelectedTabRowId(rowId);
+    const comment = items && items.length > 0 ? items[0] : null;
+    if (addNewReply) {
+      setComment(comment?.Comments);
+      setCurrentContentID(contentID);
+      setShowReplyCommentId(comment?.CommentId)
+      setShowEditModeForCommentID(0);
+    } else {
+      setShowEditModeForCommentID(comment?.CommentId);
+      setShowReplyCommentId(0);
+      setCommentType(comment?.CommentTypeId);
+      setComment(comment?.Comments);
+      setCurrentContentID(contentID);
+      setEditFileCount(comment?.AttatchmentCount);
+    }
+    if (!targetText) {
+      setAddCommentAsAuthor(true);
+    } else {
+      if (targetText && value) {
+        setSeletedTargetText(extractTextFromHTML(targetText));
+      } else {
+        setSeletedTargetText("");
+      }
+    }
+  }
+
+  const handleCloseCommentHistoryPopup = (isPopupDirty) => {
+    setOpenCommentHistoryPopup(false);
+    setCurrentContentID(0);
+    setSeletedTargetText("");
+    setAddCommentAsAuthor(false);
+    setShowEditModeForCommentID(0);
+    setShowReplyCommentId(0);
+    setCommentType(0);
+    setComment("");
+    handleCloseHistoryPopup(false);
+    if (isPopupDirty) {
+      refreshAllEditor();
+    }
+  }
+
+  const [spanIdList, setspanIdList] = useState('');
+  const ExtractCommentIdFromCommentSpan = () => {
+    let spanList = [] as any;
+    const selection = state.view?.state.selection;
+    const node = state.view?.state.doc.cut(selection.from, selection.to);
+    let selectedSpans = EditorUtils.getHtml({ doc: node, schema: node.type.schema });
+    let parser = new DOMParser();
+    let doc = parser.parseFromString(selectedSpans, 'text/html');
+
+    for (let i = 0; i < doc.querySelectorAll('span').length; i++) {
+      if (doc.querySelectorAll('span')[i].getAttribute('id')) {
+        spanList.push(doc.querySelectorAll('span')[i].getAttribute('id'));
+      }
+    }
+
+    if (spanList.length > 0) {
+      setspanIdList(spanList.join(','));
+    }
+  }
+
+  const unSetLocalStorageDirtyDetails = (IsTabDirty, IsComplianceGridTabDirty) => {
+
+    if (IsTabDirty == false && IsComplianceGridTabDirty == '') {
+      const toolColor = 'rgb(248, 241, 1)';
+      const colorToApply = toolColor;
+      ExtractCommentIdFromCommentSpan();
+      EditorUtils.applyInlineStyle(state.view, { style: 'background-color', value: colorToApply });
+      storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `isTabDirty`, false);
+      // storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `compliancedirtygriddetail`, '');
+    } else if ((IsComplianceGridTabDirty || IsTabDirty) && headerData && headerData.WorkFlowStep !== ReportStepId.CREATE_STEP) {
+      const toolColor = 'rgb(248, 241, 1)';
+      const colorToApply = toolColor;
+      ExtractCommentIdFromCommentSpan();
+      EditorUtils.applyInlineStyle(state.view, { style: 'background-color', value: colorToApply });
+      storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `isTabDirty`, false);
+      // storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `compliancedirtygriddetail`, '');
+    };
+  };
+
+  const onToggle = (flag: string, tab: string) => {
+    let IsComplianceGridTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'compliancedirtygriddetail');
+    let IsTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'isTabDirty');
+    if (flag === "success" && state.view) {
+      const selection = state.view.state.selection;
+      if (!selection.empty || (selection.empty && tab == "revision")) {
+
+        const { from, to } = selection;
+        // const text: string = state.view.state.doc.slice(from, to).toString().replace(/\(.*\)/g, "").replace('<"', "").replace('">', "").trim();
+        const text: string = state.view.state.doc.cut(selection.from, selection.to).textContent;
+        if (tab === "comment") {
+          if (headerData && headerData.WorkFlowStep == ReportStepId.CREATE_STEP) {
+            unSetLocalStorageDirtyDetails(IsTabDirty, IsComplianceGridTabDirty);
+          } else if (headerData && headerData.WorkFlowStep !== ReportStepId.CREATE_STEP) {
+            unSetLocalStorageDirtyDetails(IsTabDirty, IsComplianceGridTabDirty);
+          }
+        }
+
+        // Check if text is empty after trimming
+        if (!text.trim() && tab != "revision") {
+          dispatch(
+            showSnackbar({
+              snackbarOpen: true,
+              snackbarType: "error",
+              snackbarMessage: "Please select a valid acronym (no spaces).",
+            })
+          );
+          return;
+        }
+
+        setSelectedText(text.trim());
+        // setOpenAddAcronymPopup(true);
+        { tab == "acronym" ? setOpenAddAcronymPopup(true) : (tab == "revision" ? setOpenAddRevisionPopup(true) : (tab == "comment" ? handleOpenAddCommentPopup(0, item?.ContentId) : setOpenAddMentionPopup(true))); };
+      } else {
+        handleOpenAddCommentPopup(0, item?.ContentId);
+      }
+    }
+    else if (flag === "success" && !state.view && tab == "comment") {
+      handleOpenAddCommentPopup(0, item?.ContentId);
+    } else if (flag === "success" && !state.view && tab == "revision") {
+      setOpenAddRevisionPopup(true);
+    } else {
+      //   setNotification({ ...notification, [flag]: !notification[flag] });
+    }
+  };
+
+  const getHtml = () => {
+    if (state && state.view) {
+      const view = state.view;
+      const selection = view.state.selection;
+      if (view && !selection.empty) {
+        const node = view.state.doc.cut(selection.from, selection.to);
+        const formatedHtmlContent = EditorUtils.getHtml({ doc: node, schema: node.type.schema });
+        return formatedHtmlContent;
+      }
+    }
+  };
+
+  const getEditorHtml = () => {
+    if (state && state.view) {
+      const view = state.view;
+      const selection = view.state.selection;
+      if (view && !selection.empty) {
+        const node = view.state.doc;
+        const getEditorHtml = EditorUtils.getHtml({ doc: node, schema: node.type.schema });
+        return getEditorHtml;
+      }
+    }
+  };
+
+  const beforeSelection = () => {
+    if (state && state.view) {
+      const view = state.view;
+      const selection = view.state.selection;
+      if (view && !selection.empty) {
+        const node = view.state.doc.cut(0, selection.from);
+        const formatedHtmlContent = EditorUtils.getHtml({ doc: node, schema: node.type.schema });
+        return formatedHtmlContent;
+      }
+    }
+  };
+
+  const afterSelection = () => {
+    if (state && state.view) {
+      const view = state.view;
+      const selection = view.state.selection;
+      if (view && !selection.empty) {
+        const node = view.state.doc.cut(selection.to, view.state.doc.content.size);
+        const formatedHtmlContent = EditorUtils.getHtml({ doc: node, schema: node.type.schema });
+        return formatedHtmlContent;
+      }
+    }
+  };
+
+  const GetUpdatedHtmlWithCommentId = (targetHtml: boolean) => {
+    let getEditorHtmlText = getEditorHtml() || "";
+    let getTargetHtmlText = getHtml() || "";
+    let formattedEditorHtml = "";
+    let formattedgEditorHtmlText = "";
+    let localSpanList = "";
+    if (getEditorHtmlText && getTargetHtmlText) {
+      let parser = new DOMParser();
+      // Parse the HTML string into a document
+      let doc = parser.parseFromString(getTargetHtmlText, 'text/html');
+
+      if (doc.querySelectorAll('p').length > 1) {
+        let spanTagList = doc.querySelectorAll('span');
+        formattedEditorHtml = getTargetHtmlText;
+        formattedgEditorHtmlText = getEditorHtmlText;
+        for (let i = 0; i < spanTagList.length; i++) {
+          let eachSpanHtml = spanTagList[i].outerHTML;
+          let spanId = spanTagList[i].getAttribute("id");
+          if (spanIdList) {
+            let spanArray = spanIdList.split(",");
+            if (spanArray && spanArray.length > 0) {
+              let s = spanArray.filter((e, i, self) => i === self.indexOf(e));
+              localSpanList = s.join(",");
+            }
+          }
+
+          if (spanId) {
+            let newspanId = spanId + ',X_COMMENT_ID';
+            if (localSpanList) {
+              newspanId = localSpanList + ',X_COMMENT_ID';
+            } // Closing brace for the inner if statement
+
+            let newSpanHtml = eachSpanHtml.replace(/<span\s+id="[^"]*"/g, `<span id="${newspanId}"`);
+            formattedEditorHtml = formattedEditorHtml.replace(eachSpanHtml, newSpanHtml);
+            formattedgEditorHtmlText = formattedgEditorHtmlText.replace(eachSpanHtml, newSpanHtml);
+          }
+          else {
+            spanId = 'X_COMMENT_ID';
+            if (localSpanList) {
+              spanId = localSpanList + ',X_COMMENT_ID';
+            }
+            let newSpanHtml = eachSpanHtml.replace("<span", `<span id="${spanId}"`);
+            formattedEditorHtml = formattedEditorHtml.replace(eachSpanHtml, newSpanHtml);
+            formattedgEditorHtmlText = formattedgEditorHtmlText.replace(eachSpanHtml, newSpanHtml);
+          }
+        }
+        if (targetHtml)
+          return "<p>" + formattedEditorHtml + "</p>";
+
+        return formattedgEditorHtmlText
+      }
+
+      // Extract the span element
+      let spanElement = doc.querySelector('span');
+      let isStrikeThroughPresent = getTargetHtmlText?.includes("del") || getTargetHtmlText?.includes('text-decoration: line-through');
+
+      if (isStrikeThroughPresent) {
+        getTargetHtmlText = getTargetHtmlText.replace(/^<p>/i, '').replace(/<\/p>$/i, '');
+      }
+      else {// Get the outer HTML of the span element
+        getTargetHtmlText = spanElement?.outerHTML.toString() || "";
+      }
+      let regex = /<span\s+id="[^"]*"/g;
+      let spanId = spanElement?.getAttribute("id");
+
+      if (spanIdList) {
+        let spanArray = spanIdList.split(",");
+        if (spanArray && spanArray.length > 0) {
+          let s = spanArray.filter((e, i, self) => i === self.indexOf(e));
+          localSpanList = s.join(",");
+        }
+      }
+
+      if (spanId) {
+        let newspanId = spanId + ',X_COMMENT_ID';
+        if (localSpanList) {
+          newspanId = localSpanList + ',X_COMMENT_ID';
+        }
+
+        // Replace the matched pattern with your desired value
+        if (isStrikeThroughPresent) {
+          formattedEditorHtml = getTargetHtmlText.replace(regex, `<span id="${newspanId}"`);
+          formattedEditorHtml = formattedEditorHtml.replace(/<span(?![^>]*\sid=)/gi, `<span id="${newspanId}"`);
+          let before = beforeSelection() || "";
+          let after = afterSelection() || "";
+          formattedgEditorHtmlText = '<p>' + before.replace(/^<p>/i, '').replace(/<\/p>$/i, '') + formattedEditorHtml + after.replace(/^<p>/i, '').replace(/<\/p>$/i, '') + '</p>';
+        }
+        else {
+          formattedEditorHtml = getTargetHtmlText.replace(regex, `<span id="${newspanId}"`);
+          formattedEditorHtml = formattedEditorHtml.replace(/<span(?![^>]*\sid=)/gi, `<span id="${newspanId}"`);
+          formattedgEditorHtmlText = getEditorHtmlText.replace(spanId, newspanId);
+        }
+      }
+      else {
+        spanId = 'X_COMMENT_ID';
+        if (localSpanList) {
+          spanId = localSpanList + ',X_COMMENT_ID';
+        }
+
+        if (isStrikeThroughPresent) {
+          formattedEditorHtml = getTargetHtmlText.replace(/<span(?![^>]*\sid=)/gi, `<span id="${spanId}"`);
+          // formattedEditorHtml = getTargetHtmlText.replace(regex, "<span id='" + spanId + "'");
+          let before = beforeSelection() || "";
+          let after = afterSelection() || "";
+          formattedgEditorHtmlText = '<p>' + before.replace(/^<p>/i, '').replace(/<\/p>$/i, '') + formattedEditorHtml + after.replace(/^<p>/i, '').replace(/<\/p>$/i, '') + '</p>';
+        }
+        else {
+          formattedEditorHtml = getTargetHtmlText.replace("<span", `<span id="${spanId}"`);
+          formattedgEditorHtmlText = getEditorHtmlText.replace(getTargetHtmlText, formattedEditorHtml);
+        }
+      }
+
+
+      if (targetHtml)
+        return "<p>" + formattedEditorHtml + "</p>";
+
+      return formattedgEditorHtmlText
+    }
+    else {
+      return "";
+    }
+  }
+
+  const updateAddNewComment = (value) => {
+    setAddNewComment(value);
+  }
+
+  const setReadOnlyPlugin = () =>
+    new Plugin({
+      key: new PluginKey("readonly"),
+      props: {
+        editable: () => false,
+
+      },
+    });
+
+  const retryMeasurePopup = (selector: string, attempts = 6, delay = 60): Promise<HTMLElement | null> => {
+    return new Promise((resolve) => {
+      let tries = 0;
+      const tick = () => {
+        tries++;
+        const el = document.querySelector(selector);
+        if (el && el instanceof HTMLElement) {
+          resolve(el);
+          return;
+        }
+        if (tries >= attempts) {
+          resolve(null);
+          return;
+        }
+        setTimeout(tick, delay);
+      };
+      tick();
+    });
+  };
+
+  const selectionToolsPlugin = () =>
+    new Plugin({
+      key: new PluginKey("selection-tools"),
+      view: () => ({
+        update: (newView, _prevState) => {
+          const state = newView.state;
+          const selection = state.selection;
+          //check if the selection has changed
+
+          const figSelectedFlag =
+            selection instanceof NodeSelection &&
+            selection.node?.type?.name === 'image';
+
+          if (figSelectedFlag) {
+            setNodeSelectionFlag(true);
+          } else {
+            setNodeSelectionFlag(false);
+          }
+
+          if (selection.from !== _prevState.selection.from || selection.to !== _prevState.selection.to) {
+            let newState = { view: newView, showTools: false, position: { top: 0, left: 0 } };
+            const selectionCollapsed = state.selection.empty;
+            const popupHeightEstimate = 40;
+            const popupMargin = 8;
+            const { from, to } = state.selection;
+            const start = newView.coordsAtPos(from);
+            const end = newView.coordsAtPos(to);
+            const selTop = Math.min(start.top, end.top);
+            const selBottom = Math.max(start.bottom || end.bottom, end.bottom || start.bottom);
+            const centerClientX = Math.max((start.left + (end.left || start.left)) / 2, start.left);
+            const clientLeftForPopup = centerClientX - 70;
+            const pageLeft = clientLeftForPopup + window.scrollX;
+            const pageSelTop = selTop + window.scrollY;
+            const pageSelBottom = selBottom + window.scrollY;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const minMargin = 8;
+            const maxLeft = window.scrollX + viewportWidth - minMargin;
+            const maxTop = window.scrollY + viewportHeight - minMargin;
+            const minLeft = window.scrollX + minMargin;
+            const minTop = window.scrollY + minMargin;
+            const spaceAbove = pageSelTop - minTop;
+            const spaceBelow = maxTop - pageSelBottom;
+            let measuredPopupHeight = popupHeightEstimate;
+            let popupEl: HTMLElement | null = (document.querySelector('.comment-popover') as HTMLElement | null);
+            if (popupEl && popupEl.offsetHeight) {
+              measuredPopupHeight = popupEl.offsetHeight;
+            }
+            const computeTop = (measured: number) => {
+              if (spaceAbove >= spaceBelow) {
+                return pageSelTop - measured - popupMargin;
+              } else {
+                return pageSelBottom + popupHeightEstimate - minMargin + 20;
+              }
+            };
+            let finalTop = computeTop(measuredPopupHeight);
+            const finalLeft = Math.min(Math.max(pageLeft, minLeft), maxLeft);
+            newState.showTools = !selectionCollapsed;
+            newState.position = { top: finalTop, left: finalLeft };
+            setPosition(newState.position);
+            setView(newState.view);
+            setState(newState);
+            if (!popupEl) {
+              retryMeasurePopup('.comment-popover', 6, 60).then((mountedEl) => {
+                const el = mountedEl
+                  || (document.querySelector('.comment-popover') as HTMLElement | null);
+                if (el && el instanceof HTMLElement) {
+                  const h = el.offsetHeight || popupHeightEstimate;
+                  const recomputedTop = computeTop(h);
+                  const recomputedLeft = Math.min(Math.max(pageLeft, minLeft), maxLeft);
+                  const newStateAfterMount = { view: newView, showTools: !selectionCollapsed, position: { top: recomputedTop, left: recomputedLeft } };
+                  setPosition(newStateAfterMount.position);
+                  setView(newStateAfterMount.view);
+                  setState(newStateAfterMount);
+                  try {
+                    if (recomputedTop < pageSelTop) el.setAttribute('data-placement', 'above');
+                    else el.setAttribute('data-placement', 'below');
+                  } catch (e) { }
+                }
+              }).catch(() => {
+              });
+            } else {
+              try {
+                if (finalTop < pageSelTop) popupEl.setAttribute('data-placement', 'above');
+                else popupEl.setAttribute('data-placement', 'below');
+              } catch (e) { }
+            }
+
+            // Changes to Show Content Comment 
+            const { doc } = newView.state;
+            let selectionHtml = '';
+            let selectionText = '';
+            const node = doc.cut(selection.from, selection.to + 1);
+            selectionHtml = EditorUtils.getHtml({
+              doc: node,
+              schema: node.type.schema,
+            });
+            selectionText = node.textContent;
+            // To show Comment details in Popover
+            if (selectionText && selectionText.length == 1 && selectionHtml.indexOf('id=') > -1) {
+              const parser = new DOMParser();
+              const doc: any = parser.parseFromString(selectionHtml, 'text/html');
+              const element = doc.getElementsByTagName('span');
+              if (element && element.length > 0) {
+                let spanId = element[0].getAttribute('id');
+                const spanIdArray = spanId ? spanId.split(',') : [];
+                const filteredComments = currentTabComments?.filter(comment => spanIdArray.includes(comment.CommentId.toString())) || [];
+                setOpenContentCommentPopup(true);
+                setContentCommentData(filteredComments);
+              }
+            } else if (selectionHtml.indexOf('tagid=') > -1) { // To show Tag details in Popover
+              let parser = new DOMParser();
+              let tagHtmlDetail: any = parser.parseFromString(selectionHtml, 'text/html');
+              let elementDetail = tagHtmlDetail.getElementsByTagName('span');
+
+              if (elementDetail && elementDetail.length > 0) {
+                // Fix -- Read all Span element and collect tagids
+                let spanIds = '';
+                let selectedTableCode = '';
+
+                for (let index = 0; index < elementDetail.length; index++) {
+                  const element = elementDetail[index];
+
+                  if (element.hasAttribute('tagid')) {
+                    spanIds += element.getAttribute('tagid');
+                    selectedTableCode = element.getAttribute("name");
+                  }
+                }
+                // spanIds = elementDetail[0].getAttribute('tagid');
+                const spanIdArray: number[] = spanIds ? spanIds.split(',').map(Number) : [];
+
+                if (selectedTableCode) {
+                  const matched = reportLevelTagList?.find(item => item.TableCode === selectedTableCode);
+                  const matchedDetails = (matched && matched.BoeingRefDetailList) ?? [];
+                  const filteredSelectedTagList = matchedDetails.filter(item => spanIdArray.includes(item.BoeingRefId));
+                  setMentionData(filteredSelectedTagList);
+                  setOpenMentionPopup(true);
+                  setOpenAddAcronymPopup(false);
+                }
+              }
+            }
+            else {
+              setOpenContentCommentPopup(false);
+              setOpenMentionPopup(false);
+              setContentCommentData([]);
+            }
+          }
+        },
+      }),
+    });
+
+  const isEditorDisabled = () => {
+    let currentUserBemsId = AuthorizationService.getUserBemsId();
+    const isUserDataExist = headerData?.PendingWithBemsId?.filter(item => {
+      return item == currentUserBemsId;
+    });
+
+    if (isUserDataExist && isUserDataExist.length > 0 && headerData?.RELEASE_DATE == null)
+      return false;
+
+    return true;
+  }
+
+  const onEditorMount = (event: EditorMountEvent) => {
+    // Set Editor to disable color
+    // if (isEditorDisabled()) {
+    //   let editorElement = event.target["_element"].getElementsByClassName('k-editor-content');
+    //   editorElement[0].style.backgroundColor = "#f9f9f9";
+    // }
+
+    // set focus to kendo editor in case of paragraph
+    if (item?.isFocusRequired == 'Y' && (item?.IsParagraph == 'Y' || item?.IsTable == 'Y') && item?.IsError !== true && !uploadImagePopup) {
+      let editorElement = event.target["_element"].getElementsByClassName('k-editor-content');
+      setTimeout(() => {
+        event.target.focus();
+        editorElement[0].style.border = "2px solid #1976d2";
+        setTimeout(() => {
+          editorElement[0].style.border = "1px solid rgba(0, 0, 0, 0.08)";
+        }, 10000);
+      });
+    }
+
+
+    const state = event.viewProps.state;
+    const { viewProps } = event;
+    var { plugins, schema } = viewProps.state;
+    const marks = schema.spec.marks;
+    // const nodes = schema.spec.nodes;
+
+    plugins = [...state.plugins, selectionToolsPlugin(), insertImagePlugin(onImageInsert)];
+
+    // Append a new node.
+    let nodes = schema.spec.nodes.addToEnd('nonEditable', nonEditable).addToEnd('math', mathNodeSpec);
+
+    // Create the new schema.
+    const mySchema = new Schema({
+      nodes: nodes,
+      marks: schema.spec.marks,
+    });
+    // NOTE: ----> Placeholder is set in App.scss file
+    // const editorDocument = event.dom.ownerDocument;
+    // const styleElement = editorDocument && editorDocument.querySelector('style');
+    // if (styleElement) {
+    //   //styleElement.appendChild(editorDocument.createTextNode(kendoEditorPlaceholderStyles));
+    // }
+
+    // Set readonly Editor
+    if (isEditorDisabled()) {
+      plugins = [
+        ...plugins,
+        setReadOnlyPlugin(),
+        KendoEditorPlaceholder('Empty content.')
+      ];
+    } else {
+      plugins = [...plugins, KendoEditorPlaceholder('Click here to add...')];
+    }
+
+    // const mySchema = new Schema({
+    //   nodes: addTagNodes(addMentionNodes(nodes)),
+    //   marks
+    // });
+
+    const doc = EditorUtils.createDocument(mySchema, content);
+
+    if (headerData?.WorkFlowStep == ReportStepId.CREATE_STEP) {
+      // Register Table Resize in case of Create/ Edit report mode
+      plugins = [...tableResizing(), ...plugins];
+      //plugins = [...tableResizing(), imageResizing(), ...plugins]; // NOTE: FOR THIS NEED TO UPDATED EDITOR PACKAGE TO 10.0.0
+
+      // Register Mentions in case of Create/ Edit report mode
+      let extraPlugin: any = plugins;
+      extraPlugin.unshift(mentionPlugin);
+      plugins = extraPlugin;
+    }
+
+    let view: any;
+    view = new EditorView({ mount: event.dom }, { ...viewProps, state: EditorState.create({ doc, plugins }) });
+    return view;
+  };
+
+  const handleCloseAcronymPopup = () => {
+    setOpenAddAcronymPopup(false);
+  }
+
+  const handleCloseRevisionPopup = () => {
+    setOpenAddRevisionPopup(false);
+  };
+
+  const CustomAcronymButton = () => {
+    const handleClick = () => {
+      setShowPrompt(false);
+      onToggle("success", "acronym");
+    };
+    return (
+      <>
+        {((headerData?.AuthorBemsId == parseInt(userBemsId)) && headerData?.WorkFlowStep == ReportStepId.CREATE_STEP) ?
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onPointerDown={(e) => e.preventDefault()}
+            disabled={!state.showTools || item?.ContentId < 0 || headerData?.EditEnabledFlag == "N" || openMentionPopup || nodeSelectionFlag}
+            onClick={handleClick} className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" > Add To Acronym</button >
+          : ''}
+      </>
+    )
+  };
+
+  const CustomRevisionButton = () => {
+    return (
+      <button
+        onMouseDown={(e) => e.preventDefault()}
+        onPointerDown={(e) => e.preventDefault()}
+        onClick={() => onToggle("success", "revision")}
+        className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" >Add To Revision</button >
+    )
+  };
+
+  const CustomAddCommentButton = () => {
+    setCompGridDetails(CompGridDetails);
+     const handleClick = () => {
+      setShowPrompt(false);
+      onToggle("success", "comment");
+    };
+    return (
+      <>
+        {((headerData?.AuthorBemsId == parseInt(userBemsId)) ?
+          <button disabled={item?.ContentId < 0 || nodeSelectionFlag} title='Add Comment' style={{ color: "rgba(0, 0, 0, 0.54)", height: "30px", width: "30px" }} onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.preventDefault()} onClick={handleClick}
+            className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" >
+            <SpeakerNotesOutlinedIcon />
+          </button> :
+          <button title='Add Comment' style={{ color: "rgba(0, 0, 0, 0.54)", height: "30px", width: "30px" }} onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.preventDefault()} onClick={handleClick}
+            disabled={!state.showTools || item?.ContentId < 0} className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base">
+            <SpeakerNotesOutlinedIcon />
+          </button>)
+        }
+      </>
+    )
+  };
+
+  const handleCloseMentionPopup = (gridValue: string, selectedDocNumIds: string, isDataInserted: boolean, tableCode: string, tagColor: string) => {
+    if (isDataInserted) { //check if data inserted or not
+      const { view } = textAreaRef.current.state;
+      const schema = view.state.schema;
+
+      // get the new node from the schema
+      const nodeType = schema.nodes.nonEditable;
+      // create a new node with the selected text
+      const node = nodeType.createAndFill(
+        { name: `${tableCode}`, tagcolor: `${tagColor}`, tagid: `${selectedDocNumIds}` },
+        schema.text(gridValue),
+      );
+      // Insert the new node
+      EditorUtils.insertNode(view, node);
+      view.focus();
+    };
+    setOpenAddMentionPopup(false);
+  };
+
+
+  const handleOpenMentionPopup = () => {
+    // let isTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'IsTabDirty');
+    // if (isTabDirty) {
+    //   userDefinedConfirm({ message: `There are unsaved changes in current session. Please save the data before inserting tag.`, editorUnSavedDataCheck: true, okBtnText: "Yes", cancelBtnText: "Ok"  }).then(
+    //     ({ button, input }) => {
+    //       setOpenAddMentionPopup(true);
+    //     },
+    //     () => {
+    //       return;
+    //     }
+    //   );
+    // } else {
+    //   setOpenAddMentionPopup(true);
+    // }
+    setOpenAddMentionPopup(true);
+  }
+
+  const CustomMentionButton = () => {
+    return (
+      <>
+        {((headerData?.AuthorBemsId == parseInt(userBemsId)) && headerData?.WorkFlowStep == ReportStepId.CREATE_STEP) ?
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onPointerDown={(e) => e.preventDefault()}
+            // disabled={!state.showTools}
+            // onClick={() => onToggle("success", "mention")}
+            onClick={handleOpenMentionPopup}
+            className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" >Insert Tag</button > : ''
+        }
+      </>
+    )
+  };
+
+  const getInitialScreenDimensions = () => {
+    return {
+      maxWidth: window.innerWidth * 0.85,
+      minWidth: window.innerWidth * 0.45,
+    };
+  };
+
+  const getDynamicScreenBasedOnWindowSize = () => {
+    return {
+      maxWidth: window.innerWidth * 0.85,
+      minWidth: window.innerWidth * 0.45,
+    };
+  };
+
+  const [dynamicScreenSize, setDynamicScreenSize] = useState(getInitialScreenDimensions());
+
+  useEffect(() => {
+    const handleResize = () => {
+      setDynamicScreenSize(getDynamicScreenBasedOnWindowSize());
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleOnFocus = (event: EditorFocusEvent) => {
+    event.target["_element"].getElementsByClassName('k-editor-toolbar')[0].style.display = 'block';
+    event.target["_element"].getElementsByClassName('k-editor-toolbar')[0].style.zIndex = 1;
+    // Set Editor border color on Focus
+    event.target["_element"].style.border = '1px solid rgba(0, 0, 0, 0.23)';
+
+    // Set border in case of Placeholder textbox
+    // let editorElement = event.target["_element"].getElementsByClassName('k-editor-content');
+    // editorElement[0].style.border = "1px solid rgba(0, 0, 0, 0.08)";
+  }
+
+  const handleOnBlur = (event: EditorBlurEvent) => {
+    event.target["_element"].getElementsByClassName('k-editor-toolbar')[0].style.display = 'none';
+    // Remvoe Editor border color on Blur
+    event.target["_element"].style.border = 'none';
+
+    // Remove border in case of Placeholder textbox
+    let editorElement = event.target["_element"].getElementsByClassName('k-editor-content');
+    editorElement[0].style.border = "none";
+
+    // Hide all opened Mentions
+    let mentionElementList: any = document.querySelectorAll('[class*="suggestion-item-container"]') || [];
+
+    for (let index = 0; index < mentionElementList.length; index++) {
+      const element = mentionElementList[index];
+      setTimeout(() => {
+        element.style.display = 'none';
+      }, 1000);
+    }
+  }
+
+  const handleCloseContentCommentPopup = () => {
+    setOpenContentCommentPopup(false);
+    setContentCommentData([]);
+  };
+
+  const handleCloseMentionOnPopup = () => {
+    setOpenMentionPopup(false);
+  }
+
+  const handleCheckbox = (each, status, commentData, RptId, isEditing) => {
+    const CommentStatus = status === '1' ? '0' : '1';
+    let tempStatus = status == '0' ? 'resolved' : 'reopened';
+    if (CommentStatus === '0') {
+      setCommentStatus("0");
+    }
+    else {
+      setCommentStatus("1");
+    };
+    CommentHistoryPopupService.UpdateCommentTypeStatus(each, 0, commentData.ContentID, !isEditing ? CommentStatus : commentStatus).then((response) => {
+      CommentHistoryPopupService.getContentCommentData(commentData.ContentID, RptId, commentData.TabRowId || 0).then((response) => {
+        refreshAllEditor();
+      });
+    })
+      .catch((error) => {
+        console.error('Error updating comment status:', error);
+      });
+    dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: `Comment ${tempStatus} successfully.` }));
+  };
+
+  // Document mousedown listener to detect clicks inside prompt (prevents immediate close)
+  useEffect(() => {
+    const onDocMouseDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(".k-inline-ai") ||
+        target?.closest(".k-inline-ai-prompt") ||
+        target?.closest(".k-popup")
+      ) {
+        clickedInsideRef.current = true;
+        return;
+      }
+      const editorDom = textAreaRef.current?.view?.dom;
+      if (editorDom && editorDom.contains(target)) {
+        return;
+      }
+      setShowPrompt(false);
+      setSelectedText("");
+      setOutputs([]);
+      setAnchorEl(undefined);
+    };
+
+    document.addEventListener('mousedown', onDocMouseDown, true);
+    return () => document.removeEventListener('mousedown', onDocMouseDown, true);
+  }, []);
+
+  // Attach native listeners once editor view is available; detect selection changes
+  useEffect(() => {
+    let mounted = true;
+    const tryAttach = () => {
+      if (!mounted) return;
+      const ed = textAreaRef.current;
+      if (ed && ed.view && ed.view.dom) {
+        const dom = ed.view.dom as HTMLElement;
+
+        const onSelect = () => {
+          const { text, from, to } = readSelection();
+          if (text && text.trim().length > 0) {
+            setSelectedText(text);
+            setSelectionRange({ start: from, end: to });
+            const el = UpdateAnchor(from);
+            setAnchorEl(el || undefined);
+            // <-- add this line to expose anchor to wrapper fallback
+            (window as any).__kendoAnchorForInlineAI = el || undefined;
+            setShowPrompt(true);
+          } else {
+            window.setTimeout(() => {
+              if (!clickedInsideRef.current) {
+                setShowPrompt(false);
+                setSelectedText('');
+                setOutputs([]);
+                setAnchorEl(undefined);
+                // clear global fallback anchor
+                (window as any).__kendoAnchorForInlineAI = undefined;
+              } else {
+                clickedInsideRef.current = false;
+              }
+            }, 50);
+          }
+        };
+
+        dom.addEventListener('mouseup', onSelect);
+        dom.addEventListener('keyup', onSelect);
+
+        return () => {
+          dom.removeEventListener('mouseup', onSelect);
+          dom.removeEventListener('keyup', onSelect);
+        };
+      }
+      setTimeout(tryAttach, 200);
+    };
+
+    const cleanupListener = tryAttach();
+    return () => {
+      mounted = false;
+      if (typeof cleanupListener === 'function') cleanupListener();
+    };
+  }, [readSelection, UpdateAnchor]);
+  useEffect(() => {
+    return () => {
+      Cleanup();
+    };
+  }, [Cleanup]);
+  const renderSymbolTool = (): JSX.Element => {
+    return <SymbolTool textAreaRef={textAreaRef} />;
+  };
+  const renderEquationTool = (): JSX.Element => {
+    return <EquationTool textAreaRef={textAreaRef} />;
+  };
+
+  const [promptRoot, setPromptRoot] = useState<HTMLElement | undefined>(() => {
+    return (document.querySelector('.k-prompt-content') as HTMLElement | null) ?? document.body;
+  });
+
+
+  // 1) Mark the commands button when user interacts (run inside your component)
+  useEffect(() => {
+    const selectorForThreeLineButton = '.k-button.k-icon-button .k-svg-i-menu, .k-button.k-icon-button[title="Commands Button"], .k-button.k-icon-button[aria-label="Commands Button"]';
+    // selector to match the exact element for your three-line icon.
+
+    const onBtnPointerDown = (ev: PointerEvent | MouseEvent) => {
+      const target = ev.target as HTMLElement | null;
+      if (!target) return;
+      // find the nearest button (the markup may have inner svg/span)
+      const btn = target.closest && (target.closest('button, .k-button') as HTMLElement | null);
+      if (!btn) return;
+      // quick test to ensure it's the commands icon/button (tweak as needed)
+      if (btn.matches && (btn.matches(selectorForThreeLineButton) || btn.title === 'Commands Button' || btn.getAttribute('aria-label') === 'Commands Button')) {
+        // set a short-lived global flag (or use ref)
+        (window as any).__lastClickedKendoCommandsButton = Date.now();
+        // keep the flag for a short period (e.g., 1s) then clear
+        setTimeout(() => { (window as any).__lastClickedKendoCommandsButton = undefined; }, 1000);
+      }
+    };
+
+    document.addEventListener('pointerdown', onBtnPointerDown, true);
+    document.addEventListener('mousedown', onBtnPointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', onBtnPointerDown, true);
+      document.removeEventListener('mousedown', onBtnPointerDown, true);
+    };
+  }, []);
+
+  return (
+    <>
+      <Editor
+        defaultEditMode="div"
+        // resizable={true}
+        style={{
+          // height: IsNonDynamicTab ? 200 : 140,
+          maxWidth: dynamicScreenSize.maxWidth,
+          minWidth: IsNonDynamicTab ? "200px" : dynamicScreenSize.minWidth,
+          borderRadius: "4px",
+          border: "none",
+          // border: IsError ? "1px solid #d32f2f" : "none",
+          ...constraints,
+          // ...resize
+        }}
+        // ref={editorRef}
+        ref={textAreaRef}
+        // tools={[...toolsEditor[tools], [CustomAcronymButton]]}
+        tools={
+          headerData?.WorkFlowStep !== ReportStepId.CREATE_STEP || (headerData?.WorkFlowStep == ReportStepId.CREATE_STEP && item && item.IsFigure === 'Y') ?
+            (((item && item.IsParagraph === 'Y') || (item && item.IsTable === 'Y') || (item && item.IsFigure === 'Y') || IsNonDynamicTab) ? [[customBlankTool], [CustomStrikethrough], headerData?.CommentEnabledFlag == "Y" ? [CustomAddCommentButton] : [customBlankTool]] : [[customBlankTool]]) :
+            (headerData?.PARENT_RPT_ID == null || headerData?.PARENT_RPT_ID == 0 ?
+              [...toolsEditor[tools], [Strikethrough], headerData?.CommentEnabledFlag == "Y" ?
+                [CustomAddCommentButton] : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [InsertImage], [renderSymbolTool], [renderEquationTool]]
+              : [...toolsEditor[tools], [Strikethrough], headerData?.CommentEnabledFlag == "Y" ? [CustomAddCommentButton]
+                : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [CustomRevisionButton], [InsertImage], [renderSymbolTool], [renderEquationTool]])}
+
+        contentStyle={{ minHeight: CompGridDetails ? '100px' : 'auto' }}
+        defaultContent={content}
+        onChange={(event: EditorChangeEvent) => { onEditorChange && onEditorChange(event as EditorChangeEvent, item as any, contentKey as string), setValue(event.html) }}
+        onMount={onEditorMount}
+        onFocus={(event: EditorFocusEvent) => handleOnFocus(event as EditorFocusEvent)}
+        onBlur={(event: EditorBlurEvent) => handleOnBlur(event as EditorBlurEvent)}
+      />
+      {openAddAcronymPopup && <AddAcronymPopup isOpen={openAddAcronymPopup} reportId={reportId} selectedText={selectedText} handleCloseAcronymPopup={handleCloseAcronymPopup} />}
+      {openContentCommentPopup && <ContentCommentPopup handleCheckbox={handleCheckbox} RptId={reportId} headerData={headerData} handleOpenCommentHistoryPopup={handleOpenCommentHistoryPopup} openContentCommentPopup={openContentCommentPopup} handleCloseContentCommentPopup={handleCloseContentCommentPopup} contentCommentData={contentCommentData} position={position} />}
+      {openCommentHistoryPopup && <CommentHistoryPopup isControlLevelComment={false} tabName={tabName} controlName={controlName} selectedTabRowId={selectedTabRowId} selectedRowId={selectedRowId} editFileCount={editFileCount} IsNonDynamicTab={IsNonDynamicTab} IsBadgeIconClick={IsBadgeIconClick} addNewComment={addNewComment} updateAddNewComment={updateAddNewComment} CompGridDetails={getCompGridDetails} contentID={contentID} openHistoryPopup={openHistoryPopup} handleCloseHistoryPopup={handleCloseHistoryPopup} RptId={reportId} item={item} TabSectionId={item?.TabSectionId} headerData={headerData} getFormatedHtmlData={GetUpdatedHtmlWithCommentId(true)} getFormatedEditorHtml={GetUpdatedHtmlWithCommentId(false)}
+        showEditModeForCommentID={showEditModeForCommentID} comment={comment} commetType={commetType} SectionSerialNumber={SectionSerialNumber} seletedTargetText={seletedTargetText} addCommentAsAuthor={addCommentAsAuthor} currentContentID={currentContentID} openCommentHistoryPopup={openCommentHistoryPopup} handleCloseCommentHistoryPopup={handleCloseCommentHistoryPopup} currentTabComments={currentTabComments} showReplyCommentId={showReplyCommentId} />}
+      {openAddRevisionPopup && <AddRevisionPopup openRevisionPopup={openAddRevisionPopup} reportId={reportId} selectedText={selectedText} handleCloseRevisionPopup={handleCloseRevisionPopup} tabId={tabIndex} TabSectionId={item?.TabSectionId} ContentID={item?.ContentId} secIndex={SectionSerialNumber} item={item} sectionTitle={sectionTitle} tableCode={tableCode} />}
+      {openAddMentionPopup && <AddMentionPopup openMentionPopup={openAddMentionPopup} handleCloseMentionPopup={handleCloseMentionPopup} />}
+      {openMentionPopup && <MentionPopup RptId={reportId} headerData={headerData} openMentionOnPopup={openMentionPopup} handleCloseMentionOnPopup={handleCloseMentionOnPopup} position={position} mentionData={getMentionData} />}
+      {ShowPrompt && (
+        <InlineAIPromptWrapper
+          width={544}
+          streaming={Streaming}
+          enableSpeechToText={true}
+          outputs={Outputs}
+          anchor={AnchorEl}
+          commands={Commands}
+          onCommandExecute={onCommandExecute}
+          onPromptRequest={onPromptRequest}
+          onPromptCancel={onPromptCancel}
+          outputActions={outputActions}
+          onOutputAction={onOutputAction}
+          onDiscard={(o) => setOutputs((prev) => prev.filter((x) => x.id !== o.id))}
+          show={ShowPrompt}
+          promptRoot={promptRoot}
+        />
+      )}
+    </>
+  );
+}
+export default KendoEditor;
+
