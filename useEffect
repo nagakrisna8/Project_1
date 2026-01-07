@@ -1,35 +1,39 @@
 useEffect(() => {
   if (!promptRoot) return;
 
-  // VERY specific selector – ONLY Inline AI 3-dot button
-  const commandButtonSelector =
-    '.k-inlineai button[aria-label="Commands"], .k-inlineai button[title="Commands"], .k-inlineai .k-more-actions';
+  const buttonSelector =
+    'button[title="Commands Button"], button[aria-label="Commands Button"], .k-button.k-icon-button';
 
   const handler = (ev: PointerEvent | MouseEvent) => {
     const target = ev.target as HTMLElement | null;
     if (!target) return;
 
-    const btn = target.closest(commandButtonSelector) as HTMLElement | null;
+    const btn = target.closest?.(buttonSelector) as HTMLElement | null;
     if (!btn) return;
 
-    // Safety: only inside prompt
-    if (!promptRoot.contains(btn)) return;
+    if (
+      !promptRoot.contains(btn) &&
+      !btn.closest('.k-prompt-content') &&
+      !btn.closest('.k-inlineai')
+    ) {
+      return;
+    }
 
+    // Save scroll position
     const sx = window.scrollX || window.pageXOffset || 0;
     const sy = window.scrollY || window.pageYOffset || 0;
 
-    // IMPORTANT: prevent default only for this button
-    ev.preventDefault();
-    ev.stopPropagation();
+    // ⚠️ DO NOT preventDefault – this breaks focus
+    // ⚠️ DO NOT stopPropagation – Kendo needs it
 
-    // Let Kendo receive click
+    // Only restore scroll after Kendo does its thing
+    requestAnimationFrame(() => {
+      window.scrollTo(sx, sy);
+    });
+
     setTimeout(() => {
-      btn.click();
-    }, 0);
-
-    // Restore scroll
-    requestAnimationFrame(() => window.scrollTo(sx, sy));
-    setTimeout(() => window.scrollTo(sx, sy), 50);
+      window.scrollTo(sx, sy);
+    }, 50);
   };
 
   document.addEventListener('pointerdown', handler, true);
