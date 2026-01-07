@@ -1,39 +1,61 @@
 useEffect(() => {
   if (!promptRoot) return;
 
-  const buttonSelector =
-    'button[title="Commands Button"], button[aria-label="Commands Button"], .k-button.k-icon-button';
+  // ONLY the Inline AI commands button
+  const commandButtonSelector =
+    'button[title="Commands Button"], button[aria-label="Commands Button"]';
+
+  // Things we must NEVER interfere with
+  const editorToolbarSelector =
+    '.k-editor-toolbar, .k-toolbar, .k-dropdownlist, .k-combobox, .k-list-container';
 
   const handler = (ev: PointerEvent | MouseEvent) => {
-    const target = ev.target as HTMLElement | null;
-    if (!target) return;
+    try {
+      const target = ev.target as HTMLElement | null;
+      if (!target) return;
 
-    const btn = target.closest?.(buttonSelector) as HTMLElement | null;
-    if (!btn) return;
+      // 🚫 If click is from editor toolbar or dropdowns → DO NOTHING
+      if (target.closest(editorToolbarSelector)) {
+        return;
+      }
 
-    if (
-      !promptRoot.contains(btn) &&
-      !btn.closest('.k-prompt-content') &&
-      !btn.closest('.k-inlineai')
-    ) {
-      return;
+      // ✅ Only act if it is the Inline AI Commands button
+      const btn = target.closest(commandButtonSelector) as HTMLElement | null;
+      if (!btn) return;
+
+      // Safety: only inside prompt
+      if (
+        !promptRoot.contains(btn) &&
+        !btn.closest('.k-prompt-content') &&
+        !btn.closest('.k-inlineai')
+      ) {
+        return;
+      }
+
+      const sx = window.scrollX || window.pageXOffset || 0;
+      const sy = window.scrollY || window.pageYOffset || 0;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      // Let Kendo receive a clean click
+      setTimeout(() => {
+        btn.dispatchEvent(
+          new MouseEvent('click', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+          })
+        );
+      }, 0);
+
+      // Restore scroll
+      setTimeout(() => window.scrollTo(sx, sy), 0);
+      setTimeout(() => window.scrollTo(sx, sy), 50);
+      setTimeout(() => window.scrollTo(sx, sy), 150);
+    } catch {
+      // ignore
     }
-
-    // Save scroll position
-    const sx = window.scrollX || window.pageXOffset || 0;
-    const sy = window.scrollY || window.pageYOffset || 0;
-
-    // ⚠️ DO NOT preventDefault – this breaks focus
-    // ⚠️ DO NOT stopPropagation – Kendo needs it
-
-    // Only restore scroll after Kendo does its thing
-    requestAnimationFrame(() => {
-      window.scrollTo(sx, sy);
-    });
-
-    setTimeout(() => {
-      window.scrollTo(sx, sy);
-    }, 50);
   };
 
   document.addEventListener('pointerdown', handler, true);
