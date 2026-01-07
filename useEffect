@@ -1,3 +1,16 @@
  const isColumnActive = (field, dataState) => {
         return GridColumnMenuFilter.active(field, dataState.filter) || GridColumnMenuSort.active(field, dataState.sort);
     };
+
+const isColumnActive = (field: string, dataState: any) => {
+  const hasFilter =
+    dataState.filter?.filters?.some((f: any) =>
+      f.filters
+        ? f.filters.some((inner: any) => inner.field === field)
+        : f.field === field
+    );
+
+  const hasSort = dataState.sort?.some((s: any) => s.field === field);
+
+  return !!hasFilter || !!hasSort;
+};
