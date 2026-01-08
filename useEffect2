@@ -1,192 +1,44 @@
-// Replace your useSelectionAnchor hook with this improved version
+useEffect(() => {
+  const repositionPopup = () => {
+    const popup = document.querySelector('.k-animation-container .k-popup') as HTMLElement | null;
+    const anchor = inlinePromptRef.current;
 
-function useSelectionAnchor(editorRef: React.RefObject<any>) {
-  const anchorRef = React.useRef<HTMLDivElement | null>(null);
+    if (!popup || !anchor) return;
 
-  const ensureAnchor = React.useCallback(() => {
-    if (!anchorRef.current) {
-      const el = document.createElement('div');
-      el.style.position = 'absolute';
-      el.style.width = '1px';
-      el.style.height = '1px';
-      el.style.pointerEvents = 'none';
-      el.style.zIndex = '2147483647';
-      // Add these styles to ensure stability
-      el.style.willChange = 'transform';
-      el.style.transform = 'translateZ(0)';
-      document.body.appendChild(el);
-      anchorRef.current = el;
-    }
-    return anchorRef.current;
-  }, []);
+    const rect = anchor.getBoundingClientRect();
 
-  const updateAnchorToSelection = React.useCallback(
-    (pos: number) => {
-      const ed = editorRef.current;
-      const anchorEl = ensureAnchor();
-      if (!ed || !ed.view || !anchorEl) return anchorEl;
+    popup.style.position = 'fixed';
+    popup.style.top = `${rect.bottom + 6}px`;
+    popup.style.left = `${rect.left}px`;
+    popup.style.transform = 'none';
+    popup.style.zIndex = '10000';
+  };
 
-      try {
-        const coords = ed.view.coordsAtPos(pos);
-        const x = coords.left;
-        const y = coords.bottom + window.scrollY + 6;
-        
-        // Use transform instead of top/left for better performance and stability
-        anchorEl.style.transform = `translate(${x}px, ${y}px)`;
-        anchorEl.style.display = 'block';
-        
-        // Store coordinates as data attributes for debugging
-        anchorEl.setAttribute('data-x', x.toString());
-        anchorEl.setAttribute('data-y', y.toString());
-      } catch {
-        anchorEl.style.display = 'none';
-      }
-      return anchorEl;
-    },
-    [editorRef, ensureAnchor]
-  );
+  document.addEventListener('click', repositionPopup, true);
+  window.addEventListener('scroll', repositionPopup, true);
+  window.addEventListener('resize', repositionPopup);
 
-  const cleanup = React.useCallback(() => {
-    if (anchorRef.current) {
-      try {
-        document.body.removeChild(anchorRef.current);
-      } catch { }
-      anchorRef.current = null;
-    }
-  }, []);
-
-  return { updateAnchorToSelection, cleanup, anchorRef };
-}
-
-// ============================================
-// Alternative approach: Update the selection detection
-// ============================================
-
-// Replace your useEffect that attaches native listeners with this:
+  return () => {
+    document.removeEventListener('click', repositionPopup, true);
+    window.removeEventListener('scroll', repositionPopup, true);
+    window.removeEventListener('resize', repositionPopup);
+  };
+}, []);
 
 useEffect(() => {
-  let mounted = true;
-  const tryAttach = () => {
-    if (!mounted) return;
-    const ed = textAreaRef.current;
-    if (ed && ed.view && ed.view.dom) {
-      const dom = ed.view.dom as HTMLElement;
+  const stopFocusJump = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
 
-      const onSelect = () => {
-        const { text, from, to } = readSelection();
-        if (text && text.trim().length > 0) {
-          setSelectedText(text);
-          setSelectionRange({ start: from, end: to });
-          
-          // Update anchor position
-          const el = UpdateAnchor(from);
-          
-          // Force a slight delay to ensure DOM is stable
-          requestAnimationFrame(() => {
-            if (el) {
-              setAnchorEl(el);
-              setShowPrompt(true);
-            }
-          });
-        } else {
-          window.setTimeout(() => {
-            if (!clickedInsideRef.current) {
-              setShowPrompt(false);
-              setSelectedText('');
-              setOutputs([]);
-              setAnchorEl(undefined);
-            } else {
-              clickedInsideRef.current = false;
-            }
-          }, 50);
-        }
-      };
-
-      dom.addEventListener('mouseup', onSelect);
-      dom.addEventListener('keyup', onSelect);
-
-      return () => {
-        dom.removeEventListener('mouseup', onSelect);
-        dom.removeEventListener('keyup', onSelect);
-      };
-    }
-    setTimeout(tryAttach, 200);
-  };
-
-  const cleanupListener = tryAttach();
-  return () => {
-    mounted = false;
-    if (typeof cleanupListener === 'function') cleanupListener();
-  };
-}, [readSelection, UpdateAnchor]);
-
-// ============================================
-// CRITICAL FIX: Update InlineAIPrompt rendering
-// ============================================
-
-// Replace your InlineAIPrompt component render with this:
-
-{ShowPrompt && AnchorEl && (
-  <InlineAIPrompt
-    width={544}
-    streaming={Streaming}
-    enableSpeechToText={true}
-    outputs={Outputs}
-    anchor={AnchorEl}  // Make sure we're passing the stable anchor
-    commands={Commands}
-    onCommandExecute={onCommandExecute}
-    onPromptRequest={onPromptRequest}
-    onPromptCancel={onPromptCancel}
-    outputActions={outputActions}
-    onOutputAction={onOutputAction}
-    onDiscard={(o) => setOutputs((prev) => prev.filter((x) => x.id !== o.id))}
-    show={ShowPrompt}
-    // Add these props if available in your Kendo version
-    popupSettings={{
-      appendTo: document.body,
-      collision: {
-        horizontal: 'fit',
-        vertical: 'flip'
-      }
-    }}
-  />
-)}
-
-// ============================================
-// CSS Fix: Add this to your component styles or global CSS
-// ============================================
-
-const inlineAIStyles = `
-  .k-inline-ai-prompt {
-    position: fixed !important;
-    z-index: 10001 !important;
-  }
-  
-  .k-popup.k-inline-ai-commands {
-    position: fixed !important;
-    z-index: 10002 !important;
-  }
-  
-  /* Ensure popup stays with prompt */
-  .k-inline-ai-prompt .k-popup {
-    position: absolute !important;
-  }
-`;
-
-// Add this style element when component mounts
-useEffect(() => {
-  const styleId = 'inline-ai-custom-styles';
-  if (!document.getElementById(styleId)) {
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.textContent = inlineAIStyles;
-    document.head.appendChild(style);
-  }
-  
-  return () => {
-    const style = document.getElementById(styleId);
-    if (style) {
-      style.remove();
+    if (
+      target.closest('.k-inlineai') ||
+      target.closest('.k-popup') ||
+      target.closest('.k-animation-container')
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
     }
   };
+
+  document.addEventListener('mousedown', stopFocusJump, true);
+  return () => document.removeEventListener('mousedown', stopFocusJump, true);
 }, []);
