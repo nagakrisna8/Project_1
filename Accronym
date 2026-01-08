@@ -1,0 +1,856 @@
+import React, { useCallback, useImperativeHandle, useEffect, useRef, useState } from "react";
+import { Grid, GridColumn as Column, GridToolbar, GridItemChangeEvent, GridCellProps, GridRowProps, GridSelectionChangeEvent, getSelectedState, GridHeaderSelectionChangeEvent, GridColumnMenuSort, GridColumnMenuFilter, operators, isColumnMenuFilterActive, isColumnMenuSortActive } from '@progress/kendo-react-grid';
+import acronymsTabService from './AcronymsTabService';
+import { useParams } from "react-router-dom";
+import { AcronymsDetails, CSRHeaderData, OperationType, AcronymsRecordDetail, CommentDataAcronyms, ControlCommentCount, ScreenNameEnum, ControlsDtls, RevisionListDetails, ReportStepId } from "../../../../../model/Model";
+import { getter } from "@progress/kendo-react-common";
+import { Container, Card, Button, Typography, IconButton } from "@mui/material";
+import { useDispatch } from "react-redux";
+import { showSnackbar } from "../../../../core/snackbar/CustomSnackBarSlice";
+import './AcronymsTab.scss';
+import { userDefinedConfirm } from "../../../../../utils/ConfirmDialog";
+import CSRDetailsBaseService from "../CSRDetailsBaseService";
+import CommonFunction from "../../../../../utils/CommonFunction";
+import StorageService from '../../../../../utils/StorageService';
+import EnvDetail from "../../../../../utils/EnvDetail";
+import { TextBox } from "@progress/kendo-react-inputs";
+//for commentpopup
+import SpeakerNotesOutlinedIcon from '@mui/icons-material/SpeakerNotesOutlined';
+import Badge from '@mui/material/Badge';
+import PubSubEvent from "../../../../../utils/PubSubEvent";
+import PubSub from "../../../../../utils/PubSub";
+import RevisionRecordService from '../revision-record/RevisionRecordService';
+import CommentHistoryPopup from "../dynamic-tabs/comment-history-popup/CommentHistoryPopup";
+import AcronymsTabService from "./AcronymsTabService";
+import AuthorizationService from "../../../../core/services/AuthorizationService";
+import AddRevisionPopupService from "../dynamic-tabs/add-revision-popup/AddRevisionPopupService";
+import AddRevisionPopup from "../dynamic-tabs/add-revision-popup/AddRevisionPopup";
+import UserToken from "../../../../../utils/UserToken";
+const AnyColumn = Column as any;
+const AnyGrid = Grid as any;
+const ColumnMenu = props => {
+    return <div>
+        <GridColumnMenuSort {...props} />
+        <GridColumnMenuFilter {...props} expanded={true} />
+    </div>;
+};
+const SELECTED_FIELD = 'isSelected';
+const DATA_ITEM_KEY: string = "AcronymId";
+const idGetter = getter(DATA_ITEM_KEY);
+
+const customAcronymInputText = (props) => {
+    const { dataItem, field, onChange } = props;
+    const [value, setValue] = useState(dataItem[field]);
+    const handlecustomTextInputChange = (event) => {
+        const newValue = event.target.value;
+        setValue(newValue);
+        onChange({
+            dataItem,
+            field,
+            syntheticEvent: event,
+            value: newValue
+        });
+    };
+
+
+    return (
+        <td style={{ verticalAlign: "top" }}>
+            <TextBox maxLength={100} value={value} style={{ borderRadius: "4px", border: "1px solid rgba(0, 0, 0, 0.23)", height: "32px", margin: "3px 0px" }} onChange={handlecustomTextInputChange} title={value} />
+        </td>
+    );
+};
+
+const customFullPhaseInputText = (props) => {
+    const { dataItem, field, onChange } = props;
+    const [value, setValue] = useState(dataItem[field]);
+
+    const handlecustomTextInputChange = (event) => {
+        const newValue = event.target.value;
+        setValue(newValue);
+        onChange({
+            dataItem,
+            field,
+            syntheticEvent: event,
+            value: newValue
+        });
+    };
+
+    return (
+        <td style={{ verticalAlign: "top" }}>
+            <TextBox maxLength={300} value={value} style={{ borderRadius: "4px", border: "1px solid rgba(0, 0, 0, 0.23)", height: "32px", margin: "3px 0px" }} onChange={handlecustomTextInputChange} title={value} />
+        </td>
+    );
+};
+
+const customDisabledInputText = (props) => {
+    const { dataItem, field } = props;
+    const [value, setValue] = useState(dataItem[field]);
+    return (
+        <td title={value} style={{ verticalAlign: "top" }}>
+            <TextBox readOnly={true} value={value} style={{ borderRadius: "4px", border: "1px solid rgba(0, 0, 0, 0.23)", height: "32px", backgroundColor: "#F9F9F9", margin: "3px 0px" }} title={value} />
+        </td>
+    );
+};
+
+const AcronymsTab = React.forwardRef<any, any>((props, ref) => {
+    const userToken = new UserToken();
+    const userBemsId = userToken.getUserBemsId()
+    var storageService = new StorageService();
+    const dispatch = useDispatch();
+    const { reportId, tabIndex } = useParams();
+    const [acronymData, setAcronymData] = useState<Array<AcronymsDetails>>([]);
+    const [dataState, setDataState] = useState<Array<AcronymsDetails>>([]);
+    const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
+    const [selectedState, setSelectedState] = useState<{
+        [id: string]: boolean | number[];
+    }>({});
+    const [isHeaderSelected, setIsHeaderSelected] = useState(false);
+    const [selectedAcronymIds, setSelectedAcronymIds] = useState<string[]>([]);
+    const [gridWidth, setGridWidth] = useState<any>();
+    const [screenPercentage, setScreenPercentage] = useState(0);
+    const [defaultWindowWidth, setDefaultWindowWidth] = useState(
+        window.innerWidth
+    );
+    const [gridHeight, setGridHeight] = useState<any>(window.innerHeight);
+    const [gridRowHeight, setGridRowHeight] = useState(30);
+    const [windowHeight, setWindowHeight] = useState(window.innerHeight);
+    const gridRef = useRef<any>(null);
+    const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+    const [isTabDirty, setIsTabDirty] = useState<boolean>(false);
+    const [isButtonDelDisabled, setisButtonDelDisabled] = useState(true);
+    const [csrData, setcsrData] = useState<CSRHeaderData[]>([]);
+    const [contentID, setContentID] = useState(0);
+    const [controlCommentCount, setControlCommentCount] = useState<ControlCommentCount[]>([]);
+    const [currentTabComments, setCurrentTabComments] = useState<any[]>([]);
+    const [addNewComment, setAddNewComment] = useState<boolean>(false);
+    const [isControlLevelComment, setIsControlLevelComment] = useState<boolean>(false);
+    const [controlName, setControlName] = useState<any>("");
+    const commonFunction = new CommonFunction();
+    //for comment popup
+    var acronymsRecordDetail: AcronymsRecordDetail = {
+        Release: "",
+        DescOfChange: "",
+        RptId: parseInt(reportId?.toString() || "0"),
+        TabId: parseInt(tabIndex?.toString() || "0")
+    };
+    const [revAnchorEl, setRevAnchorEl] = React.useState(null);
+    const open = Boolean(revAnchorEl);
+    const [acronymsRecordCommentCount, setAcronymsRecordCommentCount] = useState(0);
+    const [acronymsRecordColor, setAcronymsRecordColor] = useState(0);
+    const [CommentDataAcronyms, setCommentDataAcronyms] = React.useState<CommentDataAcronyms>();
+    const [commentResolved, setCommentResolved] = useState({ resolvedComments: [], targetId: 0, totalSectionComment: '' });
+    const [isAddCommentPopupOpen, setIsAddCommentPopupOpen] = React.useState<boolean>(false);
+    const [TabId, setTabId] = useState(0);
+    const [RptId, setRptId] = useState(0);
+    const [DOCFlag, setDOCFlag] = useState(0);
+    const [editReqCommentPresent, setEditReqCommentPresent] = useState(false);
+    // const [isShellLevDirty, setIsShellLevDirty] = useState<string>('no');
+    //Setting MaxHeight of the WorkApp Grid as per Shell App
+    const [shellClientHeight, setShellClientHeight] = useState(
+        document?.getElementById("shell-main-section")?.clientHeight
+    );
+    const [shellHeaderSectionHeight, setShellHeaderSectionHeight] = useState(
+        document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
+    );
+    const [shellOssMenubreadcrumsHeight, setShellOssMenubreadcrumsHeight] =
+        useState(
+            document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
+        );
+    const [shellOssHeaderMenuSectionHeight, setShellOssHeaderMenuSectionHeight] =
+        useState(document?.getElementById("oss-header-menu-setion")?.clientHeight);
+    const [shellWorkAppContainerMaxHeight, setShellWorkAppContainerMaxHeight] =
+        useState(0);
+    const [shellFooterHeight, setShellFooterHeight] = useState(document?.getElementsByTagName('footer')[0]?.clientHeight);
+    const columnProps = field => {
+        return {
+            field: field,
+            columnMenu: ColumnMenu,
+            headerClassName: isColumnActive(field, dataState) ? 'active' : ''
+        };
+    };
+    const isColumnActive = (field, dataState) => {
+        return isColumnMenuFilterActive(field, dataState.filter) || isColumnMenuSortActive(field, dataState.sort);
+    };
+    const [isOpenAddRevisionPopup, setIsOpenAddRevisionPopup] = React.useState<boolean>(false);
+    const [selectedText, setSelectedText] = React.useState<string>('');
+
+    useEffect(() => {
+        fetchData();
+        fetchComments();
+    }, []);
+
+    const fetchComments = async () => {
+        let controlDtlForComments = {
+            ControlId: contentID,
+            RptId: parseInt(reportId || "0"),
+            RowId: 0,
+            ScreenName: ScreenNameEnum.ACRONYM,
+            FieldName: ""
+        } as ControlsDtls;
+        const allEditorCommentDtlResult = await AcronymsTabService.GetControlCommentsData(controlDtlForComments, true);
+        setCurrentTabComments(allEditorCommentDtlResult.data);
+        if (allEditorCommentDtlResult.data && allEditorCommentDtlResult.data.length > 0) {
+            const newContentID = allEditorCommentDtlResult.data[0].ContentID;
+            controlDtlForComments.ControlId = newContentID;
+            setContentID(newContentID);
+        }
+        const commentCountResult = await AcronymsTabService.GetControlCommentCount(controlDtlForComments);
+        if (commentCountResult.data) {
+            setControlCommentCount(commentCountResult.data);
+        };
+        // Highlight Tab text in case of Edit Required comment
+        highlightTabColor(allEditorCommentDtlResult)
+    }
+
+    useEffect(() => {
+        let storageService = new StorageService();
+        const selectedDisciplined = storageService.getSelectedDiscipline();
+        CSRDetailsBaseService.getCSRHeaderData(reportId, selectedDisciplined).then((response) => {
+            setcsrData(response.data);
+        })
+    }, []);
+
+    useEffect(() => {
+        const filteredSelectedState = Object.fromEntries(Object.entries(selectedState).filter(([key, value]) => value))
+        setSelectedAcronymIds(Object.keys(filteredSelectedState))
+    }, [selectedState]);
+
+    useEffect(() => {
+        if (gridRef?.current) {
+            const headerCells = gridRef.current.element.querySelectorAll('.k-header');
+            let calculatedFixedColumnWidth = 0;
+            let dynamicWidth = 0;
+            headerCells.forEach((cell, index) => {
+                if (gridRef.current.columns[index].width != undefined) {
+                    if (gridRef.current.columns[index].width.toString().indexOf('px') > -1) {
+                        calculatedFixedColumnWidth = calculatedFixedColumnWidth + parseInt(gridRef.current.columns[index].width)
+                    }
+                    else {
+                        dynamicWidth = dynamicWidth + gridRef.current.columns[index].width;
+                    }
+                };
+                const columnHeader = gridRef.current.columns[index].title;
+                cell.title = columnHeader;
+            });
+            setCalculatedDynamicColWidth(dynamicWidth);
+            setTotalColumnFixedWidth(calculatedFixedColumnWidth)
+        }
+    }, [gridRef, dataState]);
+
+    const highlightTabColor = (allEditorCommentDtlResult) => {
+        // Publish to update color in case of unresolve comment
+        let dataToShare = {
+            Action: 'UpdateColorData',
+            Detail: {
+                TotalUnresolvedCommentCount: 0,
+                tabId: tabIndex
+            }
+        };
+        if (allEditorCommentDtlResult && allEditorCommentDtlResult.data && allEditorCommentDtlResult.data.length > 0) {
+            const unResolvedComments = allEditorCommentDtlResult.data.filter(comment => comment.CommentStatus == 0);
+            const totalUnResolvedCmts = unResolvedComments.length;
+            dataToShare.Detail.TotalUnresolvedCommentCount = totalUnResolvedCmts;
+        }
+        PubSub.publish(PubSubEvent.UPDATE_TAB_COLOR, dataToShare);
+    }
+
+    const newAcronym: AcronymsDetails = {
+        AcronymId: -1,
+        RPTId: parseInt(reportId || "0"),
+        Acronym: "",
+        FullPhrase: "",
+        inEdit: true,
+        isSelected: false,
+        RecStatus: OperationType.ADD
+    }
+
+    const getSelectedAcronyms = (): AcronymsDetails[] => {
+        // console.log(acronymData.filter((item) => selectedState[idGetter(item)]));
+        return acronymData.filter((item) => selectedState[idGetter(item)]);
+    }
+
+    const onSelectionChange = React.useCallback(
+        (event: GridSelectionChangeEvent) => {
+            let newSelectedState: {
+                [id: string]: boolean | number[];
+            } = {};
+            newSelectedState = getSelectedState({
+                event,
+                selectedState: selectedState,
+                dataItemKey: DATA_ITEM_KEY,
+            });
+            setSelectedState(newSelectedState);
+            if (Object.values(newSelectedState).every(value => value === true) &&
+                !Object.values(newSelectedState).some(value => value === false) && (event.dataItems.length == Object.values(newSelectedState).length)) {
+                setIsHeaderSelected(true);
+            }
+            else {
+                setIsHeaderSelected(false);
+            }
+            if (Object.values(newSelectedState).length > 0 && Object.values(newSelectedState).some(function (value) { return value === true; })) {
+                setisButtonDelDisabled(false);
+            }
+            else {
+                setisButtonDelDisabled(true);
+            }
+        },
+        [selectedState]
+    );
+
+    const onHeaderSelectionChange = React.useCallback(
+        (event: GridHeaderSelectionChangeEvent) => {
+            const checkboxElement: any = event.syntheticEvent.target;
+            const checked = checkboxElement.checked;
+            const newSelectedState: { [key: string]: boolean } = {};
+            if (event.dataItems.length > 0) {
+                event.dataItems.forEach((item) => {
+                    newSelectedState[idGetter(item)] = checked;
+                });
+                if (Object.values(newSelectedState).every(value => value === true) &&
+                    !Object.values(newSelectedState).some(value => value === false)) {
+                    setIsHeaderSelected(true);
+                    setisButtonDelDisabled(false);
+                }
+                else {
+                    setIsHeaderSelected(false);
+                    setisButtonDelDisabled(true);
+                }
+            }
+            else {
+                setIsHeaderSelected(false);
+            }
+            setSelectedState(newSelectedState);
+        },
+        [selectedState]
+    );
+
+    const isTabSectionDirty = async () => {
+        return isTabDirty;
+    }
+
+    const isFirstLoadDataEmpty = async () => {
+        return false;
+    }
+
+    // function for approval button at top right corner
+    const saveApprovalData = async () => {
+        console.log('Acronym Tab');
+    }
+
+    useImperativeHandle(ref, () => ({ isTabSectionDirty, saveTabDetails, isFirstLoadDataEmpty, saveApprovalData }));
+
+    const getRandomNegativeNumber = (): number => {
+        return -(Math.floor(1000 + Math.random() * 9000));
+    }
+
+
+    const onAcronymChange = (e: GridItemChangeEvent) => {
+        let newData = acronymData.map((item: AcronymsDetails) => {
+            if (item.AcronymId === e.dataItem.AcronymId) {
+                item[e.field || ''] = e.value;
+                // Update the Record Status
+                item.AcronymId < 0 ? item.RecStatus = OperationType.ADD : item.RecStatus = OperationType.UPDATE;
+            }
+
+            return item;
+        })
+        setAcronymData(newData);
+        setDataState(newData);
+        setIsTabDirty(true);
+    };
+    const saveTabDetails = async () => {
+        const selectedItems = getSelectedAcronyms();
+        // Check If FullPhrase is empty
+        let emptyResultArray = acronymData.filter(item => {
+            return !item.FullPhrase
+        });
+
+        if (emptyResultArray && emptyResultArray.length > 0) {
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Full Phase is required." }));
+            return;
+        }
+
+        acronymsTabService.saveAcronymsDetails(acronymData).then((response) => {
+            setAcronymData(acronymData);
+            fetchData();
+            setIsTabDirty(false);
+            setisButtonDelDisabled(true);
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: "Acronym(s) is Saved successfully." }));
+            if (csrData[0]?.REVISION && csrData[0]?.PARENT_RPT_ID != null && csrData[0]?.PARENT_RPT_ID > 0) {
+                let tempRevisionDataList: RevisionListDetails[] = [];
+                acronymData.filter(item => item.RecStatus === OperationType.ADD)
+                    .forEach(item => {
+                        tempRevisionDataList.push({
+                            ReportId: Number(reportId ?? 0),
+                            Description: item.Acronym,
+                            OperationType: OperationType.ADD,
+                            CreatedBy: 0,
+                            TabId: Number(tabIndex ?? 0),
+                            TabTitle: "Acronyms",
+                            AuthorComment: item.Acronym,
+                            TabSectionId: props.TabSectionId,
+                            ContentId: props.ContentID,
+                            SecIndexValue: props.secIndex,
+                            ContIndexValue: "",
+                            ModifiedBy: 0,
+                            TabSectionName: ScreenNameEnum.ACRONYM,
+                            ContentTitleName: "",
+                            ActualTabTitle: "",
+                        });
+                    });
+                if (tempRevisionDataList.length > 0) {
+                    AddRevisionPopupService.InsertContentLogDetails(tempRevisionDataList)
+                        .then((res) => { })
+                        .catch((error) => { });
+                }
+            }
+        });
+    }
+    const fetchData = () => {
+        acronymsTabService.getAcronymsByRptId(parseInt(reportId || "0")).then(response => {
+            setIsTabDirty(false);
+            let acronymResult = response.data;
+            acronymResult.map((item) => {
+                item["inEdit"] = true;
+            });
+            setAcronymData(acronymResult);
+            setDataState(acronymResult);
+            setSelectedState({});
+            setIsHeaderSelected(false);
+            setIsTabDirty(false);
+        });
+
+        //for comment popup
+        RevisionRecordService.getTabListByRptId(reportId, tabIndex).then(response => {
+            let result = response.data;
+            acronymsRecordDetail = result;
+            setAcronymsRecordCommentCount(result.RevCommentNumber);
+            setAcronymsRecordColor(result.RevCommentResolveStatus);
+
+        });
+    }
+
+    const deleteSelectedAcronym = () => {
+        const selectedItems = getSelectedAcronyms();
+
+        if (selectedItems && selectedItems.length > 0) {
+            userDefinedConfirm({ message: 'Are you sure you want to delete this?', okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
+                ({ button, input }) => {
+                    var acronymsIds = selectedItems.map(item => item.AcronymId).join(',');
+                    var acronymsIdsList = acronymsIds.trim().split(',');
+                    const newData = acronymData.filter((item) =>
+                        !selectedState[idGetter(item)]);
+
+                    acronymsTabService.deleteAcronymsDetails(acronymsIdsList).then((response) => {
+                        setAcronymData(newData);
+                        fetchData();
+                        setSelectedState({});
+                        setisButtonDelDisabled(true);
+                        //If revision then need to add in Description of chnge                  
+                        if (csrData[0]?.REVISION && csrData[0]?.PARENT_RPT_ID != null && csrData[0]?.PARENT_RPT_ID > 0) {
+                            let tempRevisionDataList: RevisionListDetails[] = [];
+                            selectedItems.forEach(item => {
+                                tempRevisionDataList.push({
+                                    ReportId: Number(reportId ?? 0),
+                                    Description: item.Acronym,
+                                    OperationType: OperationType.DELETE,
+                                    CreatedBy: 0,
+                                    TabId: Number(tabIndex ?? 0),
+                                    TabTitle: "Acronyms",
+                                    AuthorComment: item.Acronym,
+                                    TabSectionId: props.TabSectionId,
+                                    ContentId: props.ContentID,
+                                    SecIndexValue: props.secIndex,
+                                    ContIndexValue: "",
+                                    ModifiedBy: 0,
+                                    TabSectionName: ScreenNameEnum.ACRONYM,
+                                    ContentTitleName: "",
+                                    ActualTabTitle: "",
+                                });
+                            });
+                            if (tempRevisionDataList.length > 0) {
+                                AddRevisionPopupService.InsertContentLogDetails(tempRevisionDataList)
+                                    .then((res) => { })
+                                    .catch((error) => { });
+                            }
+                        }
+                        dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: "Acronym(s) is deleted successfully." }));
+                    });
+                },
+                () => {
+                    return;
+                }
+            );
+        } else {
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "info", snackbarMessage: "Please select Acronym(s)" }));
+        }
+    };
+
+    const addNewAcronym = () => {
+        newAcronym.AcronymId = getRandomNegativeNumber();
+        setAcronymData([newAcronym, ...acronymData]);
+        setDataState([newAcronym, ...acronymData]);
+        setIsTabDirty(true);
+
+    };
+
+    useEffect(() => {
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, isTabDirty);
+    }, [isTabDirty]);
+
+    useEffect(() => {
+        if (document?.getElementById('shell-main-section') != undefined) {
+            setShellHeaderSectionHeight(document?.getElementsByClassName('shell-header-setion')[0]?.clientHeight)
+            setShellOssMenubreadcrumsHeight(document?.getElementsByClassName('oss-menu-breadcrums')[0]?.clientHeight)
+            setShellOssHeaderMenuSectionHeight(document?.getElementById('oss-header-menu-setion')?.clientHeight)
+            setShellFooterHeight(document?.getElementsByTagName('footer')[0]?.clientHeight)
+        }
+    })
+    useEffect(() => {
+        setShellWorkAppContainerMaxHeight(
+            shellClientHeight != undefined &&
+                shellOssHeaderMenuSectionHeight != undefined
+                ? shellClientHeight -
+                (shellHeaderSectionHeight +
+                    shellOssMenubreadcrumsHeight +
+                    shellOssHeaderMenuSectionHeight + shellFooterHeight) + 40
+
+                : 0
+        );
+    }, [
+        shellClientHeight,
+        shellHeaderSectionHeight,
+        shellOssMenubreadcrumsHeight,
+        shellOssHeaderMenuSectionHeight,
+        shellFooterHeight
+    ]);
+    useEffect(() => {
+        setShellClientHeight(
+            document?.getElementById("shell-main-section")?.clientHeight
+        );
+        setShellHeaderSectionHeight(
+            document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
+        );
+        setShellOssMenubreadcrumsHeight(
+            document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
+        );
+        setShellOssHeaderMenuSectionHeight(
+            document?.getElementById("oss-header-menu-setion")?.clientHeight
+        );
+        setShellFooterHeight(document?.getElementsByTagName('footer')[0]?.clientHeight)
+        setGridWidth(window.innerWidth);
+    }, [screenPercentage]);
+    // Function to update the screen percentage
+    const handleScreenResize = () => {
+        const percentage = calculateScreenPercentage(); // Your function to calculate screen percentage
+        setScreenPercentage(percentage);
+    };
+    const calculateScreenPercentage = () => {
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        const totalPixels = screenWidth * screenHeight;
+        // Assuming a reference screen size of 1920x1080 for 100% screen size
+        const referenceWidth = 1920;
+        const referenceHeight = 1080;
+        const referencePixels = referenceWidth * referenceHeight;
+        const percentage = (totalPixels / referencePixels) * 100;
+        return screenWidth == defaultWindowWidth ? 0 : percentage;
+    };
+    // Attach event listener for screen resize
+    useEffect(() => {
+        window.addEventListener("resize", handleScreenResize);
+        return () => {
+            window.removeEventListener("resize", handleScreenResize);
+        };
+    }, []); // Empty dependency array ensures this effect runs only once after initial render
+
+    useEffect(() => {
+        let numRows = dataState?.length;
+        setGridHeight(isNaN(numRows) ? 0 : numRows * gridRowHeight);
+    }, [dataState]); //Calculate the total height as per the number of entries
+
+
+    //For dynamic width of column
+    const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
+        let k_grid_width = document.querySelector("#kgrid-oss-csr-acronyms")?.clientWidth;
+        let fixedWidth = totalColumnFixedWidth;
+        let dynamicWidth = 0;
+        let minScreenWidth = 1356;
+        let maxScreenWidth;
+        if (k_grid_width) {
+            if (k_grid_width <= minScreenWidth) {
+                return minWidth;
+            }
+            else {
+                dynamicWidth = k_grid_width - fixedWidth;
+                if (width == 0 && dynamicWidth > 0 && percentage > 0) {
+                    const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
+                    return Math.max(minWidth, dynamicColumnWidth);
+                }
+                else {
+                    return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
+                }
+            }
+        }
+    }
+
+    const updateAddNewComment = (value) => {
+        setAddNewComment(value);
+    };
+
+    const isCurrentUserAuthor = () => {
+        if (csrData && csrData.length > 0 && csrData[0].EditEnabledFlag === "Y")
+            return true;
+        else
+            return false;
+    }
+
+    //for comment popup
+
+    const isPendingWithUser = () => {
+        let currentUserBemsId = AuthorizationService.getUserBemsId();
+        const isUserDataExist = csrData[0]?.PendingWithBemsId?.filter(item => {
+            return item == currentUserBemsId;
+        });
+        if (isUserDataExist && isUserDataExist.length > 0 && csrData[0]?.RELEASE_DATE == null)
+            return true;
+        return false;
+    };
+
+    const handleOpenCommentPopup = (DOCFlag: number, controlName: string, userType: number) => {
+        let tempData: CommentDataAcronyms = {
+            TargetDOCFlag: DOCFlag,
+            TargetUsertypeID: userType || 0,
+        }
+        setCommentDataAcronyms(tempData);
+        if (isPendingWithUser())
+            setAddNewComment(true);
+        setControlName(controlName);
+        setIsControlLevelComment(true);
+        setIsAddCommentPopupOpen(true);
+        setTabId(TabId);
+        setRptId(RptId);
+        setDOCFlag(DOCFlag);
+    }
+    const handleCloseCommentPopup = (isPopupDirty) => {
+        setAddNewComment(false);
+        setIsControlLevelComment(false);
+        setIsAddCommentPopupOpen(false);
+        if (isPopupDirty) {
+            let totalUnResolvedcomment = 0;
+            if (acronymsRecordColor > 0) {
+                totalUnResolvedcomment = 1;
+            } else {
+                totalUnResolvedcomment = 0
+            };
+            RevisionRecordService.checkIsEditRequiredCommentPresent(Number(reportId)).then((response) => {
+                if (response) {
+                    setEditReqCommentPresent(response.data);
+                }
+            });
+            // Publish to update color in case of unresolve comment
+            let dataToShare = {
+                Action: 'UpdateColorData',
+                Detail: {
+                    TotalUnresolvedCommentCount: totalUnResolvedcomment,
+                    tabId: tabIndex
+                }
+            };
+            PubSub.publish(PubSubEvent.UPDATE_TAB_COLOR, dataToShare);
+            fetchComments();
+        }
+    }
+    const handleChildComponentData = (childData, targetId, totalCommentCount) => {
+        setCommentResolved({ resolvedComments: childData, targetId: targetId, totalSectionComment: totalCommentCount })
+    }
+    const updateTotalCommentCount = (id, resolvedCount, totalCount) => {
+        if (id === 0) {
+            setAcronymsRecordCommentCount(totalCount);
+            setAcronymsRecordColor(resolvedCount);
+        }
+    }
+
+    const getCommentCount = (controlName) => {
+        const commentCount = controlCommentCount.filter(item => item.ControlName === controlName);
+        return commentCount.length > 0 ? commentCount[0].CommentCnt : 0;
+    }
+
+    const handleCommentStatus = (controlName) => {
+        const comments = currentTabComments.filter(comment => comment.ColumnName === controlName);
+        const commentStatus = comments?.some(comment => comment.CommentStatus === "0") ? "error" : "success";
+        return commentStatus;
+    }
+
+    const onToggle = () => {
+        setIsOpenAddRevisionPopup(true)
+    }
+
+    const handleCloseRevisionPopup = () => {
+        setIsOpenAddRevisionPopup(false);
+    };
+
+    const handleAddRevBtn = () => {
+        if (csrData && csrData[0]?.AuthorBemsId == userBemsId && csrData[0]?.PARENT_RPT_ID != null && csrData[0]?.PARENT_RPT_ID > 0 && csrData[0]?.WorkFlowStep == ReportStepId.CREATE_STEP) {
+            return true;
+        } else {
+            return false;
+        };
+    };
+
+    const card = (
+        <div style={{ height: (gridHeight >= window.innerHeight || shellWorkAppContainerMaxHeight != 0) ? '100%' : '', width: '100%' }}>
+            <AnyGrid
+                id="kgrid-oss-csr-acronyms"
+                ref={gridRef}
+                resizable={true}
+                data={dataState.map((item) => ({
+                    ...item,
+                    [SELECTED_FIELD]: selectedState[idGetter(item)],
+                }))}
+                style={{
+                    // height:
+                    //     gridHeight >= window.innerHeight ||
+                    //         shellWorkAppContainerMaxHeight != 0
+                    //         ? "100%"
+                    //         : "",
+                    minHeight:
+                        shellWorkAppContainerMaxHeight != 0
+                            ? shellWorkAppContainerMaxHeight
+                            : `${window.innerHeight}px`,
+                    width: "100%",
+                }}
+                scrollable={"scrollable"}
+                rowHeight={gridRowHeight}
+                editField="inEdit"
+                dataItemKey={DATA_ITEM_KEY}
+                selectedField={SELECTED_FIELD}
+                selectable={{
+                    enabled: true,
+                    drag: false,
+                    cell: false,
+                    mode: "multiple",
+                }}
+                onSelectionChange={onSelectionChange}
+                onHeaderSelectionChange={onHeaderSelectionChange}
+                onItemChange={onAcronymChange}
+
+            >
+                <GridToolbar className="topbarmain-height-grid-acronyms grid-toolbar">
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <Button
+                            title="Add Acronym"
+                            className="csr-acronym-marginLeft10"
+                            variant={"outlined"}
+                            size={'small'} color={'inherit'}
+                            onClick={addNewAcronym}
+                            disabled={csrData[0]?.EditEnabledFlag == "N"}
+                        >
+                            <Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px', color: (isCurrentUserAuthor() && isPendingWithUser() ? '#253746' : '') }}>Add Acronym</Typography>
+
+                        </Button>
+
+                        {handleAddRevBtn() ?
+                            <Button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onPointerDown={(e) => e.preventDefault()}
+                                onClick={onToggle}
+                                title="Add To Revision"
+                                className="csr-acronym-marginLeft10"
+                                variant={"outlined"}
+                                size={'small'} color={'inherit'}>
+                                <Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px', color: '#253746' }}>Add To Revision</Typography>
+                            </Button> : ""}
+
+                        <Button
+                            disabled={isButtonDelDisabled || csrData[0]?.EditEnabledFlag == "N"}
+                            title="Delete Selected"
+                            className="csr-acronym-marginLeft10"
+                            variant={"outlined"}
+                            size={'small'} color={'inherit'} onClick={deleteSelectedAcronym}
+                        >
+                            <Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px', color: isButtonDelDisabled ? '' : '#253746' }}>Delete</Typography>
+                        </Button>
+                    </div>
+                    <span className="iconGroups revisionMain" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+                        <IconButton
+                            aria-label="more"
+                            aria-controls={open ? 'long-menu' : undefined}
+                            aria-expanded={open ? 'true' : undefined}
+                            aria-haspopup="true"
+                            className="rev-rec-svgIcons"
+                            style={{ gap: "4px" }}
+                        >
+                            <SpeakerNotesOutlinedIcon sx={{ marginTop: "5px" }} onClick={() => handleOpenCommentPopup(1, "Acronym", parseInt("0"))}></SpeakerNotesOutlinedIcon>
+                            <Badge style={{ top: "-13px", right: "8px", gap: "4px" }} badgeContent={getCommentCount("Acronym")} color={handleCommentStatus("Acronym")}
+                                anchorOrigin={{ vertical: 'top', horizontal: 'right' }} />
+                        </IconButton>
+                    </span>
+                </GridToolbar >
+                {(csrData[0]?.EditEnabledFlag == "Y") &&
+                    <Column
+                        title="Select/Deselect all rows"
+                        field={SELECTED_FIELD}
+                        width="50px"
+                        columnType="checkbox"
+                        headerSelectionValue={
+                            isHeaderSelected
+                        }
+                    //dataState.findIndex((item) => !selectedState[idGetter(item)]) === -1
+                    />
+                }
+                <AnyColumn
+                    field="Acronym"
+                    title="Acronym"
+                    width="200px"
+                    cells={{
+                        data: (props) =>
+                            isCurrentUserAuthor() && csrData[0]?.EditEnabledFlag === "Y"
+                                ? customAcronymInputText(props)
+                                : customDisabledInputText(props),
+                    }}
+                />
+
+                <AnyColumn
+                    field="FullPhrase"
+                    title="Full Phrase"
+                    cells={{
+                        data: (props) =>
+                            isCurrentUserAuthor() && csrData[0]?.EditEnabledFlag == "Y"
+                                ? customFullPhaseInputText(props)
+                                : customDisabledInputText(props),
+                    }}
+                /> </AnyGrid>
+        </div>
+    );
+    return (
+        <>
+            <Container
+                fixed
+                style={{ paddingLeft: '0px', paddingRight: '0px', height: '100%' }}
+            >
+                <Card
+                    style={{
+                        // height:
+                        //     shellWorkAppContainerMaxHeight != 0
+                        //         ? gridHeight >= shellWorkAppContainerMaxHeight
+                        //             ? "100%"
+                        //             : ""
+                        //         : gridHeight >= window.innerHeight
+                        //             ? "100%"
+                        //             : "",
+                        height: '100%',
+                        borderLeft: '5px solid rgb(227, 150, 78)',
+                        marginLeft: '0px'
+                    }}
+                >
+                    {card}
+                    {isAddCommentPopupOpen && <CommentHistoryPopup isControlLevelComment={isControlLevelComment} tabName={ScreenNameEnum.ACRONYM} selectedTabRowId={null} selectedRowId={null} editFileCount={null} IsNonDynamicTab={true} IsBadgeIconClick={true} addNewComment={addNewComment} updateAddNewComment={updateAddNewComment} CompGridDetails={null} contentID={contentID} openHistoryPopup={isAddCommentPopupOpen} handleCloseHistoryPopup={handleCloseCommentPopup}
+                        RptId={reportId} item={null} TabSectionId={null} headerData={csrData[0]} controlName={controlName} getFormatedHtmlData={null} getFormatedEditorHtml={null} showEditModeForCommentID={0} comment={null} commetType={null} SectionSerialNumber={""} seletedTargetText={null} addCommentAsAuthor={false} currentContentID={0} openCommentHistoryPopup={null} handleCloseCommentHistoryPopup={null} currentTabComments={currentTabComments} showReplyCommentId={0} />}
+                    {isOpenAddRevisionPopup && <AddRevisionPopup openRevisionPopup={isOpenAddRevisionPopup} reportId={reportId} selectedText={selectedText} tabId={tabIndex} handleCloseRevisionPopup={handleCloseRevisionPopup} />}
+                </Card>
+            </Container>
+        </>
+    );
+});
+
+export default AcronymsTab;
