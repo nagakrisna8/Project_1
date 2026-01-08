@@ -1,44 +1,49 @@
-useEffect(() => {
-  const repositionPopup = () => {
-    const popup = document.querySelector('.k-animation-container .k-popup') as HTMLElement | null;
-    const anchor = inlinePromptRef.current;
+const customAcronymInputText = (props) => {
+    const { dataItem, field, onChange } = props;
 
-    if (!popup || !anchor) return;
+    return (
+        <td>
+            <TextBox
+                value={dataItem[field] || ""}
+                onChange={(e) =>
+                    onChange({
+                        dataItem,
+                        field,
+                        syntheticEvent: e,
+                        value: e.target.value
+                    })
+                }
+            />
+        </td>
+    );
+};
 
-    const rect = anchor.getBoundingClientRect();
+const customFullPhaseInputText = (props) => {
+    const { dataItem, field, onChange } = props;
 
-    popup.style.position = 'fixed';
-    popup.style.top = `${rect.bottom + 6}px`;
-    popup.style.left = `${rect.left}px`;
-    popup.style.transform = 'none';
-    popup.style.zIndex = '10000';
-  };
+    return (
+        <td>
+            <TextBox
+                value={dataItem[field] || ""}
+                onChange={(e) =>
+                    onChange({
+                        dataItem,
+                        field,
+                        syntheticEvent: e,
+                        value: e.target.value
+                    })
+                }
+            />
+        </td>
+    );
+};
 
-  document.addEventListener('click', repositionPopup, true);
-  window.addEventListener('scroll', repositionPopup, true);
-  window.addEventListener('resize', repositionPopup);
+const customDisabledInputText = (props) => {
+    const { dataItem, field } = props;
 
-  return () => {
-    document.removeEventListener('click', repositionPopup, true);
-    window.removeEventListener('scroll', repositionPopup, true);
-    window.removeEventListener('resize', repositionPopup);
-  };
-}, []);
-
-useEffect(() => {
-  const stopFocusJump = (e: MouseEvent) => {
-    const target = e.target as HTMLElement;
-
-    if (
-      target.closest('.k-inlineai') ||
-      target.closest('.k-popup') ||
-      target.closest('.k-animation-container')
-    ) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
-
-  document.addEventListener('mousedown', stopFocusJump, true);
-  return () => document.removeEventListener('mousedown', stopFocusJump, true);
-}, []);
+    return (
+        <td>
+            <TextBox readOnly value={dataItem[field] || ""} />
+        </td>
+    );
+};
