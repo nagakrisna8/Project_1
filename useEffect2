@@ -1,468 +1,192 @@
-import { Button, Modal, Snackbar, Typography } from "@mui/material";
-import {
-  Grid, GridToolbar, GridColumnMenuSort, GridColumnMenuFilter,
-  GridDataStateChangeEvent,GridColumnMenuProps, isColumnMenuFilterActive,isColumnMenuSortActive
-} from "@progress/kendo-react-grid";
-import Box from '@mui/material/Box';
-import CloseIcon from '@mui/icons-material/Close';
-import './CommentAttachPopup.scss';
-import { useEffect, useState } from "react";
-import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
-import { styled } from '@mui/material/styles';
-import { useParams } from "react-router-dom";
-import { useDispatch } from "react-redux";
-import { Window } from '@progress/kendo-react-dialogs';
-import AttachFileIcon from '@mui/icons-material/AttachFile';
-import { GridColumn } from "@progress/kendo-react-grid";
-import commentAttachPopupService from "./CommentAttachPopupService";
-import { CommentsAttachment } from "../../../../../../../model/Model";
-import { getter } from "@progress/kendo-react-common";
-import DeleteSharpIcon from '@mui/icons-material/DeleteSharp';
-import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
-import { State, process } from "@progress/kendo-data-query";
-import { DatePicker } from "@progress/kendo-react-dateinputs";
-import MuiAlert from "@mui/material/Alert";
-import { showSnackbar } from "../../../../../../core/snackbar/CustomSnackBarSlice";
-import { userDefinedConfirm } from "../../../../../../../utils/ConfirmDialog";
-import UserToken from "../../../../../../../utils/UserToken";
-import { filterIcon } from "@progress/kendo-svg-icons";
+// Replace your useSelectionAnchor hook with this improved version
 
-const ColumnMenu = (props: GridColumnMenuProps) => {
-  return (<div>
-    <GridColumnMenuSort {...props} />
-    <GridColumnMenuFilter {...props} expanded={true} />
-  </div>);
-};
-const Item = styled(Paper)(({ theme }) => ({
-  ...theme.typography.body2,
-  padding: theme.spacing(1),
-  textAlign: 'center',
-  color: theme.palette.text.secondary,
-}));
+function useSelectionAnchor(editorRef: React.RefObject<any>) {
+  const anchorRef = React.useRef<HTMLDivElement | null>(null);
 
-const modalStyleComment = {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: 500,
-  bgcolor: 'background.paper',
-  boxShadow: 24,
-  borderRadius: '0.5rem',
-  outline: 'none',
-};
-
-const DATA_ITEM_KEY: string = "AttachmentID";
-const SELECTED_FIELD: string = "";
-const idGetter = getter(DATA_ITEM_KEY);
-
-const CommentAttachPopup = (props) => {
-  const [dataState, setDataState] = useState<State>({});
-  const [getData, setData] = useState<any>();
-  const [sectionFileName, setSectionFileName] = useState<CommentsAttachment[]>([]);
-  const [checkedFileDetails, setCheckedFileDetails] = useState<CommentsAttachment[]>([]);
-  const [selectedState, setSelectedState] = useState<{ [id: string]: boolean | number[] }>({});
-  const [deleteCheckedRecord, setdeleteCheckedRecord] = useState<any>([]);
-  const [attachmentCount, setAttachmentCount] = useState<number>();
-  const [selectAll, setSelectAll] = useState(false);
-  const dispatch = useDispatch();
-  let deleteCheckedRecords = '';
-  const [isDeleteBtnEnabled, setIsDeleteBtnEnabled] = useState(false);
-  const columnProps = field => {
-    return {
-      field: field,
-      columnMenu: ColumnMenu,
-      headerClassName: isColumnActive(field, dataState) ? 'active' : ''
-    };
-  };
-  const isColumnActive = (field, dataState) => {
-     return isColumnMenuFilterActive(field, dataState.filter) || isColumnMenuSortActive(field, dataState.sort);
-   };
-
-  const fetchData = () => {
-    commentAttachPopupService.getFileNameForCmdAttach(props.commentIdvalue, props.sectionId, props.contentId).then((res) => {
-      res.data.forEach(item => {
-        if (item.CreatedDateString) {
-          item.CreatedDateString = new Date(`${item.CreatedDateString}`);
-        }
-      });
-      setSectionFileName(res.data);
-      setData(process(res.data, dataState));
-      setAttachmentCount(res.data.length);
-    });
-  }
-  useEffect(() => {
-    fetchData();
+  const ensureAnchor = React.useCallback(() => {
+    if (!anchorRef.current) {
+      const el = document.createElement('div');
+      el.style.position = 'absolute';
+      el.style.width = '1px';
+      el.style.height = '1px';
+      el.style.pointerEvents = 'none';
+      el.style.zIndex = '2147483647';
+      // Add these styles to ensure stability
+      el.style.willChange = 'transform';
+      el.style.transform = 'translateZ(0)';
+      document.body.appendChild(el);
+      anchorRef.current = el;
+    }
+    return anchorRef.current;
   }, []);
 
-  useEffect(() => {
-    if (sectionFileName && sectionFileName.length > 0) {
-      setData(process(sectionFileName, dataState));
-    }
-  }, [sectionFileName, dataState]);
+  const updateAnchorToSelection = React.useCallback(
+    (pos: number) => {
+      const ed = editorRef.current;
+      const anchorEl = ensureAnchor();
+      if (!ed || !ed.view || !anchorEl) return anchorEl;
 
-  const handleSelectAllChange = (e) => {
-    let userToken = new UserToken();
-    let bemsId = userToken.getUserBemsId();
-    const newState = e.target.checked;
-    setSelectAll(newState);
-    const newSelectedState = {};
-    sectionFileName.forEach((item) => {
-      newSelectedState[idGetter(item)] = newState;
-    });
-    setSelectedState(newSelectedState);
-    if (newState) {
-      setCheckedFileDetails(sectionFileName);
-      setdeleteCheckedRecord(sectionFileName.map((item) => item.AttachmentID));
-    } else {
-      setCheckedFileDetails([]);
-      setdeleteCheckedRecord([]);
-    }
-    if (sectionFileName[0].CreatedBy == bemsId) {
-      setIsDeleteBtnEnabled(true);
-    }
-    else {
-      setIsDeleteBtnEnabled(false);
-    }
-  };
-
-  const handleCheckboxChange = (e, dataItem) => {
-    let userToken = new UserToken();
-    let bemsId = userToken.getUserBemsId();
-    const isChecked = e.target.checked;
-    const newSelectedState = { ...selectedState, [idGetter(dataItem)]: isChecked };
-    setSelectedState(newSelectedState);
-    if (isChecked) {
-      setCheckedFileDetails((prev) => [...prev, dataItem]);
-      setdeleteCheckedRecord((prev) => [...prev, dataItem.AttachmentID]);
-    } else {
-      setCheckedFileDetails((prev) =>
-        prev.filter((item) => item.FileName !== dataItem.FileName)
-      );
-      setdeleteCheckedRecord((prev) =>
-        prev.filter((id) => id !== dataItem.AttachmentID)
-      );
-    }
-    const allSelected = sectionFileName.every(
-      (item) => selectedState[idGetter(item)] === true
-    );
-    setSelectAll(allSelected);
-    if (dataItem.CreatedBy == bemsId) {
-      setIsDeleteBtnEnabled(true);
-    }
-    else {
-      setIsDeleteBtnEnabled(false);
-    }
-  };
-
-
-  useEffect(() => {
-    if (sectionFileName.length > 0) {
-      const allSelected = sectionFileName.every(item => selectedState[idGetter(item)] === true);
-      setSelectAll(allSelected);
-    }
-  }, [sectionFileName, selectedState]);
-
-  // useEffect(() => {
-  //   const allSelected = sectionFileName.every(
-  //     (item) => selectedState[idGetter(item)] === true
-  //   );
-  //   setSelectAll(allSelected);
-  // }, [selectedState, sectionFileName]);
-
-
-  const onClickFileAttachUrl = () => {
-    for (let i = 0; i < checkedFileDetails.length; i++) {
-      // let cmdFileData = sectionFileName.filter(d=> d.FileName == fileName);
-      commentAttachPopupService.downloadCommentAttachments(checkedFileDetails[i].AttachmentTitle, checkedFileDetails[i].AttachmentFilePath, checkedFileDetails[i].FileName).then((response) => {
-        downloadFile(response, checkedFileDetails[i].FileName);
-      });
-    };
-    setdeleteCheckedRecord([]);
-    setCheckedFileDetails([]);
-    setSelectedState({});
-    setSelectAll(false);
-  };
-
-  const downloadFile = (response, fileName) => {
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName; // Change this as needed
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
-  }
-
-  const onFileClickDownload = (fileName: string) => {
-    let cmdFileData = sectionFileName.filter(d => d.FileName == fileName);
-    commentAttachPopupService.downloadCommentAttachments(cmdFileData[0].AttachmentTitle, cmdFileData[0].AttachmentFilePath, cmdFileData[0].FileName).then((response) => {
-      downloadFile(response, fileName);
-    });
-  }
-
-  const deleteCommentAttachment = () => {
-    let checkedAttachFileDetails = {
-      AttachmentIdList: deleteCheckedRecord,
-      RptId: parseInt(props.rptId),
-      RevPageFlag: props.isNotRevPage ? false : true
-    };
-    userDefinedConfirm({ message: 'Are you sure you want to delete selected file(s)?', okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
-      ({ button, input }) => {
-        commentAttachPopupService.deleteAttachmentFile(checkedAttachFileDetails).then((response) => {
-          dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: "Attachment is deleted successfully." }));
-          fetchData();
-          setdeleteCheckedRecord([]);
-          setCheckedFileDetails([]);
-          setSelectedState({});
-          setSelectAll(false);
-          props.updateCommentsData(checkedAttachFileDetails, props.commentIdvalue);
-        })
-      },
-      () => {
-        return;
+      try {
+        const coords = ed.view.coordsAtPos(pos);
+        const x = coords.left;
+        const y = coords.bottom + window.scrollY + 6;
+        
+        // Use transform instead of top/left for better performance and stability
+        anchorEl.style.transform = `translate(${x}px, ${y}px)`;
+        anchorEl.style.display = 'block';
+        
+        // Store coordinates as data attributes for debugging
+        anchorEl.setAttribute('data-x', x.toString());
+        anchorEl.setAttribute('data-y', y.toString());
+      } catch {
+        anchorEl.style.display = 'none';
       }
-    )
-  };
-
-  const dataStateChange = (event: GridDataStateChangeEvent) => {
-    setDataState(event.dataState);
-  };
-
-  const isPendingWithUser = () => {
-    let userToken = new UserToken();
-    let bemsId = userToken.getUserBemsId();
-    const newBemsId = Number(bemsId);
-    const isUserDataExist = props.headerData?.PendingWithBemsId?.filter(item => {
-      return item == newBemsId;
-    });
-    if (isUserDataExist && isUserDataExist.length > 0 && props.headerData?.RELEASE_DATE == null && deleteCheckedRecord.length > 0 && isDeleteBtnEnabled)
-      return true;
-
-    return false;
-  };
-
-  return (
-    <div>
-      {/* ----------------------- Cmd Attachments modal --------------------------- */}
-      <Modal
-        open={props.isOpen}
-        className="commentAttachModal"
-        // onClose={onCloseCmdAttachModelPopup}
-        aria-labelledby="nested-modal-title"
-        aria-describedby="nested-modal-description"
-      // sx={{ zIndex: "1" }}
-      >
-        <Box sx={{ ...modalStyleComment, width: "900", padding: "24px" }}>
-          <div className="com-att-modal-heading" style={{ display: "flex", justifyContent: "space-between", marginLeft: '-6px' }}>
-            <span className="com-att-titleSection">
-              <Typography variant="h5" gutterBottom className="com-att-titleBody" style={{ display: "flex" }} >
-                <AttachFileIcon style={{ marginRight: "4px", marginTop: "4px" }} />
-                <p style={{ margin: "0", height: "24px" }}>
-                  {'Comment Attachment(s)'}
-                </p>
-              </Typography>
-            </span>
-            <CloseIcon
-              style={{ cursor: "pointer" }}
-              className="com-att-closeIcon"
-              onClick={() => props.onCloseCmdAttachModelPopup(attachmentCount)}
-            />
-          </div>
-          <Typography id="com-att-modal-modal-btn" style={{ padding: '0px' }} className='com-att-cmdAttachmentGrid' variant="h6" component="h2">
-            <Grid
-              id="com-att-popupGridStyling"
-              data={getData}
-              onDataStateChange={dataStateChange}
-              {...dataState}
-              sortable={true}
-              style={{
-                height: sectionFileName.length == 0 ? "150px" : "250px",
-                width: "100%",
-                marginTop: '32px'
-              }}
-              columnMenuIcon={filterIcon}
-            >
-              <GridToolbar className='com-att-grid'>
-                <Button disabled={!isPendingWithUser() || deleteCheckedRecord.length == 0} className={"com-att-marginLeft10"} onClick={deleteCommentAttachment} title="Delete attachment" variant={"outlined"} size={'small'} color={'inherit'}>
-                  <DeleteSharpIcon className="iconClass" />
-                  <Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Delete</Typography>
-                </Button>
-                <Button disabled={deleteCheckedRecord.length == 0} className='com-att-buttonClass cap' sx={{ textTransform: 'none', fontSize: '14px', height: '32px' }} title="Download Attachment" variant={"outlined"} size={'small'} color={'inherit'}
-                  onClick={() => onClickFileAttachUrl()} ><FileDownloadOutlinedIcon className="iconClass del" /> <Typography variant={"button"} sx={{ textTransform: 'none' }}></Typography>
-                </Button>
-              </GridToolbar>
-              {/* <GridColumn field={SELECTED_FIELD} filterable={false} width="45px"
-                cell={(props) => {
-                  const isChecked = selectedState[idGetter(props.dataItem)];
-                  return (
-                    <td className="checkboxRow">
-                      <input type="checkbox" disabled={props.dataItem.Disable} checked={!!isChecked} onChange={(e) => handleCheckboxChange(e, props.dataItem)} />
-                    </td>
-                  );
-                }}
-              /> */}
-
-               {/* -------------------- SELECTION COLUMN (v7+ FIXED) -------------------- */}
-              <GridColumn
-                field={SELECTED_FIELD}
-                filterable={false}
-                width="45px"
-                // headerCells={{
-                //   text: () => (
-                //     <th className="checkboxHeader">
-                //       <input
-                //         type="checkbox"
-                //         checked={selectAll}
-                //         onChange={handleSelectAllChange}
-                //       />
-                //     </th>
-                //   )
-                // }}
-                cells={{
-                  data: (props) => {
-                  const isChecked = selectedState[idGetter(props.dataItem)];
-                  return (
-                    <td className="checkboxRow">
-                      <input
-                        type="checkbox"
-                        disabled={props.dataItem.Disable}
-                        checked={!!isChecked}
-                        onChange={(e) => handleCheckboxChange(e, props.dataItem)}
-                      />
-                    </td>
-                  );
-                }
-                }}
-              />
-              <GridColumn
-                {...columnProps('FileName')}
-                field="FileName"
-                title="File Name"
-                width="auto"
-                 cells={{
-                  data: (props) => (
-                  <td title={props.dataItem.FileName}>
-                    <Button
-                      variant={"text"}
-                      sx={{
-                        fontSize: "14px",
-                        padding: 0,
-                        justifyContent: "flex-start",
-                        color: '#0078B8',
-                        marginLeft: '12px',
-                        paddingRight: '12px',
-                        textTransform: 'none',
-                        "&:hover": {
-                          backgroundColor: "transparent", // Set the background color to transparent on hover
-                        },
-                        width: '100%',
-                      }}>
-                      <span style={{
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                        onClick={() => {onFileClickDownload(props.dataItem.FileName),console.log('clicked')}}
-                      >
-                        {props.dataItem.FileName}
-                      </span>
-                    </Button>
-                  </td>
-                )} }/>
-              <GridColumn {...columnProps('CreatedByName')} field="CreatedByName" title="Created By" width="220px" cells={{
-                  data: (props)  => (
-                <td title={props.dataItem.CreatedByName} className="createdBy">
-                  <Button
-                    variant={"text"}
-                    sx={{
-                      fontSize: "14px",
-                      padding: 0,
-                      justifyContent: "flex-start",
-                      marginLeft: '12px',
-                      textTransform: 'none',
-                      "&:hover": {
-                        backgroundColor: "transparent", // Set the background color to transparent on hover
-                      },
-                    }}
-                  >
-                    {props.dataItem.CreatedByName}
-                  </Button>
-                </td>
-              )} }/>
-              {/* -------------------------- CREATED DATE (v7+ FIX) -------------------------- */}
-             <GridColumn
-  {...columnProps("CreatedDateString")as any}
-  title="Creation Date"
-  width="160px"
-  filterable={true}
-  filter="date"
-  filterCell={(props) => (
-    <DatePicker
-      value={props.value ? new Date(`${props.value}`) : null}
-      format="MM-dd-yyyy"
-      onChange={(event) => {
-        props.onChange({
-          value: event.value instanceof Date ? event.value : null,
-          operator: "eq",
-          syntheticEvent: event.syntheticEvent
-        });
-      }}
-    />
-  )}
-  cells={{
-    data: (props) => {
-      const modificationDate = props.dataItem.CreatedDateString
-        ? new Date(props.dataItem.CreatedDateString)
-        : null;
-
-      return (
-        <td title={modificationDate?.toLocaleDateString()}>
-          <Button
-            variant={"text"}
-            sx={{
-              fontSize: "14px",
-              padding: 0,
-              justifyContent: "flex-start",
-              marginLeft: "12px",
-              textTransform: "none",
-              color: "#253746",
-              "&:hover": { backgroundColor: "transparent" }
-            }}
-          >
-            {modificationDate &&
-              modificationDate.toLocaleDateString(undefined, {
-                month: "2-digit",
-                day: "2-digit",
-                year: "numeric"
-              })}
-          </Button>
-        </td>
-      );
-    }
-  }}
-/>
-
-            </Grid>
-          </Typography>
-          <Typography className="com-att-close-btn" id="com-att-modal-modal-btn" sx={{ mt: 2 }} textAlign={"end"}>
-            <Button
-              className="com-att-closeIconCmdAttachment"
-              variant="contained"
-              size='small'
-              onClick={() => props.onCloseCmdAttachModelPopup(attachmentCount)}
-              style={{ fontSize: '14px', textTransform: "capitalize" }}
-            >
-              Close
-            </Button>
-          </Typography>
-        </Box>
-      </Modal>
-    </div>
+      return anchorEl;
+    },
+    [editorRef, ensureAnchor]
   );
+
+  const cleanup = React.useCallback(() => {
+    if (anchorRef.current) {
+      try {
+        document.body.removeChild(anchorRef.current);
+      } catch { }
+      anchorRef.current = null;
+    }
+  }, []);
+
+  return { updateAnchorToSelection, cleanup, anchorRef };
 }
 
-export default CommentAttachPopup;
+// ============================================
+// Alternative approach: Update the selection detection
+// ============================================
 
+// Replace your useEffect that attaches native listeners with this:
+
+useEffect(() => {
+  let mounted = true;
+  const tryAttach = () => {
+    if (!mounted) return;
+    const ed = textAreaRef.current;
+    if (ed && ed.view && ed.view.dom) {
+      const dom = ed.view.dom as HTMLElement;
+
+      const onSelect = () => {
+        const { text, from, to } = readSelection();
+        if (text && text.trim().length > 0) {
+          setSelectedText(text);
+          setSelectionRange({ start: from, end: to });
+          
+          // Update anchor position
+          const el = UpdateAnchor(from);
+          
+          // Force a slight delay to ensure DOM is stable
+          requestAnimationFrame(() => {
+            if (el) {
+              setAnchorEl(el);
+              setShowPrompt(true);
+            }
+          });
+        } else {
+          window.setTimeout(() => {
+            if (!clickedInsideRef.current) {
+              setShowPrompt(false);
+              setSelectedText('');
+              setOutputs([]);
+              setAnchorEl(undefined);
+            } else {
+              clickedInsideRef.current = false;
+            }
+          }, 50);
+        }
+      };
+
+      dom.addEventListener('mouseup', onSelect);
+      dom.addEventListener('keyup', onSelect);
+
+      return () => {
+        dom.removeEventListener('mouseup', onSelect);
+        dom.removeEventListener('keyup', onSelect);
+      };
+    }
+    setTimeout(tryAttach, 200);
+  };
+
+  const cleanupListener = tryAttach();
+  return () => {
+    mounted = false;
+    if (typeof cleanupListener === 'function') cleanupListener();
+  };
+}, [readSelection, UpdateAnchor]);
+
+// ============================================
+// CRITICAL FIX: Update InlineAIPrompt rendering
+// ============================================
+
+// Replace your InlineAIPrompt component render with this:
+
+{ShowPrompt && AnchorEl && (
+  <InlineAIPrompt
+    width={544}
+    streaming={Streaming}
+    enableSpeechToText={true}
+    outputs={Outputs}
+    anchor={AnchorEl}  // Make sure we're passing the stable anchor
+    commands={Commands}
+    onCommandExecute={onCommandExecute}
+    onPromptRequest={onPromptRequest}
+    onPromptCancel={onPromptCancel}
+    outputActions={outputActions}
+    onOutputAction={onOutputAction}
+    onDiscard={(o) => setOutputs((prev) => prev.filter((x) => x.id !== o.id))}
+    show={ShowPrompt}
+    // Add these props if available in your Kendo version
+    popupSettings={{
+      appendTo: document.body,
+      collision: {
+        horizontal: 'fit',
+        vertical: 'flip'
+      }
+    }}
+  />
+)}
+
+// ============================================
+// CSS Fix: Add this to your component styles or global CSS
+// ============================================
+
+const inlineAIStyles = `
+  .k-inline-ai-prompt {
+    position: fixed !important;
+    z-index: 10001 !important;
+  }
+  
+  .k-popup.k-inline-ai-commands {
+    position: fixed !important;
+    z-index: 10002 !important;
+  }
+  
+  /* Ensure popup stays with prompt */
+  .k-inline-ai-prompt .k-popup {
+    position: absolute !important;
+  }
+`;
+
+// Add this style element when component mounts
+useEffect(() => {
+  const styleId = 'inline-ai-custom-styles';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = inlineAIStyles;
+    document.head.appendChild(style);
+  }
+  
+  return () => {
+    const style = document.getElementById(styleId);
+    if (style) {
+      style.remove();
+    }
+  };
+}, []);
