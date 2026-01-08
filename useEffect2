@@ -47,3 +47,35 @@ const customDisabledInputText = (props) => {
         </td>
     );
 };
+const onAcronymChange = (e: GridItemChangeEvent) => {
+    const newData = acronymData.map(item => {
+        if (item.AcronymId === e.dataItem.AcronymId) {
+            return {
+                ...item,
+                [e.field || ""]: e.value,
+                RecStatus: item.AcronymId < 0 ? OperationType.ADD : OperationType.UPDATE
+            };
+        }
+        return item;
+    });
+
+    setAcronymData(newData);
+    setDataState(newData);
+    setIsTabDirty(true);
+};
+
+const addNewAcronym = () => {
+    const newRow = {
+        AcronymId: getTempId(),
+        RPTId: parseInt(reportId || "0"),
+        Acronym: "",
+        FullPhrase: "",
+        inEdit: true,
+        isSelected: false,
+        RecStatus: OperationType.ADD
+    };
+
+    setAcronymData(prev => [newRow, ...prev]);
+    setDataState(prev => [newRow, ...prev]);
+    setIsTabDirty(true);
+};
