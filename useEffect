@@ -1,16 +1,32 @@
- const isColumnActive = (field, dataState) => {
-        return GridColumnMenuFilter.active(field, dataState.filter) || GridColumnMenuSort.active(field, dataState.sort);
-    };
+import * as React from 'react';
+import { DropDownList } from '@progress/kendo-react-dropdowns';
 
-const isColumnActive = (field: string, dataState: any) => {
-  const hasFilter =
-    dataState.filter?.filters?.some((f: any) =>
-      f.filters
-        ? f.filters.some((inner: any) => inner.field === field)
-        : f.field === field
-    );
+interface Props {
+  value: string;
+  onChange: (value: string) => void;
+}
 
-  const hasSort = dataState.sort?.some((s: any) => s.field === field);
+export const DataSourceDropdownTool: React.FC<Props> = ({
+  value,
+  onChange
+}) => {
+  const data = [
+    'Foundation Model',
+    'BCAI Documentation',
+    'UDAL Documentation',
+    'ITAR Assistant',
+    'Boeing Private Cloud'
+  ];
 
-  return !!hasFilter || !!hasSort;
+  return (
+    <span className="k-toolbar-item">
+      <DropDownList
+        data={data}
+        size="small"
+        style={{ width: 220 }}
+        value={value}
+        onChange={(e) => onChange(e.value)}
+      />
+    </span>
+  );
 };
