@@ -32,12 +32,15 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import '../../../../../../node_modules/katex/dist/katex.min.css';
 import EquationTool from './equation-tool/EquationTool';
-import {SupportDataEnum} from "../../../../../model/Model"
+import { SupportDataEnum } from "../../../../../model/Model"
 import {
   InlineAIPromptOutputInterface,
   CommandItemInterface,
   OutputActionInterface
 } from '@progress/kendo-react-conversational-ui';
+import { DataSourceDropdownTool } from './datasource-dropdown/DataSourceDropdownTool';
+import { Button } from '@progress/kendo-react-buttons';
+import { sparklesIcon } from '@progress/kendo-svg-icons';
 
 const Commands: CommandItemInterface[] = [
   { id: 'rewrite', text: 'Rewrite', prompt: (s: string) => `Rewrite the following text: ${s}` },
@@ -51,56 +54,7 @@ const outputActions: OutputActionInterface[] = [
   { id: 'replace', text: 'Replace' },
   { id: 'discard', text: 'Discard' },
 ];
-const getSuggestion = async (
-  prompt: string,
-  htmlContent?: string,
-  signal?: AbortSignal
-): Promise<string> => {
-  const body = { dataSource: "Foundation Model", prompt };
-  const url = (`${EnvDetail.AIPromptURL}`)
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`HTTP ${res.status}: ${text}`);
-  }
-
-  const result = await res.json();
-
-  // Try multiple common response shapes
-  if (Array.isArray(result.choices)) {
-    for (const choice of result.choices) {
-      if (choice.finish_reason === 'stop' && choice.message) {
-        if (typeof choice.message.content === 'string') return choice.message.content;
-        if (choice.message.content?.text) return choice.message.content.text;
-        return JSON.stringify(choice.message.content);
-      }
-    }
-    const c = result.choices[0];
-    if (c?.message) {
-      if (typeof c.message.content === 'string') return c.message.content;
-      if (c.message.content?.text) return c.message.content.text;
-      return JSON.stringify(c.message.content);
-    }
-  }
-
-  if (Array.isArray(result.messages) && result.messages[0]?.contents) {
-    try {
-      return result.messages[0].contents[0].text;
-    } catch { }
-  }
-
-  if (typeof result === 'string') return result;
-  if (result?.message && typeof result.message === 'string') return result.message;
-  if (result?.message?.content && typeof result.message.content === 'string') return result.message.content;
-
-  return JSON.stringify(result);
-};
 interface State {
   success: boolean;
   error: boolean;
@@ -125,7 +79,7 @@ interface Position {
   left: number;
 }
 
-const { tableResizing , imageResizing } = EditorUtils; // imageResizing
+const { tableResizing, imageResizing } = EditorUtils; // imageResizing
 const { Schema, EditorState, Plugin, PluginKey, NodeSelection } = ProseMirror;
 const EditorView = ProseMirror.EditorView;
 const styles = `
@@ -178,7 +132,8 @@ let toolsEditor: any = {
     [Subscript, Superscript],
     [AlignLeft, AlignCenter, AlignRight, AlignJustify],
     [OrderedList, UnorderedList],
-    [Indent, Outdent]
+    [Indent, Outdent],
+    easaReportFlag ? [ForeColor] : [customBlankTool],
   ],
   TABLE:
     [
@@ -189,7 +144,7 @@ let toolsEditor: any = {
       [Bold, Italic, Underline],
       [OrderedList, UnorderedList],
       [Indent, Outdent],
-      easaReportFlag ? [ForeColor]  : [customBlankTool],
+      easaReportFlag ? [ForeColor] : [customBlankTool],
       easaReportFlag ? [AlignLeft, AlignCenter, AlignRight, AlignJustify] : [customBlankTool],
       [Subscript, Superscript],
     ],
@@ -394,14 +349,64 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
   const [nodeSelectionFlag, setNodeSelectionFlag] = useState(false);
   const AbortControllerRef = useRef<AbortController | null>(null);
   const { updateAnchorToSelection: UpdateAnchor, cleanup: Cleanup, anchorRef: AnchorRef } = useSelectionAnchor(textAreaRef);
-
+  const toolbarAnchorRef = React.useRef<HTMLDivElement | null>(null);
   const [Outputs, setOutputs] = useState<InlineAIPromptOutputInterface[]>([]);
   const [Streaming, setStreaming] = useState<boolean>(false);
   const [SelectionRange, setSelectionRange] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
   const [ShowPrompt, setShowPrompt] = useState<boolean>(false);
   const [AnchorEl, setAnchorEl] = useState<HTMLElement | undefined>(undefined);
   const clickedInsideRef = useRef(false);
+  const [dataSource, setDataSource] = useState<string>('Foundation Model');
+  const getSuggestion = async (
+    prompt: string,
+    htmlContent?: string,
+    signal?: AbortSignal
+  ): Promise<string> => {
+    const body = { dataSource: dataSource, prompt };
+    const url = (`${EnvDetail.AIPromptURL}`)
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    });
 
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+
+    const result = await res.json();
+
+    // Try multiple common response shapes
+    if (Array.isArray(result.choices)) {
+      for (const choice of result.choices) {
+        if (choice.finish_reason === 'stop' && choice.message) {
+          if (typeof choice.message.content === 'string') return choice.message.content;
+          if (choice.message.content?.text) return choice.message.content.text;
+          return JSON.stringify(choice.message.content);
+        }
+      }
+      const c = result.choices[0];
+      if (c?.message) {
+        if (typeof c.message.content === 'string') return c.message.content;
+        if (c.message.content?.text) return c.message.content.text;
+        return JSON.stringify(c.message.content);
+      }
+    }
+
+    if (Array.isArray(result.messages) && result.messages[0]?.contents) {
+      try {
+        return result.messages[0].contents[0].text;
+      } catch { }
+    }
+
+    if (typeof result === 'string') return result;
+    if (result?.message && typeof result.message === 'string') return result.message;
+    if (result?.message?.content && typeof result.message.content === 'string') return result.message.content;
+
+    return JSON.stringify(result);
+  };
   const readSelection = useCallback(() => {
     const ed = textAreaRef.current;
     if (!ed || !ed.view) return { text: '', from: 0, to: 0 };
@@ -458,6 +463,23 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
   };
 
   const onCommandExecute = (commandData: CommandItemInterface) => {
+    if (!selectedText) return;
+
+    const dataSourceIds = [
+      'bacai-documnentation',
+      'udal',
+      'itar',
+      'finance-bui-copilot'
+    ];
+    if (dataSourceIds.includes(commandData.id)) {
+      const selectedDataSource = commandData.text;
+
+      // store for UI
+      setDataSource(selectedDataSource);
+      onPromptRequest(selectedText);
+
+      return;
+    }
     if (commandData.prompt && selectedText) {
       const prompt = commandData.prompt(selectedText);
       onPromptRequest(prompt);
@@ -490,7 +512,7 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
     }
 
     setShowPrompt(false);
-    if(!ShowPrompt){
+    if (!ShowPrompt) {
       setSelectedText('');
     }
     setOutputs([]);
@@ -1155,7 +1177,7 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
     //   nodes: addTagNodes(addMentionNodes(nodes)),
     //   marks
     // });
-    
+
     const doc = EditorUtils.createDocument(mySchema, content);
 
     if (headerData?.WorkFlowStep == ReportStepId.CREATE_STEP) {
@@ -1189,12 +1211,12 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
             onMouseDown={(e) => e.preventDefault()}
             onPointerDown={(e) => e.preventDefault()} title='Add To Acronym'
             disabled={!state.showTools || item?.ContentId < 0 || headerData?.EditEnabledFlag == "N" || openMentionPopup || nodeSelectionFlag}
-            onClick={() => {setShowPrompt(false); onToggle("success", "acronym")}} className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" > Add To Acronym</button >
+            onClick={() => { setShowPrompt(false); onToggle("success", "acronym") }} className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" > Add To Acronym</button >
           : ''}
       </>
     )
   };
-  
+
   const toolbarMouseDownHandler = (e) => {
     const target = e.target;
     if (!target) return;
@@ -1212,21 +1234,21 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
         const rootEl = event.target && event.target["_element"];
         const toolbarEl = rootEl ? rootEl.getElementsByClassName('k-editor-toolbar')[0] : null;
         const active = document.activeElement as HTMLElement | null;
-  
+
         const isInsideToolbarOrPopup = (el: HTMLElement | null) => {
           if (!el) return false;
           if (toolbarEl && toolbarEl.contains(el)) return true;
-          if (el.closest && (el.closest('.k-colorpalette') || el.closest('.k-popup') )) return true;
+          if (el.closest && (el.closest('.k-colorpalette') || el.closest('.k-popup'))) return true;
           return false;
         };
-  
+
         // If the new active element is toolbar/palette keep toolbar shown
         if (isInsideToolbarOrPopup(active)) {
           if (toolbarEl) (toolbarEl as HTMLElement).style.display = 'block';
           if (rootEl) rootEl.style.border = '1px solid rgba(0, 0, 0, 0.23)';
           return;
         }
-  
+
         // Not inside toolbar/palette -> hide and cleanup
         if (toolbarEl) {
           (toolbarEl as HTMLElement).style.display = 'none';
@@ -1238,7 +1260,7 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
         if (editorElement && editorElement[0]) {
           (editorElement[0] as HTMLElement).style.border = "none";
         }
-        
+
         // Hide all opened Mentions
         let mentionElementList: any = document.querySelectorAll('[class*="suggestion-item-container"]') || [];
         for (let index = 0; index < mentionElementList.length; index++) {
@@ -1252,7 +1274,7 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
       }
     }, 0);
   };
-  
+
   const CustomRevisionButton = () => {
     return (
       <button
@@ -1417,7 +1439,7 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
         return;
       }
       setShowPrompt(false);
-      if(ShowPrompt){
+      if (ShowPrompt) {
         setSelectedText("");
       }
       setOutputs([]);
@@ -1439,6 +1461,7 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
 
         const onSelect = () => {
           const { text, from, to } = readSelection();
+          console.log(text, from, to, 'text1');
           if (text && text.trim().length > 0) {
             setSelectedText(text);
             setSelectionRange({ start: from, end: to });
@@ -1451,8 +1474,8 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
             window.setTimeout(() => {
               if (!clickedInsideRef.current) {
                 setShowPrompt(false);
-                if(ShowPrompt){
-                setSelectedText('');
+                if (ShowPrompt) {
+                  setSelectedText('');
                 }
                 setOutputs([]);
                 setAnchorEl(undefined);
@@ -1493,7 +1516,51 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
   const renderEquationTool = (): JSX.Element => {
     return <EquationTool textAreaRef={textAreaRef} />;
   };
+  const openPromptFromToolbar = () => {
+    const ed = editorRef?.current;
+    if (!ed || !ed.view) return;
 
+    const { from, to } = ed.view.state.selection;
+    const text = ed.view.state.doc.textBetween(from, to, '\n');
+    setSelectedText(text || getEditorHtml());
+    setSelectionRange({ start: from, end: to });
+    setAnchorEl(toolbarAnchorRef?.current || ed.view.dom);
+    setShowPrompt(true);
+  };
+
+  const renderDatasourceDropdown = (): JSX.Element => {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '0 6px',
+        }}
+      >
+        <DataSourceDropdownTool value={dataSource} onChange={setDataSource} />
+        <Button
+          onMouseDown={(e) => e.preventDefault()}
+          onPointerDown={(e) => e.preventDefault()}
+          onClick={() => {
+            const ed = textAreaRef?.current;
+            if (!ed || !ed.view) return;
+            const { from, to } = ed.view.state.selection; 
+            const text = ed.view.state.doc.textBetween(from, to, '\n'); 
+            setSelectedText(text || getEditorHtml()); 
+            setSelectionRange({ start: from, end: to }); 
+            setAnchorEl(toolbarAnchorRef?.current || ed.view.dom); 
+            setShowPrompt(true);
+          }}
+          svgIcon={sparklesIcon}
+          fillMode="flat"
+          title="Ask AI"
+          aria-label="Ask AI"
+          type="button"
+        > </Button >
+      </div>
+    );
+  };
   const [promptRoot, setPromptRoot] = useState<HTMLElement | undefined>(() => {
     return (document.querySelector('.k-prompt-content') as HTMLElement | null) ?? document.body;
   });
@@ -1601,9 +1668,9 @@ const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selecte
             (((item && item.IsParagraph === 'Y') || (item && item.IsTable === 'Y') || (item && item.IsFigure === 'Y') || IsNonDynamicTab) ? [[customBlankTool], [CustomStrikethrough], headerData?.CommentEnabledFlag == "Y" ? [CustomAddCommentButton] : [customBlankTool]] : [[customBlankTool]]) :
             (headerData?.PARENT_RPT_ID == null || headerData?.PARENT_RPT_ID == 0 ?
               [...toolsEditor[tools], [Strikethrough], headerData?.CommentEnabledFlag == "Y" ?
-                [CustomAddCommentButton] : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton]  : [customBlankTool] ,easaReportFlag ? (sectionTitle === SupportDataEnum.SupportingDocTitle ? [customBlankTool]:[InsertImage]) : [customBlankTool],[renderSymbolTool],easaReportFlag ? (sectionTitle === SupportDataEnum.SupportingDocTitle ? [customBlankTool]:[renderEquationTool]) : [customBlankTool]]
+                [CustomAddCommentButton] : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [renderDatasourceDropdown], easaReportFlag ? (sectionTitle === SupportDataEnum.SupportingDocTitle ? [customBlankTool] : [InsertImage]) : [customBlankTool], [renderSymbolTool], easaReportFlag ? (sectionTitle === SupportDataEnum.SupportingDocTitle ? [customBlankTool] : [renderEquationTool]) : [customBlankTool]]
               : [...toolsEditor[tools], [Strikethrough], headerData?.CommentEnabledFlag == "Y" ? [CustomAddCommentButton]
-                : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [CustomRevisionButton],easaReportFlag ? (sectionTitle === SupportDataEnum.SupportingDocTitle ? [customBlankTool]:[InsertImage]) : [customBlankTool],[renderSymbolTool],easaReportFlag ? (sectionTitle === SupportDataEnum.SupportingDocTitle ? [customBlankTool]:[renderEquationTool]) : [customBlankTool]])}
+                : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [CustomRevisionButton], [renderDatasourceDropdown], easaReportFlag ? (sectionTitle === SupportDataEnum.SupportingDocTitle ? [customBlankTool] : [InsertImage]) : [customBlankTool], [renderSymbolTool], easaReportFlag ? (sectionTitle === SupportDataEnum.SupportingDocTitle ? [customBlankTool] : [renderEquationTool]) : [customBlankTool]])}
         contentStyle={{ minHeight: CompGridDetails ? '100px' : 'auto' }}
         defaultContent={content}
         onChange={(event: EditorChangeEvent) => { onEditorChange && onEditorChange(event as EditorChangeEvent, item as any, contentKey as string), setValue(event.html) }}
