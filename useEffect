@@ -130,8 +130,8 @@ const SubstantiationInsertPopup = (props: any) => {
     const parentAmend = parentColWidths['AmendmentLevel'];
     const parentModel = parentColWidths['RegModel'];
     const parentType = parentColWidths['RegType'];
-    const childReg = (parentReg > 0 || parentAmend > 0) ? (parentReg + parentAmend) - 50 : undefined;
-    const childModel = (typeof parentModel === 'number' && parentModel > 0) ? parentModel : undefined;
+    const childReg = (parentReg > 0 || parentAmend > 0) ? (parentReg + parentAmend) - 20 : undefined;
+    const childModel = (typeof parentModel === 'number' && parentModel > 0) ? parentModel + 20 : undefined;
     const childType = (typeof parentType === 'number' && parentType > 0) ? parentType : undefined;
     setChildColWidths({ reg: childReg, model: childModel, type: childType });
   }, [parentColWidths]);
@@ -620,11 +620,11 @@ const SubstantiationInsertPopup = (props: any) => {
         >
           <ColumnAny
             field={SELECTED_FIELD}
-            width="170px"
+            width="50px"
             title="Select/Deselect all rows"
-            columnType = "checkbox"
+            columnType="checkbox"
             headerCell={ChildSelectAllHeaderCell(parentId, childData)}
-            cells={{data:(props: any) => {
+             cells={{data:(props: any) => {
               const isChecked = selectedState[idGetter(props.dataItem)];
               return (
                 <td className="sub-checkbox">
@@ -823,9 +823,9 @@ const SubstantiationInsertPopup = (props: any) => {
                       />
               <ColumnAny
                 field="Select"
-                width="170px"
+                width="50px"
                 title="Select/Deselect all rows"
-                columnType = "checkbox"
+                columnType="checkbox"
                 headerCell={SelectAllHeaderCell}
                 cells={{data:(props: any) => {
                   const isChecked = selectedState[idGetter(props.dataItem)];
