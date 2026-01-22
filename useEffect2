@@ -63,6 +63,7 @@ import EasaRegisterListService from "./EasaRegisterListService";
 import EnvDetail from "../../../../utils/EnvDetail";
 import CSRListService from "../csr-list/CSRListService";
 
+const AnyGrid = Grid as any;
 //Component for Column Menu
 const ColumnMenu = (props) => {
   return (
@@ -860,14 +861,14 @@ const EasaListRegister = ({
 
   //MRO Column Configuration
   const mroColumnConfig: ColumnConfig[] = [
-    {
-      key: "select",
-      field: SELECTED_FIELD,
-      title: "Select/Deselect all rows",
-      filterable: false,
-      width: "45px",
-      headerSelectionValue: isAllSelected,
-    },
+    // {
+    //   key: "select",
+    //   field: SELECTED_FIELD,
+    //   title: "Select/Deselect all rows",
+    //   filterable: false,
+    //   width: "45px",
+    //   headerSelectionValue: isAllSelected,
+    // },
 
     {
       key: "AssessmentRef",
@@ -1079,14 +1080,14 @@ const EasaListRegister = ({
 
   //Supplier Column Configuration
   const supplierColumnConfig: ColumnConfig[] = [
-    {
-      key: "select",
-      field: SELECTED_FIELD,
-      title: "Select/Deselect all rows",
-      filterable: false,
-      width: "45px",
-      headerSelectionValue: isAllSelected,
-    },
+    // {
+    //   key: "select",
+    //   field: SELECTED_FIELD,
+    //   title: "Select/Deselect all rows",
+    //   filterable: false,
+    //   width: "45px",
+    //   headerSelectionValue: isAllSelected,
+    // },
     {
       key: "AssessmentRef",
       field: "AssessmentRef",
@@ -1469,14 +1470,14 @@ const EasaListRegister = ({
   // WA column configuration
 
   const waColumnConfig: ColumnConfig[] = [
-    {
-      key: "select",
-      field: SELECTED_FIELD,
-      title: "Select/Deselect all rows",
-      filterable: false,
-      width: "45px",
-      headerSelectionValue: isAllSelected,
-    },
+    // {
+    //   key: "select",
+    //   field: SELECTED_FIELD,
+    //   title: "Select/Deselect all rows",
+    //   filterable: false,
+    //   width: "45px",
+    //   headerSelectionValue: isAllSelected,
+    // },
 
     {
       key: "AssessmentRef",
@@ -1815,7 +1816,7 @@ const EasaListRegister = ({
         groupable={false}
         data={resultState}
       >
-        <Grid
+        <AnyGrid
           id="kgrid-oss-easa-list"
           ref={gridRef}
           style={{
@@ -1841,11 +1842,17 @@ const EasaListRegister = ({
           }}
           dataItemKey={DATA_ITEM_KEY}
           onHeaderSelectionChange={onHeaderSelectionChange}
-          // onSelectionChange={onSelectionChange}
-          // selectedField={SELECTED_FIELD}
+           onSelectionChange={onSelectionChange}
+           selectedField={SELECTED_FIELD}
         >
+          <GridColumn
+            field={SELECTED_FIELD}
+            width="50px"
+            title="Select/Deselect all rows"
+            columnType="checkbox"
+          />
           {gridChildren}
-        </Grid>
+        </AnyGrid>
       </GridHelper>
     </div>
   );
