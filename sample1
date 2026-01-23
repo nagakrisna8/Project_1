@@ -1,162 +1,20 @@
-// InlineAIPromptWrapper.tsx
-import React, { useEffect, useRef } from 'react';
-import { InlineAIPrompt as KendoInlineAIPrompt } from '@progress/kendo-react-conversational-ui';
+const getDataColumnsTitles = (gridChildren) => {
+  let columns = {};
 
-type InlineAIPromptWrapperProps = React.ComponentProps<typeof KendoInlineAIPrompt> & {
-  promptRoot?: HTMLElement | undefined;
-  anchor?: HTMLElement | undefined;
+  gridChildren.forEach((child) => {
+    if (child?.type?.displayName === "KendoReactGridColumn") {
+
+      // ⛔ skip checkbox / selection column
+      if (
+        child.props.field === "selected" ||
+        child.props.selectable === true
+      ) {
+        return;
+      }
+
+      columns[child.props.title ?? child.props.field] = true;
+    }
+  });
+
+  return columns;
 };
-
-export default function InlineAIPromptWrapper(props: InlineAIPromptWrapperProps) {
-  const { promptRoot, anchor, ...rest } = props;
-
-  const currentRootRef = useRef<HTMLElement | undefined>(
-    promptRoot ?? (document.querySelector('.k-prompt-content') as HTMLElement | null) ?? document.body
-  );
-
-  useEffect(() => {
-    currentRootRef.current =
-      promptRoot ?? (document.querySelector('.k-prompt-content') as HTMLElement | null) ?? document.body;
-  }, [promptRoot]);
-
-  useEffect(() => {
-    const root = currentRootRef.current ?? document.body;
-
-    const getAnchor = (): HTMLElement | undefined => {
-      return anchor ?? (window as any).__kendoAnchorForInlineAI as HTMLElement | undefined;
-    };
-
-    const applyFixedPosition = (container: HTMLElement, anchorEl?: HTMLElement | null) => {
-      try {
-        const a = anchorEl ?? getAnchor();
-        if (!a) return;
-        const rect = a.getBoundingClientRect();
-
-        container.style.setProperty('position', 'fixed', 'important');
-        container.style.setProperty('left', `${Math.round(rect.left)}px`, 'important');
-        container.style.setProperty('top', `${Math.round(rect.bottom - 80)}px`, 'important');
-        container.style.setProperty('margin', '0', 'important');
-        container.style.setProperty('transform', 'none', 'important');
-        container.style.setProperty('z-index', '2147483647', 'important');
-        container.style.setProperty('pointer-events', 'auto', 'important');
-      } catch (e) {
-        // ignore
-      }
-    };
-
-    // NEW: disable focus on menu items to stop browser scroll-on-focus
-    const disableFocusOnMenu = (container: HTMLElement) => {
-      try {
-        // target menu items and links inside this popup
-        container.querySelectorAll<HTMLElement>('.k-item, .k-menu-item, .k-link, .k-menu-link').forEach(el => {
-          // set tabindex to -1 so they cannot receive native focus
-          el.setAttribute('tabindex', '-1');
-          el.style.outline = 'none';
-        });
-      } catch (e) { /* ignore */ }
-    };
-
-    const moveAndFix = (el: HTMLElement, anchorEl?: HTMLElement | null) => {
-      try {
-        if (!root.contains(el)) {
-          root.appendChild(el);
-        }
-        applyFixedPosition(el, anchorEl);
-        disableFocusOnMenu(el); // ensure menu items are not focusable
-      } catch (e) {
-        // ignore
-      }
-    };
-
-    const retryFix = (container: HTMLElement, anchorEl?: HTMLElement | null, attempts = 6, delay = 80) => {
-      let tries = 0;
-      const tick = () => {
-        tries++;
-        applyFixedPosition(container, anchorEl);
-        disableFocusOnMenu(container); // re-apply focus-disable on retries
-        if (tries >= attempts) return;
-        setTimeout(tick, delay);
-      };
-      setTimeout(tick, delay);
-    };
-
-    // Helper: only treat animation containers that contain a menu popup (.k-menu-popup)
-    const isThreeLinePopup = (container: HTMLElement) => {
-      try {
-        return !!container.querySelector('.k-menu-popup, .k-popup.k-menu-popup, .k-menu');
-      } catch {
-        return false;
-      }
-    };
-
-    // Move any currently-open containers and position them (only those that contain menu popup)
-    document.querySelectorAll('.k-animation-container.k-animation-container-shown').forEach((n) => {
-      if (n instanceof HTMLElement && isThreeLinePopup(n)) {
-        moveAndFix(n, anchor);
-        retryFix(n, anchor);
-      }
-    });
-
-    // Observe added nodes anywhere
-    const mo = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        if (m.type === 'childList' && m.addedNodes.length) {
-          m.addedNodes.forEach((node) => {
-            if (!(node instanceof HTMLElement)) return;
-
-            // If the added node itself is the animation container, check it
-            if (node.matches && node.matches('.k-animation-container.k-animation-container-shown')) {
-              const n = node as HTMLElement;
-              if (isThreeLinePopup(n)) {
-                moveAndFix(n, anchor);
-                retryFix(n, anchor);
-                return;
-              }
-            }
-
-            // Otherwise check subtree for any animation container nodes
-            try {
-              const found = node.querySelector && node.querySelector('.k-animation-container.k-animation-container-shown');
-              if (found && found instanceof HTMLElement) {
-                if (isThreeLinePopup(found)) {
-                  moveAndFix(found, anchor);
-                  retryFix(found, anchor);
-                }
-              }
-            } catch {
-              // ignore
-            }
-          });
-        }
-      }
-    });
-
-    mo.observe(document.body, { childList: true, subtree: true });
-
-    // Also observe attribute changes so if Kendo later mutates style we reapply fixed positioning.
-    const attrObserver = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        const target = m.target as HTMLElement;
-        if (!target) continue;
-        if (target.matches && target.matches('.k-animation-container.k-animation-container-shown')) {
-          if (isThreeLinePopup(target)) {
-            applyFixedPosition(target as HTMLElement, anchor);
-            disableFocusOnMenu(target as HTMLElement);
-          }
-        }
-      }
-    });
-
-    attrObserver.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['style', 'class'] });
-
-    return () => {
-      mo.disconnect();
-      attrObserver.disconnect();
-    };
-  }, [anchor, promptRoot]);
-
-  // Forward appendTo (if library consumes it) and anchor prop
-  const appendToValue = currentRootRef.current ?? undefined;
-  const InlineAny = KendoInlineAIPrompt as any;
-  return <InlineAny {...(rest as any)} appendTo={appendToValue} anchor={anchor} />;
-}
