@@ -874,3 +874,19 @@ const ConfiguratorButtonBase = (props) => {
         </React.Fragment>
     );
 };
+
+
+const flattenChildren = (children: any): any[] => {
+  const result: any[] = [];
+
+  React.Children.forEach(children, (child) => {
+    if (Array.isArray(child)) {
+      result.push(...flattenChildren(child));
+    } else {
+      result.push(child);
+    }
+  });
+
+  return result;
+};
+
