@@ -1,876 +1,2079 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import * as ReactDOM from "react-dom";
+import { useDispatch } from "react-redux";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { filterIcon } from "@progress/kendo-svg-icons";
 import {
-  Box,
-  Typography,
-  Modal,
-  Button,
-  IconButton
-} from "@mui/material";
-import {
-    Grid as KendoGrid,
-  GridColumn as KendoGridColumn,
+  Grid,
+  GridColumn,
   GridColumnMenuFilter,
-  GridColumnMenuSort,
   GridDataStateChangeEvent,
-  getSelectedState,
-  GridCellProps,
-  GridDetailExpandChangeEvent,
+  GridColumnMenuSort,
+  GridToolbar,
+  isColumnMenuFilterActive,
+  isColumnMenuSortActive,
 } from "@progress/kendo-react-grid";
-import { getter } from "@progress/kendo-react-common";
-import CloseIcon from "@mui/icons-material/Close";
-const DATA_ITEM_KEY = "ConfigProjRegId";
-const SELECTED_FIELD = "";
-const idGetter = getter(DATA_ITEM_KEY);
-import "./SubInsertPopupData.scss";
-import { OperationType, ContentOwenerDetails, InsertSubstantiationDetails, ProjectRegulationInputData, RevisionListDetails, ScreenNameEnum, SectionTitleEnum } from "../../../../../../model/Model";
-import { State, process } from "@progress/kendo-data-query";
-import { useDispatch } from 'react-redux';
-import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
-import { useParams } from "react-router-dom";
-import SubInsertPopupDataService from "./SubInsertPopupDataService";
-import StorageService from "../../../../../../utils/StorageService";
-import ExpandLessIcon from "@mui/icons-material/NavigateNext";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import AddRevisionPopupService from "../../dynamic-tabs/add-revision-popup/AddRevisionPopupService";
-import { chevronDownIcon, chevronRightIcon, filterIcon } from "@progress/kendo-svg-icons";
-import { DetailExpandDescriptor } from "@progress/kendo-react-data-tools";
-import { Button as KendoButton} from '@progress/kendo-react-buttons';
-var InsertSupCheckItems: InsertSubstantiationDetails[] = [];
-var InsertSubstantiationCheckedDetail: InsertSubstantiationDetails[] = [];
+import { State, getter } from "@progress/kendo-data-query";
+import {
+  Button,
+  Card,
+  Container,
+  MenuItem,
+  Typography,
+  Select,
+  FormControl,
+  FormLabel,
+  Box,
+} from "@mui/material";
+import DeleteSharpIcon from "@mui/icons-material/DeleteSharp";
+import LibraryAddOutlinedIcon from "@mui/icons-material/LibraryAddOutlined";
+import { process as kendoProcess } from "@progress/kendo-data-query";
+import {
+  logPageViewEventWithData,
+  adobeWindowData,
+  logFilterAction,
+} from "@boeing-fsit/react-oss-adobe-analytics-lib";
+import {
+  ColumnConfig,
+  MasterDataType,
+  SupplierDetail,
+  MRODetail,
+  CreateRevisionDataItem,
+  WADetail,
+  CSRHeaderData,
+  ParameterObject,
+  FilterParam,
+  parameterObj,
+  TempTemplateDetails,
+  EasaMasterType,
+  CSRApprovalUserList,
+  ReportType,
+} from "../../../../model/Model";
+import { DatePicker } from "@progress/kendo-react-dateinputs";
+import UserToken from "../../../../utils/UserToken";
+import ShellEventRegister from "../../../../utils/ShellEventRegister";
+import StorageService from "../../../../utils/StorageService";
+import { userDefinedConfirm } from "../../../../utils/ConfirmDialog";
+import PathConstants from "../../../../routes/PathConstants";
+import { showSnackbar } from "../../../core/snackbar/CustomSnackBarSlice";
+import CreateRevisionPopup from "../create-revision-popup/CreateRevisionPopup";
+import CreateCopyPopup from "../create-copy-popup/CreateCopyPopup";
+import { GridHelper } from "./grid-helper/GridHelper";
+import EasaListService from "./EasaRegisterListService";
+import { supplierDetails, mroDetails } from "./demoData";
+import EasaRegisterListService from "./EasaRegisterListService";
+import EnvDetail from "../../../../utils/EnvDetail";
+import CSRListService from "../csr-list/CSRListService";
 
-/*
-  NOTE:
-  - To avoid hundreds of type errors caused by mismatched @progress/kendo-react- grid types
-    across versions, we cast the Grid and GridColumn to `any` before usage (GridAny/ColumnAny).
-  - This is a pragmatic compile-first fix: it prevents TS complaints while preserving behavior.
-  - Later you should either pin Kendo versions or migrate to the new typed API properly.
-*/
-
-const GridAny: any = KendoGrid as any;
-const ColumnAny: any = KendoGridColumn as any;
-const ColumnMenu = (props: any) => {
-  const { sort } = props;
-  const getSortData = (sortData: any) => {
-    if (sortData && sortData.length > 0) {
-      return sortData.map((s: any) =>
-        s.field === "RegSortOrder" ? { ...s, field: "Regulation" } :
-          s.field === "AmendmentSortOrder" ? { ...s, field: "AmendmentLevel" } :
-            s.field === "RegTypeSortOrder" ? { ...s, field: "RegType" } :
-              s
-      );
-    }
-    return sortData;
-  };
-  return <div>
-    <GridColumnMenuSort {...props} sort={getSortData(sort)} />
-    <GridColumnMenuFilter {...props} expanded={true} />
-  </div>;
+const AnyGrid = Grid as any;
+//Component for Column Menu
+const ColumnMenu = (props) => {
+  return (
+    <div>
+      <GridColumnMenuSort {...props} />
+      <GridColumnMenuFilter {...props} expanded={true} />
+    </div>
+  );
 };
 
-const SubstantiationInsertPopup = (props: any) => {
+// Date Picker Component
+const dateFilterCell = (props) => (
+  <DatePicker
+    {...props}
+    value={props.value ? new Date(`${props.value}`) : null}
+    format="MM-dd-yyyy"
+    onChange={(event) => {
+      props.onChange({
+        value: event.target.value instanceof Date ? event.target.value : null,
+        operator: "eq",
+        syntheticEvent: event.nativeEvent,
+      });
+    }}
+  />
+);
 
- // helper to check if column is active - guard if 'active' helper missing
-  const isColumnActive = (field: string, dataState: any) => {
-    try {
-      const filterActive = (GridColumnMenuFilter as any)?.active ? (GridColumnMenuFilter as any).active(field, dataState?.filter) : false;
-      const sortActive = (GridColumnMenuSort as any)?.active ? (GridColumnMenuSort as any).active(field, dataState?.sort) : false;
-      return filterActive || sortActive;
-    } catch {
-      return false;
-    }
-  };
-
-  const columnProps = (field: string, dataState: any) => {
-    return {
-      field: field,
-      columnMenu: ColumnMenu,
-      headerClassName: isColumnActive(field, dataState) ? 'active' : ''
-    };
-  };
-
-;
-
+const DATA_ITEM_KEY: string = "RPT_ID";
+const SELECTED_FIELD = "selected";
+var CsrListDetails: CSRHeaderData[] = [];
+var selectedCsrListDtls: parameterObj[] = [];
+var storageService = new StorageService();
+const EasaListRegister = ({
+  pmdbProjectId,
+  getItarProjectFlag,
+  selectedDisciplinId,
+  csrWorkAppFlag,
+}) => {
+  const [currentUserBemsId, setCurrentUserBemsId] = useState(0);
+  const currentUserBemsIdRef = useRef(currentUserBemsId);
+  const { projectId } = useParams();
+  const { registerId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
-  const gridRef = useRef<any>(null);
+  const [data, setData] = useState<any>();
+  const [dataState, setDataState] = React.useState<State>({});
+  const [resultState, setResultState] = useState<any[]>([]);
+  const [registerTypes, setRegisterTypes] = useState<MasterDataType[]>([]);
+  const [selectedMasterType, setSelectedMasterType] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [selectedReportTemplate, setSelectedReportTemplate] = useState({});
+  const [hasContent, setHasContent] = useState<any>(false);
+  const [anchorElCreate, setAnchorElCreate] =
+    React.useState<null | HTMLElement>(null);
+  const openCreateNew = Boolean(anchorElCreate);
+  let tempSelReg = "";
+  if (location?.state?.selectedRegisterType) {
+    tempSelReg = location?.state?.selectedRegisterType;
+  } else {
+    tempSelReg = EasaMasterType.Supplier;
+  }
+  const [selectedRegisterType, setSelectedRegisterType] =
+    useState<string>(tempSelReg);
+
+  const [openRevisionModelPopup, setOpenRevisionModelPopup] = useState(false);
+
+  //Height Width Related States
+  // const [gridWidth, setGridWidth] = useState<any>();
+  const [screenPercentage, setScreenPercentage] = useState(0);
+  const [defaultWindowWidth, setDefaultWindowWidth] = useState(
+    window.innerWidth
+  );
+  const [gridHeight, setGridHeight] = useState<any>(window.innerHeight);
+  const [gridRowHeight, setGridRowHeight] = useState(30);
+  const [windowHeight, setWindowHeight] = useState(window.innerHeight);
   const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
   const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
-  const [selectedState, setSelectedState] = React.useState<{ [id: string]: boolean | number[] }>({});
-  const [selectedSupState, setSelectedSupState] = useState<{ [id: string]: boolean | number[] }>({});
-  const [selectedSupProject, setSelectedSupProject] = useState<string[]>([]);
-  const [getSubInsertData, setSubInsertData] = useState<InsertSubstantiationDetails[]>([]);
-  var { reportId = "", tabIndex = "" } = useParams();
-  const reportIdParam = Number(reportId);
-  const [dataState, setDataState] = React.useState<State>({} as State);
-  const [childDataStates, setChildDataStates] = useState<{ [parentId: string]: State }>({});
-  const [parentColWidths, setParentColWidths] = useState<{ [field: string]: number }>({});
-  const [childColWidths, setChildColWidths] = useState<{ reg?: number; model?: number; type?: number }>({});
-  const [childLeftOffset, setChildLeftOffset] = useState(0);
-  const [childGridWidthStyle, setChildGridWidthStyle] = useState<string | undefined>(undefined);
-   const [detailExpand, setDetailExpand] =useState<DetailExpandDescriptor>();
-  //read selected discipline id
-  const storageService = new StorageService();
-  const selectedDisciplined = storageService.getSelectedDiscipline();
-
-  // fetching content ownerId by api call
-  const fetchContentOwnerDetails = async () => {
-    // await SubInsertPopupDataService.GetContentOwnerByDiscipline(selectedDisciplined).then((res) => {
-    //   if (res && res.data) {
-    //     let ContentOwnerData: ContentOwenerDetails[] = res.data;
-    //     const getContentOwnerId = ContentOwnerData.filter(data => data.MasterValue === props.contentOwner);
-    //     if (getContentOwnerId && getContentOwnerId[0].MasterId) {
-    //       fetchSubstantiationInsertData(getContentOwnerId[0].MasterId);
-    //     };
-    //   }
-    // });
-    fetchSubstantiationInsertData();
-  };
-
-  useEffect(() => {
-    const parentReg = parentColWidths['Regulation'];
-    const parentAmend = parentColWidths['AmendmentLevel'];
-    const parentModel = parentColWidths['RegModel'];
-    const parentType = parentColWidths['RegType'];
-    const childReg = (parentReg > 0 || parentAmend > 0) ? (parentReg + parentAmend) - 50 : undefined;
-    const childModel = (typeof parentModel === 'number' && parentModel > 0) ? parentModel : undefined;
-    const childType = (typeof parentType === 'number' && parentType > 0) ? parentType : undefined;
-    setChildColWidths({ reg: childReg, model: childModel, type: childType });
-  }, [parentColWidths]);
-
-  // fetching insert substantiation records
-   const fetchSubstantiationInsertData = async () => {
-    let projectRegulationInputData = { ProjectId: Number(props.projectId), ReportId: Number(reportId) } as ProjectRegulationInputData;
-    await SubInsertPopupDataService.GetInsertSubstantiationPopUpData(projectRegulationInputData).then((res) => {
-      if (res && res.data) {
-        const updatedData = res.data.map(row => {
-          return {
-            ...row,
-            ChildRegulationDtls: row.ChildRegulationDtls.map((item) => {
-              return {
-                ...item,
-                disable: true
-              }
-            }),
-            expanded: row && row.ChildRegulationDtls.length > 0 ? true : false,
-            disable: false
-
-          };
-        });
-        setSubInsertData(updatedData);
-      }
-    });
-  };
-
-
-
-  useEffect(() => {
-    if (selectedDisciplined) {
-      fetchContentOwnerDetails();
-    };
-  }, []);
-
-  const modalStyle = {
-    position: "absolute" as const,
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    width: 1090,
-    bgcolor: "background.paper",
-    boxShadow: 24,
-    borderRadius: "0.5rem",
-    padding: '24px',
-  };
-
-  const onSelectionChange = React.useCallback(
-     (event: any) => {
-      const newSelectedState = getSelectedState({
-        event,
-        selectedState: selectedState,
-        dataItemKey: DATA_ITEM_KEY,
-      });
-      setSelectedState(newSelectedState);
-    },
-    [selectedState]
+  const [shellClientHeight, setShellClientHeight] = useState(
+    document?.getElementById("shell-main-section")?.clientHeight
   );
-
-  useEffect(() => {
-    const filteredSelectedState = Object.fromEntries(Object.entries(selectedSupState).filter(([key, value]) => value))
-    setSelectedSupProject(Object.keys(filteredSelectedState))
-  }, [selectedSupState]);
-
-  const ensureParentEntry = (parentRow: InsertSubstantiationDetails) => {
-    let entry = InsertSubstantiationCheckedDetail.find((p: InsertSubstantiationDetails) => p.ConfigProjRegId === parentRow.ConfigProjRegId);
-    if (!entry) {
-      entry = { ...parentRow, ChildRegulationDtls: [] } as InsertSubstantiationDetails;
-      InsertSubstantiationCheckedDetail.push(entry);
-    } else if (!entry.ChildRegulationDtls) {
-      entry.ChildRegulationDtls = [];
-    }
-    return entry;
-  };
-
-  const addCheckedItem = (item: InsertSubstantiationDetails) => {
-    const parentInGrid = getSubInsertData.find((p: InsertSubstantiationDetails) => p.ConfigProjRegId === item.ConfigProjRegId);
-    if (parentInGrid) {
-      ensureParentEntry(parentInGrid);
-      return;
-    }
-    const parent = getSubInsertData.find((p: InsertSubstantiationDetails) =>
-      p.ChildRegulationDtls?.some((c: InsertSubstantiationDetails) => c.ConfigProjRegId === item.ConfigProjRegId)
+  const [shellHeaderSectionHeight, setShellHeaderSectionHeight] = useState(
+    document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
+  );
+  const [shellOssMenubreadcrumsHeight, setShellOssMenubreadcrumsHeight] =
+    useState(
+      document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
     );
-    if (parent) {
-      const entry = ensureParentEntry(parent);
-      entry.ChildRegulationDtls = entry.ChildRegulationDtls || [];
-      const existsChild = entry.ChildRegulationDtls.some((c: InsertSubstantiationDetails) => c.ConfigProjRegId === item.ConfigProjRegId);
-      if (!existsChild) {
-        entry.ChildRegulationDtls.push({ ...item } as InsertSubstantiationDetails);
-      }
-    } else {
-      ensureParentEntry(item);
-    }
-  };
+  const [shellOssHeaderMenuSectionHeight, setShellOssHeaderMenuSectionHeight] =
+    useState(document?.getElementById("oss-header-menu-setion")?.clientHeight);
+  const [shellWorkAppContainerMaxHeight, setShellWorkAppContainerMaxHeight] =
+    useState(0);
+  const [shellFooterHeight, setShellFooterHeight] = useState(
+    document?.getElementsByTagName("footer")[0]?.clientHeight
+  );
+  const [searchFieldHeight, setSearchFieldHeight] = useState(
+    document?.getElementsByClassName("easa-search-row")[0]?.clientHeight
+  );
+  const gridRef = useRef<any>(null);
 
-  const measureParentHeaderWidths = () => {
-    if (!gridRef?.current || !gridRef.current.element) return {};
-    const headerRoot = gridRef.current.element;
-    const headerCells: NodeListOf<HTMLElement> = headerRoot.querySelectorAll('.k-header') || headerRoot.querySelectorAll('th');
-    const widths: { [field: string]: number } = {};
-    headerCells.forEach((cell, index) => {
-      const field = gridRef.current.columns[index]?.field;
-      const w = cell.getBoundingClientRect ? Math.round(cell.getBoundingClientRect().width) :  (cell as any).offsetWidth;
-      if (field) widths[field] = w;
-    });
-    return widths;
-  };
+  // useEffect(() => {
+  //   handleEasaDetails(tempSelReg);
+  // }, []);
 
   useEffect(() => {
-    const applyMeasure = () => {
-      let measured;
-      if (!measured)
-        measured = measureParentHeaderWidths();
+    let userToken = new UserToken();
+    let bemsId = userToken.getUserBemsId();
+    const newBemsId = Number(bemsId);
+    setCurrentUserBemsId(newBemsId);
+    currentUserBemsIdRef.current = newBemsId;
+  }, [currentUserBemsId]);
 
-      setParentColWidths(prev => {
-        const prevKeys = Object.keys(prev);
-        const newKeys = Object.keys(measured);
-        if (prevKeys.length === newKeys.length && newKeys.every(k => prev[k] === measured[k])) {
-          return prev;
-        }
-        return measured;
-      });
-      const subW = (measured as any)['SubSystem'] || measured['subsystem'] || 0;
-      if (subW && subW > 0) {
-        setChildGridWidthStyle(`calc(100% - ${subW}px)`);
-      } else {
-        setChildGridWidthStyle(undefined);
-      }
-     const selectColWidth = (measured as any)['Select'] || 0;
-      setChildLeftOffset(selectColWidth ? selectColWidth : 0);
+  /** Request the List of Easa Register Types on Initial Render -- start */
+  useEffect(() => {
+    fetchMasterDataTypes();
+  }, [projectId, registerId]);
+
+  //Handle fetching Register Types Asynchronously
+  const fetchMasterDataTypes = async () => {
+    const result = await EasaListService.getMasterDataType();
+    const data = result?.data ?? [];
+    console.log("===============");
+    console.log("Register Types are : ");
+    console.log(data);
+    console.log("==============");
+
+    setRegisterTypes(data);
+
+    // set selectedMasterType from the first item if present; otherwise null
+    if (data.length > 0) {
+      setSelectedMasterType(data[0].TemplateTitle ?? null);
+      setSelectedGroupId(data[0].GroupId ?? null);
+    } else {
+      setSelectedMasterType("");
+      setSelectedGroupId(null);
+    }
+
+    // return data;
+  };
+
+  //FetchData if SelectedReportType Changes
+  useEffect(() => {
+    setResultState([]);
+    handleEasaDetails(selectedRegisterType);
+    fetchData({});
+  }, [selectedRegisterType, selectedMasterType, selectedGroupId]);
+
+  //Setting columnProps for GridColumns
+  const columnProps = (field) => {
+    return {
+      // field: field,
+      columnMenu: ColumnMenu,
+      headerClassName: isColumnActive(field, dataState) ? "active" : "",
     };
-    applyMeasure();
-    const onResize = () => requestAnimationFrame(applyMeasure);
-    window.addEventListener('resize', onResize);
+  };
 
+  //Setting Column Filter and Sort States
+  const isColumnActive = (field, dataState) => {
+    return (
+      isColumnMenuFilterActive(field, dataState.filter) ||
+      isColumnMenuSortActive(field, dataState.sort)
+    );
+  };
+
+  /**Grid Column Related Props Setting or State updates -- end */
+
+  /** Height Width Related Coding Logics -- start */
+
+  // useEffect to set the height of each container on component render
+  useEffect(() => {
+    if (document?.getElementById("shell-main-section") != undefined) {
+      setShellHeaderSectionHeight(
+        document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
+      );
+      setShellOssMenubreadcrumsHeight(
+        document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
+      );
+      setShellOssHeaderMenuSectionHeight(
+        document?.getElementById("oss-header-menu-setion")?.clientHeight
+      );
+      setShellFooterHeight(
+        document?.getElementsByTagName("footer")[0]?.clientHeight
+      );
+      setSearchFieldHeight(
+        document?.getElementsByClassName("easa-search-row")[0]?.clientHeight
+      );
+    }
+  });
+
+  //useEffect to setShellWorkAppContainerMaxHeight
+  useEffect(() => {
+    // let additionalHeight =
+    //   pmdbProjectId > -1 && window.innerHeight > 450
+    //     ? searchFieldHeight + 50
+    //     : 0;
+    // let additionalGridHeight =
+    //   pmdbProjectId > -1 ? (window.innerHeight > 450 ? 55 : 400) : 40;
+    let additionalHeight = 0;
+    let additionalGridHeight = 40;
+    setShellWorkAppContainerMaxHeight(
+      shellClientHeight != undefined &&
+        shellOssHeaderMenuSectionHeight != undefined
+        ? shellClientHeight -
+        (shellHeaderSectionHeight +
+          shellOssMenubreadcrumsHeight +
+          shellOssHeaderMenuSectionHeight +
+          shellFooterHeight +
+          additionalHeight) +
+        additionalGridHeight
+        : 0
+    );
+  }, [
+    shellClientHeight,
+    shellHeaderSectionHeight,
+    shellOssMenubreadcrumsHeight,
+    shellOssHeaderMenuSectionHeight,
+    shellFooterHeight,
+    setSearchFieldHeight,
+  ]);
+
+  //useEffect to set shell height and gird with on change of screenPercentage
+  useEffect(() => {
+    setShellClientHeight(
+      document?.getElementById("shell-main-section")?.clientHeight
+    );
+    setShellHeaderSectionHeight(
+      document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
+    );
+    setShellOssMenubreadcrumsHeight(
+      document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
+    );
+    setShellOssHeaderMenuSectionHeight(
+      document?.getElementById("oss-header-menu-setion")?.clientHeight
+    );
+    setShellFooterHeight(
+      document?.getElementsByTagName("footer")[0]?.clientHeight
+    );
+    setSearchFieldHeight(
+      document?.getElementsByClassName("easa-search-row")[0]?.clientHeight
+    );
+    // setGridWidth(window.innerWidth);
+  }, [screenPercentage]);
+
+  // Function to update the screen percentage
+  const handleScreenResize = () => {
+    const percentage = calculateScreenPercentage(); // Your function to calculate screen percentage
+    setScreenPercentage(percentage);
+  };
+
+  //Function to Calculate screen percentage
+  const calculateScreenPercentage = () => {
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const totalPixels = screenWidth * screenHeight;
+    // Assuming a reference screen size of 1920x1080 for 100% screen size
+    const referenceWidth = 1920;
+    const referenceHeight = 1080;
+    const referencePixels = referenceWidth * referenceHeight;
+    const percentage = (totalPixels / referencePixels) * 100;
+    return screenWidth == defaultWindowWidth ? 0 : percentage;
+  };
+
+  // Attach event listener for screen resize
+  useEffect(() => {
+    window.addEventListener("resize", handleScreenResize);
     return () => {
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener("resize", handleScreenResize);
     };
-  }, [gridRef, getSubInsertData, parentColWidths]);
-
-  const removeCheckedItem = (item: InsertSubstantiationDetails): void => {
-    const parentIndex = InsertSubstantiationCheckedDetail.findIndex((p: InsertSubstantiationDetails) => p.ConfigProjRegId === item.ConfigProjRegId);
-    if (parentIndex > -1) {
-      InsertSubstantiationCheckedDetail.splice(parentIndex, 1);
-      return;
-    }
-    for (let i = 0; i < InsertSubstantiationCheckedDetail.length; i++) {
-      const entry = InsertSubstantiationCheckedDetail[i];
-      if (entry.ChildRegulationDtls && entry.ChildRegulationDtls.length > 0) {
-        const childIdx = entry.ChildRegulationDtls.findIndex((c: InsertSubstantiationDetails) => c.ConfigProjRegId === item.ConfigProjRegId);
-        if (childIdx > -1) {
-          entry.ChildRegulationDtls.splice(childIdx, 1);
-          break;
-        }
-      }
-    }
-  };
-
-  const handleCheckboxChange = (e: any, dataItem) => {
-    const checked = e.target.checked;
-    const newSelectedState: any = { ...selectedState };
-    const thisId = idGetter(dataItem);
-    if (dataItem.ChildRegulationDtls && dataItem.ChildRegulationDtls.length > 0) {
-      newSelectedState[thisId] = checked;
-      dataItem.ChildRegulationDtls.forEach((child: any) => {
-        const childId = idGetter(child);
-        newSelectedState[childId] = checked;
-        if (checked) addCheckedItem(child);
-        else removeCheckedItem(child);
-      });
-      if (checked) addCheckedItem(dataItem);
-      else removeCheckedItem(dataItem);
-    } else {
-      newSelectedState[thisId] = checked;
-      if (checked) addCheckedItem(dataItem);
-      else removeCheckedItem(dataItem);
-    }
-    setSelectedState(newSelectedState);
-    setSelectedSupState(newSelectedState);
-  };
-
-  // handle popup height dynamucally
-  const getInitialScreenDimensions = () => {
-    return {
-      height: window.innerHeight * 0.75,
-      width: window.innerWidth * 0.70
-    };
-  };
-
-  const getDynamicScreenBasedOnWindowSize = () => {
-    return {
-      height: window.innerHeight * 0.75,
-      width: window.innerWidth * 0.70
-    };
-  };
-
-  const [dynamicScreenSize, setDynamicScreenSize] = useState(getInitialScreenDimensions());
-
-  useEffect(() => {
-    const handleResize = () => {
-      setDynamicScreenSize(getDynamicScreenBasedOnWindowSize());
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  //useEffect to set GridHeigh based on resultState change
+  useEffect(() => {
+    // let additionalHeight = pmdbProjectId > -1 ? 220 : 180;
+    let additionalHeight = 180;
+    let numRows = resultState?.length;
+    setGridHeight(
+      isNaN(numRows) ? 0 : numRows * gridRowHeight + additionalHeight
+    );
+  }, [resultState]);
+
+  /** Height Width Related Coding Logics -- end */
+
+  //Function to calculate screen percentage
   const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
-    let k_grid_width = (document.querySelector("#kgrid-oss-SubStantiation-Insertlookup")as HTMLElement)?.clientWidth;
+    let k_grid_width = document.querySelector(
+      "#kgrid-oss-easa-list"
+    )?.clientWidth;
+
     let fixedWidth = totalColumnFixedWidth;
     let dynamicWidth = 0;
-    //Minimum and Maximum Screen width needs to set as per requirement
-    //Minimum screen width is set to avoid ellipses in the header , value will differ as per total no of grid columns
-    let minScreenWidth = 1242;
+    let minScreenWidth = 2000;
     let maxScreenWidth;
-    // console.log(k_grid_width + "" + window.innerWidth);
     if (k_grid_width) {
       if (k_grid_width <= minScreenWidth) {
         return minWidth;
-      }
-      else {
+      } else {
         dynamicWidth = k_grid_width - fixedWidth;
         if (width == 0 && dynamicWidth > 0 && percentage > 0) {
-          const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
+          const dynamicColumnWidth = Math.round(
+            dynamicWidth * (percentage / 100)
+          );
           return Math.max(minWidth, dynamicColumnWidth);
-        }
-        else {
-          return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
+        } else {
+          return calculatedDynamicColWidth != 0
+            ? minWidth > dynamicWidth - calculatedDynamicColWidth
+              ? minWidth
+              : undefined
+            : undefined;
         }
       }
     }
-  }
+  };
+  
+
+  //useEffect to set dynamic column width and total column width
   useEffect(() => {
     if (gridRef?.current) {
-      const headerCells = gridRef.current.element.querySelectorAll('.k-header');
+      const headerCells = gridRef.current.element.querySelectorAll(".k-header");
       let calculatedFixedColumnWidth = 0;
       let dynamicWidth = 0;
-            headerCells.forEach((cell: any, index: number) => {
-        if (gridRef.current.columns[index]?.width != undefined) {
-          if (gridRef.current.columns[index]?.width.toString().indexOf('px') > -1) {
-            calculatedFixedColumnWidth = calculatedFixedColumnWidth + parseInt(gridRef.current.columns[index].width)
-          }
-          else {
+      headerCells.forEach((cell, index) => {
+        if (gridRef.current.columns[index].width != undefined) {
+          if (
+            gridRef.current.columns[index].width.toString().indexOf("px") > -1
+          ) {
+            calculatedFixedColumnWidth =
+              calculatedFixedColumnWidth +
+              parseInt(gridRef.current.columns[index].width);
+          } else {
             dynamicWidth = dynamicWidth + gridRef.current.columns[index].width;
           }
-        };
-        const columnHeader = gridRef.current.columns[index]?.title;
-          (cell as any).title = columnHeader;
+        }
+        const columnHeader = gridRef.current.columns[index].title;
+        cell.title = columnHeader;
       });
       setCalculatedDynamicColWidth(dynamicWidth);
-      setTotalColumnFixedWidth(calculatedFixedColumnWidth)
+      setTotalColumnFixedWidth(calculatedFixedColumnWidth);
     }
-  }, [gridRef, getSubInsertData]);
+  }, [gridRef, data]);
 
-  const onInsertSubStantiationCheckedItemClick = () => {
-    let tempRevisionDataList: RevisionListDetails[] = [];
+  //useEffect to setData based on dataState change
+  // useEffect(() => {
+  //   if (resultState && resultState.length > 0) {
+  //     setData(process(resultState, dataState));
+  //   }
+  // }, [dataState]);
 
-    for (let i = 0; i < InsertSubstantiationCheckedDetail.length; i++) {
-      let InsertSubCheckItemsDetails: InsertSubstantiationDetails = {} as InsertSubstantiationDetails;
-
-      InsertSubCheckItemsDetails.ConfigProjRegId = InsertSubstantiationCheckedDetail[i].ConfigProjRegId;
-      InsertSubCheckItemsDetails.RegModel = InsertSubstantiationCheckedDetail[i].RegModel;
-      InsertSubCheckItemsDetails.RegType = InsertSubstantiationCheckedDetail[i].RegType;
-      InsertSubCheckItemsDetails.Regulation = InsertSubstantiationCheckedDetail[i].Regulation;
-      InsertSubCheckItemsDetails.AmendmentLevel = InsertSubstantiationCheckedDetail[i].AmendmentLevel;
-      InsertSubCheckItemsDetails.TcdsImpact = InsertSubstantiationCheckedDetail[i].TcdsImpact;
-      InsertSubCheckItemsDetails.RegDescription = InsertSubstantiationCheckedDetail[i].RegDescription;
-      InsertSubCheckItemsDetails.Moc = InsertSubstantiationCheckedDetail[i].Moc;
-      InsertSubCheckItemsDetails.AspectsReq = InsertSubstantiationCheckedDetail[i].AspectsReq;
-      InsertSubCheckItemsDetails.IsActive = InsertSubstantiationCheckedDetail[i].IsActive;
-      InsertSubCheckItemsDetails.ProjectId = InsertSubstantiationCheckedDetail[i].ProjectId;
-      InsertSubCheckItemsDetails.ContentOwnerId = InsertSubstantiationCheckedDetail[i].ContentOwnerId;
-      InsertSubCheckItemsDetails.CreationDate = InsertSubstantiationCheckedDetail[i].CreationDate;
-      InsertSubCheckItemsDetails.ItemStatus = OperationType.ADD;
-      InsertSubCheckItemsDetails.AttributedToReport = InsertSubstantiationCheckedDetail[i].AttributedToReport;
-      InsertSubCheckItemsDetails.AttributedReportNames = InsertSubstantiationCheckedDetail[i].AttributedReportNames;
-      InsertSubCheckItemsDetails.AdditionalRegulationList = InsertSubstantiationCheckedDetail[i].AdditionalRegulationList;
-      InsertSubCheckItemsDetails.SubSystem = InsertSubstantiationCheckedDetail[i].SubSystem;
-      InsertSubCheckItemsDetails.ChildRegulationDtls = InsertSubstantiationCheckedDetail[i].ChildRegulationDtls;
-      InsertSubCheckItemsDetails.RegSortOrder = InsertSubstantiationCheckedDetail[i].RegSortOrder;
-      InsertSubCheckItemsDetails.AmendmentSortOrder = InsertSubstantiationCheckedDetail[i].AmendmentSortOrder;
-
-      InsertSupCheckItems.push(InsertSubCheckItemsDetails);
-      //If revision then need to add in Description of chnge
-      if (props.revision && props.parentReportId != null) {
-        tempRevisionDataList.push({
-          ReportId: reportIdParam,
-          Description: InsertSubstantiationCheckedDetail[i].Regulation,
-          OperationType: OperationType.ADD,
-          CreatedBy: 0,
-          TabId: parseInt(tabIndex),
-          TabTitle: "",
-          AuthorComment: InsertSubstantiationCheckedDetail[i].Regulation,
-          TabSectionId: props.TabSectionId,
-          ContentId: props.ContentID,
-          SecIndexValue: "",
-          ContIndexValue: "",
-          ModifiedBy: 0,
-          TabSectionName: ScreenNameEnum.CONFIG_SUBSTANTIATION,
-          ContentTitleName: SectionTitleEnum.CONFIG_SUBSTANTIATION,
-          ActualTabTitle: "",
-        });
-      }
-    };
-    InsertSubstantiationCheckedDetail = [];
-    SubInsertPopupDataService.SaveSubstantiationByReportId(reportIdParam, InsertSupCheckItems).then((res) => {
-      props.onCloseInsSubStantiationPopup(true);
-      //If revision then need to add in Description of chnge
-      if (tempRevisionDataList.length > 0 && props.parentReportId != null && props.parentReportId >0) {
-        AddRevisionPopupService.InsertContentLogDetails(tempRevisionDataList).then((res) => { });
-      }
-      dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: "Substantiation saved successfully." }));
-      InsertSupCheckItems = [];
-    }).catch((error) => {
-      console.log('Save error', error);
-    })
+  //Convert to date only
+  const toDateOnly = (value: string | null | undefined): Date | null => {
+    if (!value) return null;
+    const d = new Date(value);
+    // Normalize to local date at midnight to make date-only comparisons consistent
+    d.setHours(0, 0, 0, 0);
+    return d;
   };
 
-  const handleGridHeight = (mainHeight) => {
-    return `${mainHeight - 141}px`
+  //  stage popup
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [userStateData, setUserStateData] = useState("");
+  const [popupData, setPopupData] = useState<CSRApprovalUserList[]>([]);
+  const handleClosePopup = () => {
+    setIsPopupOpen(false);
   };
-
-  const datastatechange = (event: GridDataStateChangeEvent) => {
-    setDataState(event.dataState);
-  };
-
-  const isAllSelected = () => {
-    const filteredData = process(getSubInsertData, dataState).data;
-    if (filteredData.length === 0) return false;
-    const dataIds = filteredData.map(item => idGetter(item));
-    return dataIds.every(id => selectedState[id]);
-  };
-
-  const onSelectAllChange = (e: any) => {
-    const checked = e.target.checked;
-    const newSelectedState: any = {};
-    const filteredData = process(getSubInsertData, dataState).data;
-    if (!checked) {
-      filteredData.forEach((item: any) => {
-        removeCheckedItem(item);
-        if (item.ChildRegulationDtls && item.ChildRegulationDtls.length > 0) {
-          item.ChildRegulationDtls.forEach((child: any) => removeCheckedItem(child));
+  const onStatusClick = (data) => {
+    if (data.TemplateTitle.toUpperCase() == ReportType.Drawing.toUpperCase()) {
+      CSRListService.getReportWorkflowDetailsForDrawing(data.RPT_ID).then(
+        (response) => {
+          setUserStateData(data);
+          setPopupData(response.data);
+          setIsPopupOpen(true);
         }
-        newSelectedState[idGetter(item)] = false;
-      });
-      InsertSubstantiationCheckedDetail = InsertSubstantiationCheckedDetail.filter((existing) => {
-        const inFilteredParents = filteredData.some((p: any) => p.ConfigProjRegId === existing.ConfigProjRegId);
-        const isChildOfFiltered = filteredData.some((p: any) => p.ChildRegulationDtls && p.ChildRegulationDtls.some((c: any) => c.ConfigProjRegId === existing.ConfigProjRegId));
-        return !(inFilteredParents || isChildOfFiltered);
-      });
-    } else {
-      filteredData.forEach((item: any) => {
-        newSelectedState[idGetter(item)] = true;
-        addCheckedItem(item);
-        if (item.ChildRegulationDtls && item.ChildRegulationDtls.length > 0) {
-          item.ChildRegulationDtls.forEach((child: any) => {
-            newSelectedState[idGetter(child)] = true;
-            addCheckedItem(child);
-          });
-        }
-      });
-    }
-    setSelectedState(newSelectedState);
-    setSelectedSupState(newSelectedState);
-  };
-
-  const SelectAllHeaderCell = () => {
-    return (
-      <th style={{ width: '70px' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <input
-            type="checkbox"
-            checked={isAllSelected()}
-            onChange={onSelectAllChange}
-            aria-label="Select All"
-          />
-        </div>
-      </th>
-    );
-  };
-
- const childColumnProps = (field: string, parentId: number) => {
-    const childState = childDataStates[parentId] || {};
-    return {
-      field: field,
-      columnMenu: ColumnMenu,
-      headerClassName: isColumnActive(field, childState) ? 'active' : ''
-    };
-  };
-
-  const toggleExpand = (dataItem) => {
-    setSubInsertData(prev => {
-      const updated = prev.map(r =>
-        r.ConfigProjRegId === dataItem.ConfigProjRegId ? { ...r, expanded: !r.expanded } : r
       );
-      return updated;
+    } else {
+      CSRListService.getReportWorkflowDetails(data.RPT_ID).then((response) => {
+        setUserStateData(data);
+        setPopupData(response.data);
+        setIsPopupOpen(true);
+      });
+    }
+  };
+
+  let currentBUId = storageService.getApplicationDataByKey(
+    `${process.env.REACT_PARENT_APP_NAME}-Shell`,
+    "currentbusinessunitid"
+  );
+
+  const sendBreadcrumbDataToShell = (
+    docNumber,
+    projectId,
+    revision,
+    groupId,
+    groupBU,
+    RegProjectId,
+    regProjectIdRev
+  ) => {
+    // Send Document Name to Shell
+    let dataToShare = {
+      AppName: EnvDetail.AppName,
+      Action: "EasaRegister_Navigation",
+      Detail: {
+        DocNumber: docNumber ? docNumber : "",
+        ProjectId: projectId,
+        Rev: revision,
+        GroupId: groupId,
+        GroupBU: groupBU,
+        registerProjectId: RegProjectId,
+        regProjectIdRev: regProjectIdRev,
+      },
+    };
+    let appDataEvent = new ShellEventRegister().getShellEvent();
+    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] =
+      dataToShare;
+    window.dispatchEvent(appDataEvent);
+  };
+
+  const dispatchCreateNewBreadcrumbEvent = (
+    docNumber,
+    projectId,
+    revision,
+    groupId,
+    groupBU,
+    RegProjectId,
+    regProjectIdRev
+  ) => {
+    new StorageService().setApplicationDataByKey(
+      `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+      "easaRegisterCreateNew",
+      true
+    );
+    const payload = {
+      AppName: EnvDetail.AppName,
+      Action: "EASA_CreateNew_Breadcrumb",
+      Detail: {
+        DocNumber: docNumber,
+        ProjectId: projectId,
+        Rev: revision,
+        GroupId: groupId,
+        GroupBU: groupBU,
+        registerProjectId: RegProjectId,
+        regProjectIdRev: regProjectIdRev,
+      },
+    };
+    const appDataEvent = new ShellEventRegister().getShellEvent();
+    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] =
+      payload;
+    window.dispatchEvent(appDataEvent);
+  };
+
+  const fetchData = async (dataState) => {
+    let rev ="";
+    const selectedDiscipline = storageService.getApplicationDataByKey(
+      `${process.env.REACT_PARENT_APP_NAME}-Shell`,
+      "currentdiscipline"
+    );
+    let inputProjectId =
+      projectId != undefined && projectId != null ? projectId : "-1";
+    let projectRegisterId =
+      registerId === "0" || registerId == undefined ? 0 : Number(registerId);
+    let masterType = selectedMasterType ?? "";
+    let groupId = selectedGroupId ?? 0;
+    CsrListDetails = [];
+    selectedCsrListDtls = [];
+    CSRListService.getCSRList(
+      inputProjectId,
+      selectedDiscipline,
+      Number(groupId),
+      projectRegisterId,
+      masterType
+    ).then((result) => {
+      CsrListDetails = result.data;
+      setData(kendoProcess(result.data, dataState));
+      setResultState(result.data);
+      setHasContent(result.data.length != 0 ? true : false);
+      // Set Current User bemsId while loading page
+      let userToken = new UserToken();
+      let bemsId = userToken.getUserBemsId();
+      const newBemsId = Number(bemsId);
+      setCurrentUserBemsId(newBemsId);
+
+      if (result.data[0]?.DOCUMENT_NAME || result.data[0]?.DOCUMENT_NUMBER) {
+        // setIsCommentIconVisible(true);
+        let docNumber = result.data[0]["DOCUMENT_NUMBER"];
+        let projectId = null;
+        if (
+          result.data[0]["PARENT_RPT_ID"] != null &&
+          result.data[0]["PARENT_RPT_ID"] > 0
+        ) {
+          rev = result.data[0]["REVISION"];
+        }
+        let groupID = result.data[0]["GroupId"];
+        let groupBU = result.data[0]["BusinessUnitTitle"];
+        let regProjectId = result.data[0]["ProjectRegisterId"]?.toString();
+        let checkRegisterId = regProjectId;
+        if (currentBUId == 2 && checkRegisterId != 0) {
+          // check for EASA workspace
+          CSRListService.getEasaReportType(
+            Number(groupID),
+            checkRegisterId
+          ).then((easaResponse) => {
+            if (easaResponse && easaResponse.data) {
+              sendBreadcrumbDataToShell(
+                docNumber,
+                projectId,
+                rev,
+                groupID,
+                groupBU,
+                regProjectId,
+                easaResponse.data[0]?.Revision
+              );
+            }
+          });
+        } else {
+          sendBreadcrumbDataToShell(
+            docNumber,
+            projectId,
+            rev,
+            groupID,
+            groupBU,
+            regProjectId,
+            ""
+          );
+        }
+        if (csrWorkAppFlag) {
+          new StorageService().setApplicationDataByKey(
+            `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+            "CsrPmdbProjectId",
+            projectId
+          );
+        } else {
+          new StorageService().setApplicationDataByKey(
+            `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+            "ProjectId",
+            projectId
+          );
+        }
+        // setdisableProjIdDrpdown(true);
+        // setSelectedPmdbProjectId(projectId);
+      }
     });
   };
 
-  const ChildSelectAllHeaderCell = (parentId, childData) => (props) => {
-    const childIds = (childData || []).map(c => idGetter(c));
-    const allChildrenSelected = childIds.length > 0 && childIds.every(id => selectedState[id]);
+  //Handle Row Checkbox Selection Change
+  const onSelectionChange = (event) => {
+    const { dataItem, syntheticEvent } = event;
+    const checked = syntheticEvent.target.checked;
 
-    const onChange = (e) => {
-      const checked = e.target.checked;
-      const newSelectedState = { ...selectedState };
-      if (checked) {
-        (childData || []).forEach(child => {
-          const cid = idGetter(child);
-          newSelectedState[cid] = true;
-          addCheckedItem(child);
-        });
-        const parentRow = getSubInsertData.find(p => p.ConfigProjRegId === parentId);
-        if (parentRow) {
-          newSelectedState[idGetter(parentRow)] = true;
-          addCheckedItem(parentRow);
-        }
-      } else {
-        (childData || []).forEach(child => {
-          const cid = idGetter(child);
-          newSelectedState[cid] = false;
-          removeCheckedItem(child);
-        });
-      }
-      setSelectedState(newSelectedState);
-      setSelectedSupState(newSelectedState);
-    };
-
-    return (
-      <th style={{ width: '60px' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <input type="checkbox" checked={allChildrenSelected} disabled={childData[0].disable} onChange={onChange} aria-label="Select/Deselect child rows" />
-        </div>
-      </th>
-    );
-  };  
-
-  const ChildSubStantiation = (props) => {
-    const parentId = props.dataItem.ConfigProjRegId;
-    const childData = props.dataItem.ChildRegulationDtls || [];
-    if (!childData || childData.length === 0) { return null; }
-    const childState = childDataStates[parentId] || {};
-    const filteredChildData = process(childData, childState);
-    const childGridRef = useRef(null);
-
-    const onChildDataStateChange = (event) => {
-      setChildDataStates(prev => ({
-        ...prev,
-        [parentId]: event.dataState
-      }));
-    };
-    const widthOrFallback = (px?: number, fallback?: any) => {
-      if (typeof px === 'number' && px > 0) return `${px}px`;
-      return fallback;
-    };
-    useEffect(() => {
-      const setHeaderTitles = () => {
-        const childGridEl = (childGridRef.current as any)?.element;
-        if (childGridEl) {
-          const headerCells: NodeListOf<HTMLElement> = childGridEl.querySelectorAll('.k-header');
-          headerCells.forEach((cell) => {
-            const headerText = (cell.textContent || '').trim();
-            if (headerText) {
-              cell.title = headerText;
-            }
-          });
-        }
-      };
-      setHeaderTitles();
-      const t = setTimeout(setHeaderTitles, 0);
-      return () => clearTimeout(t);
-    }, [filteredChildData, parentId]);
-
-    return (
-      <div style={{ marginLeft: `${childLeftOffset}px` }}>
-        <GridAny
-          ref={childGridRef}
-          id="kgrid-oss-csr-projectSubChildgrid"
-          data={filteredChildData}
-          {...childState}
-          onDataStateChange={onChildDataStateChange}
-          sortable={true}
-          resizable={true}
-          columnMenuIcon={filterIcon}
-        >
-          <ColumnAny
-            field={SELECTED_FIELD}
-            width="170px"
-            title="Select/Deselect all rows"
-            headerCell={ChildSelectAllHeaderCell(parentId, childData)}
-             cells={{data:(props: any) => {
-              const isChecked = selectedState[idGetter(props.dataItem)];
-              return (
-                <td className="sub-checkbox">
-                  <input type="checkbox" disabled={props.dataItem.disable} checked={!!isChecked} onChange={(e) => handleCheckboxChange(e, props.dataItem)} />
-                </td>
-              );
-            }}}
-          />
-           <ColumnAny {...childColumnProps('Regulation', parentId)} field="Regulation" title="Regulation" width={widthOrFallback(childColWidths.reg, '170')}
-            cells={{data:(props: any) => (
-              <td title={props.dataItem.Regulation}>{props.dataItem.Regulation}</td>
-            )}}
-          />
-          <ColumnAny {...childColumnProps('RegModel', parentId)} title="Model" field="RegModel" width={widthOrFallback(childColWidths.model, '170px')}
-            cells={{data:(props: any) => (
-              <td title={props.dataItem.RegModel}>{props.dataItem.RegModel}</td>
-            )}}
-          />
-          <ColumnAny {...childColumnProps('RegType', parentId)} field="RegType" title="Type" width={widthOrFallback(childColWidths.type, '110px')}
-            cells={{data:(props: any) => (
-              <td title={props.dataItem.RegType}>{props.dataItem.RegType}</td>
-            )}}
-          />
-        </GridAny>
-      </div>
+    setResultState((perv) =>
+      perv.map((item) =>
+        item[DATA_ITEM_KEY] === dataItem[DATA_ITEM_KEY]
+          ? { ...item, [SELECTED_FIELD]: checked }
+          : item
+      )
     );
   };
-    const processedData = useMemo(() => {
-      return process(getSubInsertData, {
-                ...dataState,
-                sort: dataState && dataState?.sort && dataState.sort.map((s: any) =>
-                  s.field === "Regulation" ? { ...s, field: "RegSortOrder" } : s.field === "AmendmentLevel" ? { ...s, field: "AmendmentSortOrder" } : s.field === "RegType" ? { ...s, field: "RegTypeSortOrder" } : s
-                ),
-              })
-    }, [getSubInsertData, dataState]);
- 
-  const onDetailExpandChange = (e: GridDetailExpandChangeEvent) => {
-    setDetailExpand(e.detailExpand);
+
+  //Handle HeaderCheckbox Selection Change
+  const onHeaderSelectionChange = (event) => {
+    const checked = event.syntheticEvent.target.checked;
+
+    setResultState((prev) =>
+      prev.map((item) => ({ ...item, [SELECTED_FIELD]: checked }))
+    );
   };
-  const expandedAll: DetailExpandDescriptor = React.useMemo(() => {
-    return processedData?.data.reduce((acc, item) => {
-      if (item.ChildRegulationDtls.length>0) {
-        acc[item.ConfigProjRegId] = true;
+
+  //Handle Create Revision button Click
+  const handleOpenRevision = () => {
+    setOpenRevisionModelPopup(true);
+  };
+
+  //Handle Close revison popup and navigation on click of create for revision
+  const handleCloseRevisionPopup = () => {
+    setOpenRevisionModelPopup(false);
+  };
+
+  const handleEasaDetails = (newRegisterTitle) => {
+    // find the selected register config
+    const matched = registerTypes.find(
+      (rt) => rt.TemplateTitle === newRegisterTitle
+    );
+    const newMasterType = matched?.TemplateTitle ?? "";
+    const newGroupId = matched?.GroupId ?? null;
+    const newReportTemplate = {
+      TemplateId: matched?.TemplateId,
+      TemplateTitle: matched?.TemplateTitle,
+      DocFormat: matched?.DocFormat,
+      TemplateSequence: matched?.TemplateSequence,
+      ItarFlag: matched?.ItarFlag,
+      GroupId: matched?.GroupId,
+    };
+
+    storageService.setApplicationDataByKey(
+      `${EnvDetail.ParentAppName}-EasaRegisterWorkApp`,
+      `easaRegisterDetails`,
+      {
+        isEasaRegister: true,
+        registerType: newRegisterTitle,
+        selectedReportTemplate: {
+          TemplateId: matched?.TemplateId,
+          TemplateTitle: matched?.TemplateTitle,
+          DocFormat: matched?.DocFormat,
+          TemplateSequence: matched?.TemplateSequence,
+          ItarFlag: matched?.ItarFlag,
+          GroupId: matched?.GroupId,
+        },
+        selectedReportGroup: {
+          GroupId: matched?.GroupId,
+          GroupTitle: matched?.GroupDesc,
+          GroupDesc: matched?.GroupDesc,
+          GroupSequence: 0,
+          ItarFlag: matched?.ItarFlag,
+          BuId: 0,
+          DisciplineId: 0,
+        },
       }
-      return acc;
-    }, {} as DetailExpandDescriptor);
-  }, [processedData, dataState,]);
+    );
 
-  React.useEffect(() => {
-    setDetailExpand(expandedAll);
-  }, [expandedAll]);
+    setSelectedRegisterType(newRegisterTitle);
+    setSelectedMasterType(newMasterType);
+    setSelectedGroupId(newGroupId);
+    setSelectedReportTemplate(newReportTemplate);
+  };
 
-  const CustomExpandCell = (props: GridCellProps & {
-  detailExpand?: DetailExpandDescriptor;
-  onDetailExpandChange: (e: GridDetailExpandChangeEvent) => void;
-}) => {
-  const { dataItem, rowType, detailExpand, onDetailExpandChange } = props;
+  //Handle RegisterType Change
+  const handleRegisterChange = (event) => {
+    const newRegisterTitle = event.target.value;
+    handleEasaDetails(newRegisterTitle);
+  };
 
-  if (rowType === 'groupHeader' || !dataItem) {
-    return <td />;
-  }
+  //Function to set attibutes on dataStateChange
+  const datastatechange = (event: GridDataStateChangeEvent) => {
+    //---adobe Analytics
+    logFilterAction(event);
+    event.dataState?.filter?.filters[0]["filters"]?.forEach((item, index) => {
+      if (item.value != undefined && item.field == "RELEASE_DATE") {
+        const dateObject = new Date(item.value);
+        item.value = new Date(item.value);
+      } else if (item.value != undefined && item.field == "CreationDateStr") {
+        const dateObject = new Date(item.value);
+        item.value = new Date(item.value);
+      } else if (
+        item.value != undefined &&
+        item.field == "ModificationDateStr"
+      ) {
+        const dateObject = new Date(item.value);
+        item.value = new Date(item.value);
+      }
+    });
+    setDataState(event.dataState);
+    fetchData(event.dataState);
+  };
 
-  const hasDetails = (dataItem?.ChildRegulationDtls?.length ?? 0) > 0;
-  const isExpanded = !!detailExpand && !!detailExpand[dataItem.ConfigProjRegId]; 
+  const handleCloseCreateNew = () => {
+    setAnchorElCreate(null);
+  };
 
-  if (!hasDetails) {
-    return <td style={{ width: 60 }} />;
-  }
-
-  const handleExpandClick = () => {
-    // Manually construct the new detailExpand descriptor
-    const newDetailExpand = { ...(detailExpand ?? {}) };
-    const shouldExpand = !isExpanded;
-
-    if (shouldExpand) {
-      newDetailExpand[dataItem.ConfigProjRegId] = true;
-    } else {
-      delete newDetailExpand[dataItem.ConfigProjRegId];
+  const handleCreateNewReport = () => {
+    handleCloseCreateNew();
+    if (!csrWorkAppFlag) {
+      new StorageService().setApplicationDataByKey(
+        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+        "ProjectId",
+        projectId
+      );
     }
 
-    // Trigger the parent's handler with the required event structure
-    onDetailExpandChange({
-      detailExpand: newDetailExpand,
-      dataItem: dataItem,
-      syntheticEvent: null, 
-      nativeEvent: null,
-      target: null,
-    } as unknown as GridDetailExpandChangeEvent); 
-  
+    new StorageService().setApplicationDataByKey(
+      `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+      "DocNumber",
+      ""
+    );
+
+    new StorageService().setApplicationDataByKey(
+      `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+      `DocRev`,
+      ""
+    );
+
+    new StorageService().setApplicationDataByKey(
+      `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+      `ReportTemplate`,
+      selectedReportTemplate
+    );
+
+    dispatchCreateNewBreadcrumbEvent(
+      "",
+      projectId,
+      "New",
+      selectedGroupId,
+      "EASA",
+      "0",
+      ""
+    );
+
+    navigate(
+      PathConstants.DYNAMIC_TAB.replace(":reportId", "0").replace(
+        ":tabIndex",
+        "-1"
+      ),
+      { state: null }
+    );
   };
 
-  return (
-    <td style={{ textAlign: 'center', width: 60 }}>
-      <KendoButton
-        onClick={handleExpandClick}
-        fillMode="flat"
-        themeColor="primary"
-        size="small"
-        svgIcon={isExpanded ?  chevronDownIcon:chevronRightIcon}
-        title={isExpanded ? 'Collapse' : 'Expand'}
-        aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
-        aria-expanded={isExpanded}
-      />
-    </td>
+  //Handle onClick of Lookup Value for updating selected supplier details
+  const handleLookupValueClick = (reportId: any, project_id: any) => {
+    console.log("handleLookupValueClick:", reportId, project_id);
+
+    if (!csrWorkAppFlag) {
+      storageService.setApplicationDataByKey(
+        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+        "CsrPmdbProjectId",
+        project_id
+      );
+    }
+    //navigate(PathConstants.DYNAMIC_TAB.replace(":reportId", (reportId.toString() || "0")).replace(":tabIndex", ""));
+    navigate(
+      PathConstants.COMPLIANCE_REPORT_BASE.replace(":reportId", reportId),
+      {}
+    );
+    //navigate(PathConstants.GENERAL_TAB.replace(":reportId", reportId));
+  };
+
+  //Handle onClick of DMA Number for updating selected mro details
+  const handleDMANumberClick = (selectedMasterId) => {
+    // navigate(
+    // PathConstants.MRO_DETAILS.replace(
+    //   ":masterId",
+    //   selectedMasterId.toString()
+    // )
+    // );
+  };
+  //Handle onClick of DMA Number for updating selected mro details
+  const handleWANumberClick = (selectedMasterId) => {
+    // navigate(
+    // PathConstants.WA_DETAILS.replace(":masterId", selectedMasterId.toString())
+    // );
+  };
+
+  //Handle click of Create New button
+  const handleCreateNewRegister = () => {
+    // if (selectedRegisterType.toLowerCase() == "supplier")
+    // navigate(PathConstants.SUPPLIER_DETAILS.replace(":masterId", "0"));
+    // if (selectedRegisterType.toLowerCase() == "mro")
+    // navigate(PathConstants.MRO_DETAILS.replace(":masterId", "0"));
+    // if (selectedRegisterType.toLowerCase() == "working arrangement")
+    // navigate(PathConstants.WA_DETAILS.replace(":masterId", "0"));
+  };
+
+  // Handle click of Delete button to delete registers (with confirm)
+  const handleDeleteRegister = async () => {
+    const toDeleteMasterIds = Array.from(selectedRowsMap?.keys() ?? []);
+
+    if (toDeleteMasterIds.length === 0) {
+      dispatch(
+        showSnackbar({
+          snackbarOpen: true,
+          snackbarType: "info",
+          snackbarMessage: `Please select ${selectedRegisterType} Detail(s).`,
+        })
+      );
+      return;
+    }
+
+    try {
+      const result = await userDefinedConfirm({
+        message: `Are you sure want to delete selected ${selectedRegisterType} Detail(s)?`,
+        okBtnText: "Yes",
+        cancelBtnText: "Cancel",
+      });
+
+      // if (result?.button) {
+      //   const type = selectedRegisterType?.toLowerCase?.() ?? "";
+
+      //   if (type === "supplier") {
+      //     await EasaListService.deleteSelectedSupplierData(toDeleteMasterIds);
+      //   } else if (type === "mro") {
+      //     await EasaListService.deleteSelectedMROData(toDeleteMasterIds);
+      //   } else if (type === "working arrangement") {
+      //     await EasaListService.deleteSelectedWAData(toDeleteMasterIds);
+      //   }
+
+      //   // refetch grid data
+      //   // await fetchData(dataState);
+
+      //   // show success snackbar (adjust message as needed)
+      //   dispatch(
+      //     showSnackbar({
+      //       snackbarOpen: true,
+      //       snackbarType: "success",
+      //       snackbarMessage: `Selected ${selectedRegisterType} Detail(s) deleted successfully.`,
+      //     })
+      //   );
+      // }
+    } catch (err) {
+      // user cancelled or confirm rejected — do nothing
+      // Optionally handle explicit cancel rejection differently if your userDefinedConfirm rejects on cancel
+      // dispatch(
+      //   showSnackbar({
+      //     snackbarOpen: true,
+      //     snackbarType: "error",
+      //     snackbarMessage: `Unable to Delete ${selectedRegisterType} Detail(s) . Please connect with Administrator.`,
+      //   })
+      // );
+    }
+  };
+
+  //Memoized selectedRowsMap to store the selected Rows on change of resultState
+  const selectedRowsMap = useMemo(() => {
+    const map = new Map();
+    resultState.forEach((item) => {
+      if (item[SELECTED_FIELD]) {
+        map.set(item[DATA_ITEM_KEY], item);
+      }
+    });
+    return map;
+  }, [resultState]);
+
+  //Identifying the first selected row and extraction the MasterId as
+  const firstSelectedKey = useMemo(() => {
+    const it = selectedRowsMap.keys().next();
+    return it.done ? undefined : it.value;
+  }, [selectedRowsMap]);
+
+  const firstSelectedItem = useMemo((): CreateRevisionDataItem | undefined => {
+    if (firstSelectedKey === undefined) return undefined;
+    return selectedRowsMap.get(firstSelectedKey) as
+      | CreateRevisionDataItem
+      | undefined;
+  }, [firstSelectedKey, selectedRowsMap]);
+
+  const docId = useMemo(() => {
+    if (!firstSelectedItem) return undefined;
+
+    const regType = selectedRegisterType?.trim().toLowerCase();
+    return regType === "supplier"
+      ? firstSelectedItem.LookUpValue
+      : firstSelectedItem.DmaNumber;
+  }, [firstSelectedItem, selectedRegisterType]);
+
+  //Logic for the toolbarElement
+  const toolbarElement = useMemo(() => {
+    return (
+      <GridToolbar key="grid-toolbar" className="topbarmain-height-grid">
+        {
+          <Button
+            className="easalist-marginLeft10"
+            id="createBtn"
+            title="Create New"
+            onClick={handleCreateNewReport}
+            size={"small"}
+            color={"inherit"}
+            variant={"outlined"}
+            disabled={
+              selectedRowsMap.size > 0
+                ? true
+                : false || selectedRegisterType === "DO MO Arrangement"
+            }
+          >
+            <LibraryAddOutlinedIcon className="iconClass" />
+            <Typography
+              variant={"button"}
+              sx={{ textTransform: "none", fontSize: "14px" }}
+            >
+              Create New
+            </Typography>
+          </Button>
+        }
+        {
+          <Button
+            disabled={selectedRowsMap.size == 1 ? false : true}
+            className="easalist-marginLeft10"
+            id="craeteRevBtn"
+            variant={"outlined"}
+            title="Create Revision"
+            // onClick={handleOpenRevision}
+            size={"small"}
+            color={"inherit"}
+          >
+            <LibraryAddOutlinedIcon className="iconClass" />
+            <Typography
+              variant={"button"}
+              sx={{ textTransform: "none", fontSize: "14px" }}
+            >
+              Create Revision
+            </Typography>
+          </Button>
+        }
+        {
+          <Button
+            className="easalist-marginLeft10"
+            id="deleteBtn"
+            title="Delete"
+            // onClick={handleDeleteRegister}
+            variant={"outlined"}
+            size={"small"}
+            color={"inherit"}
+            disabled={selectedRowsMap.size <= 0 ? true : false}
+          >
+            <DeleteSharpIcon className="iconClass" />
+            <Typography
+              variant={"button"}
+              sx={{ textTransform: "none", fontSize: "14px" }}
+            >
+              Delete
+            </Typography>
+          </Button>
+        }
+        {
+          <FormControl
+            className="register-type-form"
+            style={{
+              // display: "flex",
+              alignItems: "center",
+              flexDirection: "row",
+              // marginLeft: "auto",
+              right: "60px",
+              float: "right",
+              position: "absolute",
+            }}
+            variant="outlined"
+          >
+            <Select
+              id="register-type-select-dropdown"
+              labelId="register-type-select-label"
+              className="text-normal"
+              // className="easalist-marginLeft10"
+              style={{
+                width: "200px",
+                height: "32px",
+                fontSize: "14px !important",
+                color: "#253746 !important",
+              }}
+              value={selectedRegisterType}
+              onChange={handleRegisterChange}
+              displayEmpty
+              disabled={registerTypes.length === 0}
+            >
+              {registerTypes.map((registerType) => (
+                <MenuItem
+                  key={registerType.TemplateId}
+                  value={registerType.TemplateTitle}
+                  className="text-normal"
+                >
+                  {registerType.TemplateTitle}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        }
+      </GridToolbar>
+    );
+  }, [selectedRowsMap, selectedRegisterType, registerTypes]);
+
+  //Memoised isAllSelected to set the checkbox state for the Header Checkbox
+  const isAllSelected = useMemo(() => {
+    return (
+      resultState.length > 0 &&
+      resultState.every((item) => item[SELECTED_FIELD])
+    );
+  }, [resultState]);
+
+  //MRO Column Configuration
+  const mroColumnConfig: ColumnConfig[] = [
+    // {
+    //   key: "select",
+    //   field: SELECTED_FIELD,
+    //   title: "Select/Deselect all rows",
+    //   filterable: false,
+    //   width: "45px",
+    //   headerSelectionValue: isAllSelected,
+    // },
+
+    {
+      key: "AssessmentRef",
+      field: "AssessmentRef",
+      title: "DMA Number",
+      width: setPercentage(undefined, 0, 210) ?? 210,
+      cells: {
+        data: (props) => (
+          <td title={props.dataItem.AssessmentRef}>
+            <Button
+              variant={"text"}
+              color={"primary"}
+              onClick={(e) => {
+                handleLookupValueClick(
+                  props.dataItem.RPT_ID,
+                  props.dataItem.PROJECT_ID
+                );
+              }}
+              sx={{
+                textTransform: "none",
+                fontSize: "14px",
+                padding: 0,
+                justifyContent: "flex-start",
+                "&:hover": { backgroundColor: "transparent" },
+                color: "#0078B8",
+                width: "100%",
+              }}
+            >
+              <span
+                style={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {props.dataItem.AssessmentRef}
+              </span>
+            </Button>
+          </td>
+        ),
+      },
+      extraProps: { ...columnProps("AssessmentRef") },
+    },
+
+    {
+      key: "DOCUMENT_NAME",
+      field: "DOCUMENT_NAME",
+      title: "Document Name",
+      width: setPercentage(undefined, 0, 190) ?? 190,
+      cell: (props) => (
+        <td title={props.dataItem.DOCUMENT_NAME}>{props.dataItem.DOCUMENT_NAME}</td>
+      ),
+      extraProps: { ...columnProps("DOCUMENT_NAME") },
+    },
+
+    {
+      key: "Report_Description",
+      field: "Report_Description",
+      title: "Report Description",
+      width: setPercentage(180, 0, 200) ?? 200,
+      cell: (props) => (
+        <td title={props.dataItem.Report_Description}>{props.dataItem.Report_Description}</td>
+      ),
+      extraProps: { ...columnProps("Report_Description") },
+    },
+
+    {
+      key: "REVISION",
+      field: "REVISION",
+      title: "Revision",
+      width: setPercentage(100, 0, 110) ?? 110,
+      cell: (props) => (
+        <td title={props.dataItem.REVISION}>{props.dataItem.REVISION}</td>
+      ),
+      extraProps: { ...columnProps("REVISION") },
+    },
+
+    {
+      key: "CreatedByName",
+      field: "CreatedByName",
+      title: "Created By",
+      width: "154px",
+      cell: (props) => (
+        <td title={props.dataItem.CreatedByName}>
+          {props.dataItem.CreatedByName}
+        </td>
+      ),
+      extraProps: { ...columnProps("CreatedByName") },
+    },
+
+    {
+      key: "MroDate",
+      field: "MroDate",
+      title: "MRO Date",
+      width: "160px",
+      filter: "date",
+      filterCell: dateFilterCell,
+      cell: (props) => {
+        const mroDate = props.dataItem.MroDate
+          ? new Date(props.dataItem.MroDate)
+          : null;
+        return (
+          <td
+            title={
+              mroDate
+                ? mroDate.toLocaleDateString(undefined, {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                })
+                : ""
+            }
+          >
+            {mroDate &&
+              mroDate.toLocaleDateString(undefined, {
+                month: "2-digit",
+                day: "2-digit",
+                year: "numeric",
+              })}
+          </td>
+        );
+      },
+      extraProps: { ...columnProps("MroDate") },
+    },
+
+    {
+      key: "CreationDate",
+      field: "CreationDate",
+      title: "Creation Date",
+      width: "160px",
+      filter: "date",
+      filterCell: dateFilterCell,
+      cell: (props) => {
+        const creationDate = props.dataItem.CreationDate
+          ? new Date(props.dataItem.CreationDate)
+          : null;
+        return (
+          <td
+            title={
+              creationDate
+                ? creationDate.toLocaleDateString(undefined, {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                })
+                : ""
+            }
+          >
+            {creationDate &&
+              creationDate.toLocaleDateString(undefined, {
+                month: "2-digit",
+                day: "2-digit",
+                year: "numeric",
+              })}
+          </td>
+        );
+      },
+      extraProps: { ...columnProps("CreationDate") },
+    },
+
+    {
+      key: "ModifiedByName",
+      field: "ModifiedByName",
+      title: "Modified By",
+      width: "154px",
+      cell: (props) => (
+        <td title={props.dataItem.ModifiedByName}>
+          {props.dataItem.ModifiedByName}
+        </td>
+      ),
+      extraProps: { ...columnProps("ModifiedByName") },
+    },
+
+    {
+      key: "ModificationDate",
+      field: "ModificationDate",
+      title: "Modification Date",
+      width: "180px",
+      filter: "date",
+      filterCell: dateFilterCell,
+      cell: (props) => {
+        const modificationDate = props.dataItem.ModificationDate
+          ? new Date(props.dataItem.ModificationDate)
+          : null;
+        return (
+          <td
+            title={
+              modificationDate
+                ? modificationDate.toLocaleDateString(undefined, {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                })
+                : ""
+            }
+          >
+            {modificationDate &&
+              modificationDate.toLocaleDateString(undefined, {
+                month: "2-digit",
+                day: "2-digit",
+                year: "numeric",
+              })}
+          </td>
+        );
+      },
+      extraProps: { ...columnProps("ModificationDate") },
+    },
+  ];
+
+  //Supplier Column Configuration
+  const supplierColumnConfig: ColumnConfig[] = [
+    // {
+    //   key: "select",
+    //   field: SELECTED_FIELD,
+    //   title: "Select/Deselect all rows",
+    //   filterable: false,
+    //   width: "45px",
+    //   headerSelectionValue: isAllSelected,
+    // },
+    {
+      key: "AssessmentRef",
+      field: "AssessmentRef",
+      title: "Supplier Audit Reference",
+      width: setPercentage(180, 0, 230) ?? 230,
+      cells: {
+        data: (props) => (
+          <td title={props.dataItem.AssessmentRef}>
+            <Button
+              variant={"text"}
+              color={"primary"}
+              onClick={(e) => {
+                handleLookupValueClick(
+                  props.dataItem.RPT_ID,
+                  props.dataItem.PROJECT_ID
+                );
+              }}
+              sx={{
+                textTransform: "none",
+                fontSize: "14px",
+                padding: 0,
+                justifyContent: "flex-start",
+                "&:hover": { backgroundColor: "transparent" },
+                color: "#0078B8",
+                width: "100%",
+              }}
+            >
+              <span
+                style={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {props.dataItem.AssessmentRef}
+              </span>
+            </Button>
+          </td>
+        ),
+      },
+      extraProps: { ...columnProps("AssessmentRef") },
+    },
+
+    {
+      key: "SupplierName",
+      field: "SupplierName",
+      title: "Supplier Name",
+      width: setPercentage(180, 0, 200) ?? 200,
+      cell: (props) => (
+        <td title={props.dataItem.SupplierName}>
+          {props.dataItem.SupplierName}
+        </td>
+      ),
+      extraProps: { ...columnProps("SupplierName") },
+    },
+    {
+      key: "SupplierStatus",
+      field: "SupplierStatus",
+      title: "Supplier Status",
+      width: setPercentage(180, 0, 200) ?? 200,
+      cell: (props) => (
+        <td title={props.dataItem.SupplierStatus}>
+          {props.dataItem.SupplierStatus}
+        </td>
+      ),
+      extraProps: { ...columnProps("SupplierStatus") },
+    },
+
+    {
+      key: "SupplierActivity",
+      field: "SupplierActivity",
+      title: "Supplier Activity Authorised",
+      width: setPercentage(180, 0, 200) ?? 200,
+      cell: (props) => (
+        <td title={props.dataItem.SupplierActivity}>
+          {props.dataItem.SupplierActivity}
+        </td>
+      ),
+      extraProps: { ...columnProps("SupplierActivity") },
+    },
+    {
+      key: "SupplierCategory",
+      field: "SupplierCategory",
+      title: "Supplier Category",
+      width: setPercentage(180, 0, 200) ?? 200,
+      cell: (props) => (
+        <td title={props.dataItem.SupplierCategory}>
+          {props.dataItem.SupplierCategory}
+        </td>
+      ),
+      extraProps: { ...columnProps("SupplierCategory") },
+    },
+    {
+      key: "SupplierCapabilities",
+      field: "SupplierCapabilities",
+      title: "Supplier Capabilities",
+      width: setPercentage(180, 0, 200) ?? 200,
+      cell: (props) => (
+        <td title={props.dataItem.SupplierCapabilities}>
+          {props.dataItem.SupplierCapabilities}
+        </td>
+      ),
+      extraProps: { ...columnProps("SupplierCapabilities") },
+    },
+    {
+      key: "CHANGE_DESCRIPTION",
+      field: "CHANGE_DESCRIPTION",
+      title: "Description",
+      width: setPercentage(300, 0, 300) ?? 300,
+      cell: (props) => (
+        <td title={props.dataItem.CHANGE_DESCRIPTION}>
+          {props.dataItem.CHANGE_DESCRIPTION}
+        </td>
+      ),
+      extraProps: { ...columnProps("CHANGE_DESCRIPTION") },
+    },
+    {
+      key: "ScaStatus",
+      field: "ScaStatus",
+      title: "SCA Status",
+      width: setPercentage(300, 0, 300) ?? 300,
+      cell: (props) => (
+        <td title={props.dataItem.ScaStatus}>
+          {props.dataItem.ScaStatus}
+        </td>
+      ),
+      extraProps: { ...columnProps("ScaStatus") },
+    },
+
+    {
+      key: "AssessmentType",
+      field: "AssessmentType",
+      title: "Assessment Type",
+      width: setPercentage(180, 0, 180) ?? 180,
+      cell: (props) => (
+        <td title={props.dataItem.AssessmentType}>
+          {props.dataItem.AssessmentType}
+        </td>
+      ),
+      extraProps: { ...columnProps("AssessmentType") },
+    },
+    {
+      key: "REVISION",
+      field: "REVISION",
+      title: "Revision",
+      width: "130px",
+      cell: (props) => (
+        <td title={props.dataItem.REVISION}>{props.dataItem.REVISION}</td>
+      ),
+      extraProps: { ...columnProps("REVISION") },
+    },
+
+    {
+      key: "AuditDate",
+      field: "AuditDate",
+      title: "Last Audit Date",
+      width: "160px",
+      filter: "date",
+      filterCell: dateFilterCell,
+      cell: (props) => {
+        const releaseDate = props.dataItem.AuditDate
+          ? new Date(props.dataItem.AuditDate)
+          : null;
+        return (
+          <td
+            title={
+              releaseDate
+                ? releaseDate.toLocaleDateString(undefined, {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                })
+                : ""
+            }
+          >
+            {releaseDate &&
+              releaseDate.toLocaleDateString(undefined, {
+                month: "2-digit",
+                day: "2-digit",
+                year: "numeric",
+              })}
+          </td>
+        );
+      },
+      extraProps: { ...columnProps("AuditDate") },
+    },
+
+    {
+      key: "NextAuditDate",
+      field: "NextAuditDate",
+      title: "Next Audit Due",
+      width: "160px",
+      filter: "date",
+      filterCell: dateFilterCell,
+      cell: (props) => {
+        const releaseDate = props.dataItem.NextAuditDate
+          ? new Date(props.dataItem.NextAuditDate)
+          : null;
+        return (
+          <td
+            title={
+              releaseDate
+                ? releaseDate.toLocaleDateString(undefined, {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                })
+                : ""
+            }
+          >
+            {releaseDate &&
+              releaseDate.toLocaleDateString(undefined, {
+                month: "2-digit",
+                day: "2-digit",
+                year: "numeric",
+              })}
+          </td>
+        );
+      },
+      extraProps: { ...columnProps("NextAuditDate") },
+    },
+    // {
+    //   key: "AuditDtStatus",
+    //   field: "AuditDtStatus",
+    //   title: "Audit Status",
+    //   width: setPercentage(180, 0, 180) ?? 180,
+    //   cell: (props) => (
+    //     <td title={props.dataItem.AuditDtStatus}>
+    //       {props.dataItem.AuditDtStatus}
+    //     </td>
+    //   ),
+    //   extraProps: { ...columnProps("AuditDtStatus") },
+    // },
+    {
+      key: "SupplierAuditType",
+      field: "SupplierAuditType",
+      title: "Audit Type",
+      width: setPercentage(180, 0, 220) ?? 220,
+      cell: (props) => (
+        <td title={props.dataItem.SupplierAuditType}>
+          {props.dataItem.SupplierAuditType}
+        </td>
+      ),
+      extraProps: { ...columnProps("SupplierAuditType") },
+    },
+
+    {
+      key: "AuditOutcome",
+      field: "AuditOutcome",
+      title: "Audit Outcome",
+      width: setPercentage(180, 0, 180) ?? 180,
+      cell: (props) => (
+        <td title={props.dataItem.AuditOutcome}>
+          {props.dataItem.AuditOutcome}
+        </td>
+      ),
+      extraProps: { ...columnProps("AuditOutcome") },
+    },
+
+    {
+      key: "SupplierStatus",
+      field: "SupplierStatus",
+      title: "Status",
+      width: setPercentage(180, 0, 180) ?? 180,
+      cell: (props) => (
+        <td title={props.dataItem.SupplierStatus}>
+          {props.dataItem.SupplierStatus}
+        </td>
+      ),
+      extraProps: { ...columnProps("SupplierStatus") },
+    },
+
+    {
+      key: "ApprovedBy",
+      field: "ApprovedBy",
+      title: "Approved By",
+      width: "150px",
+      cell: (props) => (
+        <td title={props.dataItem.ApprovedBy}>{props.dataItem.ApprovedBy}</td>
+      ),
+      extraProps: { ...columnProps("ApprovedBy") },
+    },
+    {
+      key: "CreatedByName",
+      field: "CreatedByName",
+      title: "Created By",
+      width: "154px",
+      cell: (props) => (
+        <td title={props.dataItem.CreatedByName}>
+          {props.dataItem.CreatedByName}
+        </td>
+      ),
+      extraProps: { ...columnProps("CreatedByName") },
+    },
+
+    {
+      key: "CreationDate",
+      field: "CreationDate",
+      title: "Creation Date",
+      width: "160px",
+      filter: "date",
+      filterCell: dateFilterCell,
+      cell: (props) => {
+        const creationDate = props.dataItem.CreationDate
+          ? new Date(props.dataItem.CreationDate)
+          : null;
+        return (
+          <td
+            title={
+              creationDate
+                ? creationDate.toLocaleDateString(undefined, {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                })
+                : ""
+            }
+          >
+            {creationDate &&
+              creationDate.toLocaleDateString(undefined, {
+                month: "2-digit",
+                day: "2-digit",
+                year: "numeric",
+              })}
+          </td>
+        );
+      },
+      extraProps: { ...columnProps("CreationDate") },
+    },
+
+    {
+      key: "ModifiedByName",
+      field: "ModifiedByName",
+      title: "Modified By",
+      width: "154px",
+      cell: (props) => (
+        <td title={props.dataItem.ModifiedByName}>
+          {props.dataItem.ModifiedByName}
+        </td>
+      ),
+      extraProps: { ...columnProps("ModifiedByName") },
+    },
+
+    {
+      key: "ModificationDate",
+      field: "ModificationDate",
+      title: "Modification Date",
+      width: "180px",
+      filter: "date",
+      filterCell: dateFilterCell,
+      cell: (props) => {
+        const modificationDate = props.dataItem.ModificationDate
+          ? new Date(props.dataItem.ModificationDate)
+          : null;
+        return (
+          <td
+            title={
+              modificationDate
+                ? modificationDate.toLocaleDateString(undefined, {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                })
+                : ""
+            }
+          >
+            {modificationDate &&
+              modificationDate.toLocaleDateString(undefined, {
+                month: "2-digit",
+                day: "2-digit",
+                year: "numeric",
+              })}
+          </td>
+        );
+      },
+      extraProps: { ...columnProps("ModificationDate") },
+    },
+  ];
+
+  // WA column configuration
+
+  const waColumnConfig: ColumnConfig[] = [
+    // {
+    //   key: "select",
+    //   field: SELECTED_FIELD,
+    //   title: "Select/Deselect all rows",
+    //   filterable: false,
+    //   width: "45px",
+    //   headerSelectionValue: isAllSelected,
+    // },
+
+    {
+      key: "AssessmentRef",
+      field: "AssessmentRef",
+      title: "WA Number",
+      width: setPercentage(undefined, 0, 150) ?? 150,
+      cells: {
+        data: (props) => (
+          <td title={props.dataItem.AssessmentRef}>
+            <Button
+              variant={"text"}
+              color={"primary"}
+              onClick={(e) => {
+                handleLookupValueClick(
+                  props.dataItem.RPT_ID,
+                  props.dataItem.PROJECT_ID
+                );
+              }}
+              sx={{
+                textTransform: "none",
+                fontSize: "14px",
+                padding: 0,
+                justifyContent: "flex-start",
+                "&:hover": { backgroundColor: "transparent" },
+                color: "#0078B8",
+                width: "100%",
+              }}
+            >
+              <span
+                style={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {props.dataItem.AssessmentRef}
+              </span>
+            </Button>
+          </td>
+        ),
+      },
+      extraProps: { ...columnProps("AssessmentRef") },
+    },
+
+    {
+      key: "DOCUMENT_NAME",
+      field: "DOCUMENT_NAME",
+      title: "Document Name",
+      width: setPercentage(undefined, 0, 190) ?? 190,
+      cell: (props) => (
+        <td title={props.dataItem.DOCUMENT_NAME}>{props.dataItem.DOCUMENT_NAME}</td>
+      ),
+      extraProps: { ...columnProps("DOCUMENT_NAME") },
+    },
+
+    {
+      key: "SupplierName",
+      field: "SupplierName",
+      title: "Supplier Name",
+      width: setPercentage(undefined, 0, 180) ?? 180,
+      cell: (props) => (
+        <td title={props.dataItem.SupplierName}>
+          {props.dataItem.SupplierName}
+        </td>
+      ),
+      extraProps: { ...columnProps("Supplier Name") },
+    },
+
+    // {
+    //   key: "Ident",
+    //   field: "Ident",
+    //   title: "Ident",
+    //   width: setPercentage(180, 0, 110) ?? 110,
+    //   cell: (props) => (
+    //     <td title={props.dataItem.Ident}>{props.dataItem.Ident}</td>
+    //   ),
+    //   extraProps: { ...columnProps("Ident") },
+    // },
+
+    {
+      key: "REVISION",
+      field: "REVISION",
+      title: "Revision",
+      width: setPercentage(100, 0, 130) ?? 130,
+      cell: (props) => (
+        <td title={props.dataItem.REVISION}>{props.dataItem.REVISION}</td>
+      ),
+      extraProps: { ...columnProps("REVISION") },
+    },
+    // {
+    //   key: "SupplierStatus",
+    //   field: "SupplierStatus",
+    //   title: "Supplier Status",
+    //   width: setPercentage(100, 0, 180) ?? 180,
+    //   cell: (props) => (
+    //     <td title={props.dataItem.SupplierStatus}>
+    //       {props.dataItem.SupplierStatus}
+    //     </td>
+    //   ),
+    //   extraProps: { ...columnProps("SupplierStatus") },
+    // },
+    // {
+    //   key: "ProjectNumber",
+    //   field: "ProjectNumber",
+    //   title: "Project Number",
+    //   width: setPercentage(100, 0, 180) ?? 180,
+    //   cell: (props) => (
+    //     <td title={props.dataItem.ProjectNumber}>
+    //       {props.dataItem.ProjectNumber}
+    //     </td>
+    //   ),
+    //   extraProps: { ...columnProps("Project Number") },
+    // },
+    // {
+    //   key: "ApprovalStatus",
+    //   field: "ApprovalStatus",
+    //   title: "Approval Status",
+    //   width: setPercentage(100, 0, 180) ?? 180,
+    //   cell: (props) => (
+    //     <td title={props.dataItem.ApprovalStatus}>
+    //       {props.dataItem.ApprovalStatus}
+    //     </td>
+    //   ),
+    //   extraProps: { ...columnProps("ApprovalStatus") },
+    // },
+    // {
+    //   key: "ApprovalDate",
+    //   field: "ApprovalDate",
+    //   title: "Approval Date",
+    //   width: "180px",
+    //   filter: "date",
+    //   filterCell: dateFilterCell,
+    //   cell: (props) => {
+    //     const approvalDate = props.dataItem.ApprovalDate
+    //       ? new Date(props.dataItem.ApprovalDate)
+    //       : null;
+    //     return (
+    //       <td
+    //         title={
+    //           approvalDate
+    //             ? approvalDate.toLocaleDateString(undefined, {
+    //                 month: "2-digit",
+    //                 day: "2-digit",
+    //                 year: "numeric",
+    //               })
+    //             : ""
+    //         }
+    //       >
+    //         {approvalDate &&
+    //           approvalDate.toLocaleDateString(undefined, {
+    //             month: "2-digit",
+    //             day: "2-digit",
+    //             year: "numeric",
+    //           })}
+    //       </td>
+    //     );
+    //   },
+    //   extraProps: { ...columnProps("ApprovalDate") },
+    // },
+
+    // {
+    //   key: "ApprovedBy",
+    //   field: "ApprovedBy",
+    //   title: "Approved By",
+    //   width: setPercentage(100, 0, 160) ?? 160,
+    //   cell: (props) => (
+    //     <td title={props.dataItem.ApprovedBy}>{props.dataItem.ApprovedBy}</td>
+    //   ),
+    //   extraProps: { ...columnProps("ApprovedBy") },
+    // },
+    {
+      key: "CHANGE_DESCRIPTION",
+      field: "CHANGE_DESCRIPTION",
+      title: "Notes",
+      width: "180px",
+      cell: (props) => (
+        <td title={props.dataItem.CHANGE_DESCRIPTION}>{props.dataItem.CHANGE_DESCRIPTION}</td>
+      ),
+      extraProps: { ...columnProps("CHANGE_DESCRIPTION") },
+    },
+
+    {
+      key: "CreatedByName",
+      field: "CreatedByName",
+      title: "Created By",
+      width: "154px",
+      cell: (props) => (
+        <td title={props.dataItem.CreatedByName}>
+          {props.dataItem.CreatedByName}
+        </td>
+      ),
+      extraProps: { ...columnProps("CreatedByName") },
+    },
+
+    {
+      key: "CreationDate",
+      field: "CreationDate",
+      title: "Creation Date",
+      width: "180px",
+      filter: "date",
+      filterCell: dateFilterCell,
+      cell: (props) => {
+        const creationDate = props.dataItem.CreationDate
+          ? new Date(props.dataItem.CreationDate)
+          : null;
+        return (
+          <td
+            title={
+              creationDate
+                ? creationDate.toLocaleDateString(undefined, {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                })
+                : ""
+            }
+          >
+            {creationDate &&
+              creationDate.toLocaleDateString(undefined, {
+                month: "2-digit",
+                day: "2-digit",
+                year: "numeric",
+              })}
+          </td>
+        );
+      },
+      extraProps: { ...columnProps("CreationDate") },
+    },
+
+    {
+      key: "ModifiedByName",
+      field: "ModifiedByName",
+      title: "Modified By",
+      width: "164px",
+      cell: (props) => (
+        <td title={props.dataItem.ModifiedByName}>
+          {props.dataItem.ModifiedByName}
+        </td>
+      ),
+      extraProps: { ...columnProps("ModifiedByName") },
+    },
+
+    {
+      key: "ModificationDate",
+      field: "ModificationDate",
+      title: "Modification Date",
+      width: "200px",
+      filter: "date",
+      filterCell: dateFilterCell,
+      cell: (props) => {
+        const modificationDate = props.dataItem.ModificationDate
+          ? new Date(props.dataItem.ModificationDate)
+          : null;
+        return (
+          <td
+            title={
+              modificationDate
+                ? modificationDate.toLocaleDateString(undefined, {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                })
+                : ""
+            }
+          >
+            {modificationDate &&
+              modificationDate.toLocaleDateString(undefined, {
+                month: "2-digit",
+                day: "2-digit",
+                year: "numeric",
+              })}
+          </td>
+        );
+      },
+      extraProps: { ...columnProps("ModificationDate") },
+    },
+  ];
+
+  // compute columnConfig based on selectedRegisterType using useMemo
+  const columnConfig: ColumnConfig[] = useMemo(() => {
+    // choose mode-specific columns
+    const modeSpecific =
+      selectedRegisterType === "Supplier Assessment"
+        ? supplierColumnConfig
+        : selectedRegisterType === "DO MO Arrangement"
+          ? mroColumnConfig
+          : waColumnConfig;
+
+    // return concatenated array; you can control order here
+    return [...modeSpecific];
+  }, [
+    selectedRegisterType,
+    mroColumnConfig,
+    supplierColumnConfig,
+    waColumnConfig,
+  ]);
+
+  //gridChildren to create the Toolbar and GridColumns in single entity
+  const gridChildren = useMemo(() => {
+    const columnElements = columnConfig.map((col) => {
+      // ensure we don't spread 'key' into the element props
+      const { key: colKey, extraProps, ...rest } = col as any;
+
+      return (
+        <GridColumn key={colKey} {...(rest as any)} {...(extraProps as any)} />
+      );
+    });
+
+    return [...columnElements];
+  }, [columnConfig]);
+
+  const card = (
+    <div
+      style={{
+        height:
+          gridHeight >= window.innerHeight ||
+            shellWorkAppContainerMaxHeight != 0
+            ? "100%"
+            : "",
+        width: "100%",
+      }}
+    >
+      <GridHelper
+        toolbarSettings={{
+          showColumnsConfigurator: true,
+        }}
+        style={{
+          // height:
+          //   gridHeight >= window.innerHeight ||
+          //   shellWorkAppContainerMaxHeight != 0
+          //     ? "100%"
+          //     : "",
+          width: "100%",
+        }}
+        dataItemKey={DATA_ITEM_KEY}
+        groupable={false}
+        data={resultState}
+      >
+        <AnyGrid
+          id="kgrid-oss-easa-list"
+          ref={gridRef}
+          style={{
+            // height:
+            //   gridHeight >= window.innerHeight ||
+            //   shellWorkAppContainerMaxHeight != 0
+            //     ? "100%"
+            //     : "",
+            width: "100%",
+          }}
+          {...dataState}
+          onDataStateChange={datastatechange}
+          resizable={true}
+          sortable={true}
+          columnMenuIcon={filterIcon}
+          scrollable={"scrollable"}
+          rowHeight={gridRowHeight}
+          selectable={{
+            enabled: true,
+            drag: false,
+            cell: false,
+            mode: "multiple",
+          }}
+          dataItemKey={DATA_ITEM_KEY}
+          onHeaderSelectionChange={onHeaderSelectionChange}
+          onSelectionChange={onSelectionChange}
+          selectedField={SELECTED_FIELD}
+        >
+          {toolbarElement} 
+          <GridColumn
+            field={SELECTED_FIELD}
+            width="50px"
+            title="Select/Deselect all rows"
+            columnType="checkbox"
+            headerSelectionValue={isAllSelected}
+          />
+          {gridChildren}
+        </AnyGrid>
+      </GridHelper>
+    </div>
   );
-};
-
-
   return (
     <>
-      <Modal
-        className="SubstantiationInsertModal"
-        open={props.isOpen}
-        aria-labelledby="modal-modal-title"
-        aria-describedby="modal-modal-description"
-        sx={{ zIndex: "1" }}
+      {openRevisionModelPopup && firstSelectedKey && firstSelectedItem && (
+        <CreateRevisionPopup
+          isOpen={openRevisionModelPopup}
+          onCloseRevisionModelPopup={handleCloseRevisionPopup}
+          selectedRegisterType={selectedRegisterType}
+          selectedRow={
+            selectedRowsMap.size > 0
+              ? selectedRowsMap.values().next().value
+              : undefined
+          }
+        />
+      )}
+      <Container
+        fixed
+        style={{
+          height:
+            gridHeight >= window.innerHeight
+              ? "100vh"
+              : `${window.innerHeight}px`,
+          maxHeight:
+            shellWorkAppContainerMaxHeight != 0
+              ? shellWorkAppContainerMaxHeight
+              : `${window.innerHeight}px`,
+          width: `${window.innerWidth}px`,
+          overflowY: "hidden",
+          marginTop: "6px",
+        }}
+        className="adobe-FINDEASA-EASAListGrid"
       >
-        <Box sx={{ ...modalStyle, height: dynamicScreenSize.height, width: dynamicScreenSize.width }}>
-          <div className="modal-heading">
-            <Typography variant="h5" gutterBottom className="sub-titleBody">
-              Insert Substantiation
-            </Typography>
-            <CloseIcon
-              className="sub-closeIcon"
-              onClick={() => props.onCloseInsSubStantiationPopup(false)}
-            />
-          </div>
-          <Typography id="modal-modal-btn" sx={{ mt: 2 }} fontSize="small" style={{ padding: '0px' }}>
-            <GridAny
-              // note: some props (editField, selectedField, expandField) may not be typed in your resolved @progress/kendo-react-grid version.
-              // using GridAny (cast to any) prevents TS build errors and preserves runtime behavior.
-              editField="inEdit"
-              id="kgrid-oss-SubStantiation-Insertlookup"
-              ref={gridRef}
-              data={processedData}
-              style={{
-                height: handleGridHeight(dynamicScreenSize.height),
-              }}
-              {...(dataState as any)}
-              onDataStateChange={datastatechange}
-              dataItemKey={DATA_ITEM_KEY}
-              selectedField={SELECTED_FIELD}
-              selectable={{
-                enabled: true,
-                drag: false,
-                cells: false,
-                mode: "multiple",
-              }}
-              sortable={true}
-              resizable={true}
-              //expandField="expanded"
-              detail={ChildSubStantiation}
-              columnMenuIcon={filterIcon}
-               detailExpand={detailExpand}
-        onDetailExpandChange={onDetailExpandChange}
-         //dataItemKey="ConfigProjRegId"
-            >
-              {/* <ColumnAny width='35px'
-                cell={(props: any) => {
-                  const hasChildren = props.dataItem.ChildRegulationDtls && props.dataItem.ChildRegulationDtls.length > 0;
-                  return (
-                    <td className="expand-cell" style={{ textAlign: 'center', whiteSpace: 'nowrap', overflow: 'visible', textOverflow: 'clip' }}>
-                      {hasChildren ? (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                          <IconButton size="small" aria-label={props.dataItem.expanded ? 'Collapse' : 'Expand'}
-                            onClick={() => toggleExpand(props.dataItem)}
-                          >
-                            {props.dataItem.expanded ? <ExpandMoreIcon sx={{ color: 'rgba(0, 0, 0, 0.6)' }} /> : <ExpandLessIcon sx={{ color: 'rgba(0, 0, 0, 0.6)' }} />}
-                          </IconButton>
-                        </div>
-                      ) : null}
-                    </td>
-                  );
-                }}
-              /> */}
-               <ColumnAny
-                        title=""
-                        width={60}
-                        cells={{
-                          data: (props) => {
-                            const hasChildren = props?.dataItem?.ChildRegulationDtls?.length ?? 0;
-                            if (hasChildren > 0) {
-                              return (
-                               
-                                <CustomExpandCell
-                                  {...props}
-                                  detailExpand={detailExpand}
-                                  onDetailExpandChange={onDetailExpandChange} // Pass the handler
-                                />
-                              );
-                            }
-              
-                            return <td style={{ width: 60 }} />; 
-                          }
-                        }}
-                      />
-              <ColumnAny
-                field="Select"
-                width="170px"
-                title="Select/Deselect all rows"
-                headerCell={SelectAllHeaderCell}
-                cells={{data:(props: any) => {
-                  const isChecked = selectedState[idGetter(props.dataItem)];
-                  return (
-                    <td className="sub-checkbox">
-                      <input type="checkbox" disabled={props.dataItem.disable} checked={!!isChecked} onChange={(e) => handleCheckboxChange(e, props.dataItem)} />
-                    </td>
-                  );
-                }}}
-              />
-              <ColumnAny {...columnProps('Regulation', dataState)} title="Regulation" width="170px"
-                cell={(props: any) => (
-                  <td title={props.dataItem.Regulation}>{props.dataItem.Regulation}</td>
-                )} />
-              <ColumnAny {...columnProps('AmendmentLevel', dataState)} title="Amendment" width="150px"
-                cell={(props: any) => (
-                  <td title={props.dataItem.AmendmentLevel}>{props.dataItem.AmendmentLevel}</td>
-                )} />
-              <ColumnAny {...columnProps('RegModel', dataState)} field="RegModel" title="Model" width="170px"
-                cell={(props: any) => (
-                  <td title={props.dataItem.RegModel}>{props.dataItem.RegModel}</td>
-                )} />
-              <ColumnAny {...columnProps('RegType', dataState)} title="Type" width='110px'
-                cell={(props: any) => (
-                  <td title={props.dataItem.RegType}>{props.dataItem.RegType}</td>
-                )} />
-              <ColumnAny {...columnProps('SubSystem', dataState)} field="SubSystem" title="Sub-System" width={setPercentage(undefined, 0, 170)}
-                cell={(props: any) => (
-                  <td title={props.dataItem.SubSystem}>{props.dataItem.SubSystem}</td>
-                )} />
-            </GridAny>
-          </Typography>
-          <Typography id="modal-modal-btn" className='sub-button-Insert' sx={{ mt: 2 }} textAlign={"end"} style={{ padding: '16px 0 0 0' }}>
-            <Button
-              className="button-style-create-new"
-              variant="contained"
-              size='small'
-              onClick={() => onInsertSubStantiationCheckedItemClick()}
-              disabled={selectedSupProject.length == 0 ? true : false}
-              style={{ fontSize: '14px', backgroundColor: "#0033A1", color: 'white', textTransform: 'capitalize', height: '32px', padding: '8px 10px' }}
-            >
-              Insert
-            </Button>
-          </Typography>
-        </Box>
-      </Modal>
+        <Card
+          key={selectedRegisterType}
+          style={{
+            height:
+              shellWorkAppContainerMaxHeight != 0
+                ? gridHeight >= shellWorkAppContainerMaxHeight
+                  ? "100%"
+                  : ""
+                : gridHeight >= window.innerHeight
+                  ? "100%"
+                  : "",
+            borderLeft: "5px solid rgb(227, 150, 78)",
+          }}
+        >
+          {card}
+        </Card>
+      </Container>
     </>
   );
 };
-export default SubstantiationInsertPopup;
+
+export default EasaListRegister;
