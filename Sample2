@@ -1,1359 +1,1462 @@
-import { Editor, EditorChangeEvent, EditorTools, ProseMirror, EditorMountEvent, EditorFocusEvent, EditorBlurEvent, EditorUtils, EditorExecuteEvent, MarkSpec, EditorToolsSettings, NodeSpec } from '@progress/kendo-react-editor';
-import { CompGridDetails, KendoEditorProps } from '../../../../../model/PropsModel';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useDispatch } from "react-redux";
-import { showSnackbar } from "../../../../core/snackbar/CustomSnackBarSlice";
-import AddAcronymPopup from './add-acronym-popup/AddAcronymPopup';
-import { useParams } from 'react-router-dom';
-import { ReportStepId } from '../../../../../model/Model';
-import SpeakerNotesOutlinedIcon from '@mui/icons-material/SpeakerNotesOutlined';
-import AuthorizationService from '../../../../core/services/AuthorizationService';
-import StorageService from '../../../../../utils/StorageService';
-import EnvDetail from '../../../../../utils/EnvDetail';
-import { userDefinedConfirm } from '../../../../../utils/ConfirmDialog';
-import CustomStrikethrough from './CustomStrikethrough';
-import { addMentionNodes, addTagNodes, getMentionsPlugin } from 'prosemirror-mentions';
-import CSRDetailsBaseService from '../CSRDetailsBaseService';
-import ContentCommentPopup from './content-comment-popup/ContentCommentPopup';
-import { KendoEditorPlaceholder } from './KendoEditorPlaceholder';
-import CommentHistoryPopup from './comment-history-popup/CommentHistoryPopup';
-import CommentHistoryPopupService from './comment-history-popup/CommentHistoryPopupService';
-import AddRevisionPopup from './add-revision-popup/AddRevisionPopup';
-import AddMentionPopup from './add-mention-popup/AddMentionPopup';
-import MentionPopup from './mention-popup/MentionPopup';
-import UserToken from '../../../../../utils/UserToken';
-import CommonFunction from '../../../../../utils/CommonFunction';
+import * as ReactDOM from "react-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+
 import {
-  InlineAIPrompt,
-  InlineAIPromptOutputInterface,
-  CommandItemInterface,
-  OutputActionInterface,
-} from '@progress/kendo-react-conversational-ui';
+    Grid as DataGrid,
+    GridColumn,
+    GridColumnMenuProps,
+    GridColumnMenuFilter,
+    GridDataStateChangeEvent,
+    GridColumnMenuSort,
+    GridColumnMenuCheckboxFilter,
+    GridCellProps,
+    GridToolbar,
+    getSelectedState,
+    isColumnMenuFilterActive,
+    isColumnMenuSortActive,
+} from "@progress/kendo-react-grid";
+import { process as kendoProcess, State, getter } from "@progress/kendo-data-query";
+import { useNavigate, useParams } from "react-router-dom";
+import { Button, Card, CardContent, Container, FormControl, Grid, Menu, MenuItem, OutlinedInput, Select, Typography } from "@mui/material";
+import { parameterObj, CSRHeaderData, FilterParam, ParameterObject, CSRApprovalUserList, ControlVisibilityDtls, ReportStepId, TempTemplateDetails, EasaMasterType, ReportType, ReportStages } from "../../../../model/Model";
+import PathConstants from "../../../../routes/PathConstants";
+import { GridHelper } from './GridHelper';
+import CSRListService from "./CSRListService";
+import { DatePicker } from '@progress/kendo-react-dateinputs';
+import { useDispatch } from "react-redux";
+import { showSnackbar } from "../../../core/snackbar/CustomSnackBarSlice";
+import { userDefinedConfirm } from "../../../../utils/ConfirmDialog";
+import StorageService from "../../../../utils/StorageService";
+import EnvDetail from "../../../../utils/EnvDetail";
+import CreateRevisionPopup from "../create-revision-popup/CreateRevisionPopup";
+import CommonFunction from "../../../../utils/CommonFunction";
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import DeleteSharpIcon from '@mui/icons-material/DeleteSharp';
+import LibraryAddOutlinedIcon from '@mui/icons-material/LibraryAddOutlined';
+import WorkFlowPopup from "../csr-list/wkf-popup/WorkFlowPopup";
+import UserToken from "../../../../utils/UserToken";
+import CreateCopyPopup from "../create-copy-popup/CreateCopyPopup";
+import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
+import { logPageViewEventWithData, adobeWindowData, logFilterAction } from "@boeing-fsit/react-oss-adobe-analytics-lib";
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ShellEventRegister from "../../../../utils/ShellEventRegister";
+import DrawingAttachPopupService from "../csr-details/general-tab/DrawingAttachPopup/DrawingAttachPopupService";
+import { filterIcon } from "@progress/kendo-svg-icons";
+const AnyGrid = Grid as any;
 
-const Commands: CommandItemInterface[] = [
-  { id: 'rewrite', text: 'Rewrite', prompt: (s: string) => `Rewrite the following text: ${s}` },
-  { id: 'fix-spelling', text: 'Fix Spelling', prompt: (s: string) => `Fix spelling and grammar: ${s}` },
-  { id: 'change-tone', text: 'Change Tone', prompt: (s: string) => `Change tone to professional: ${s}` },
-];
-
-const outputActions: OutputActionInterface[] = [
-  { id: 'copy', text: 'Copy' },
-  { id: 'insert', text: 'Insert' },
-  { id: 'replace', text: 'Replace' },
-  { id: 'discard', text: 'Discard' },
-];
-const getSuggestion = async (
-  prompt: string,
-  htmlContent?: string,
-  signal?: AbortSignal
-): Promise<string> => {
-  const body = {dataSourse: "BCAI Documentation",prompt};
-
-  const url = 'https://bcai-cftest.taspre-phx.apps.boeing.com/conversation/conversation';
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`HTTP ${res.status}: ${text}`);
-  }
-
-  const result = await res.json();
-
-  // Try multiple common response shapes
-  if (Array.isArray(result.choices)) {
-    for (const choice of result.choices) {
-      if (choice.finish_reason === 'stop' && choice.message) {
-        if (typeof choice.message.content === 'string') return choice.message.content;
-        if (choice.message.content?.text) return choice.message.content.text;
-        return JSON.stringify(choice.message.content);
-      }
-    }
-    const c = result.choices[0];
-    if (c?.message) {
-      if (typeof c.message.content === 'string') return c.message.content;
-      if (c.message.content?.text) return c.message.content.text;
-      return JSON.stringify(c.message.content);
-    }
-  }
-
-  if (Array.isArray(result.messages) && result.messages[0]?.contents) {
-    try {
-      return result.messages[0].contents[0].text;
-    } catch {}
-  }
-
-  if (typeof result === 'string') return result;
-  if (result?.message && typeof result.message === 'string') return result.message;
-  if (result?.message?.content && typeof result.message.content === 'string') return result.message.content;
-
-  return JSON.stringify(result);
+const ColumnMenu = props => {
+    return <div>
+        <GridColumnMenuSort {...props} />
+        <GridColumnMenuFilter {...props} expanded={true} />
+    </div>;
 };
-interface State {
-  success: boolean;
-  error: boolean;
-  warning: boolean;
-  info: boolean;
-  none: boolean;
-}
-
-interface AppState {
-  view: any; // Change type to allow null or EditorView
-  showTools: boolean;
-  position: Position;
-}
-
-interface ToolSize {
-  width: number;
-  height: number;
-}
-
-interface Position {
-  top: number | string;
-  left: number;
-}
-
-const { tableResizing } = EditorUtils; // imageResizing
-const { Schema, EditorState, Plugin, PluginKey } = ProseMirror;
-const EditorView = ProseMirror.EditorView;
-const styles = `
-  .k-content {
-      font-family: "Roboto", sans-serif !important;
-      font-size: 14px;
-      color: #253746;
-  }
-  .ProseMirror td {
-      border: 0.5px solid black !important; 
-      // text-align: left !important;
-      // vertical-align: top !important;
-      padding-left: 7.68px !important; 
-      padding-right: 7.68px !important;
-  }
-  .ProseMirror tr:first-child td {
-    font-weight: 600;
-    background-color: #D1D1D1 !important; 
-    background-clip: padding-box !important;
-    text-align: center !important;
-    padding-left: 7.68px !important; 
-    padding-right: 7.68px !important; 
-}
-`;
-
-const {
-  Bold, Italic, Underline, Strikethrough,
-  Subscript, Superscript,
-  AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Undo, Redo,
-  FontSize, FontName, FormatBlock,
-  InsertTable, AddRowBefore, AddRowAfter, AddColumnBefore, AddColumnAfter,
-  DeleteRow, DeleteColumn, DeleteTable,
-  MergeCells, SplitCell,
-  TableProperties, TableCellProperties, OrderedList,
-  UnorderedList, Indent, Outdent,
-}: any = EditorTools;
-
-
-const customBlankTool = () => {
-  <div style={{ display: "none" }}></div>
-}
-
-const easaReportFlag = new CommonFunction().IsEASAReport() || false;
-
-let toolsEditor: any = {
-  PARAGRAPH: [
-    [Bold, Italic, Underline],
-    [Subscript, Superscript],
-    [AlignLeft, AlignCenter, AlignRight, AlignJustify],
-    [OrderedList, UnorderedList],
-    [Indent, Outdent]
-  ],
-  TABLE:
-    [
-      [InsertTable, TableProperties, TableCellProperties],
-      [AddRowBefore, AddRowAfter, AddColumnBefore, AddColumnAfter],
-      [DeleteRow, DeleteColumn, DeleteTable],
-      [MergeCells, SplitCell],
-      [Bold, Italic, Underline],
-      [OrderedList, UnorderedList],
-      easaReportFlag ? [AlignLeft, AlignCenter, AlignRight, AlignJustify] : [customBlankTool],
-      [Subscript, Superscript],
-    ],
+const modalStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 500,
+    bgcolor: 'background.paper',
+    boxShadow: 24,
+    borderRadius: '0.5rem',
+    p: 0,
 };
 
-const constraints = {
-  // maxHeight: 420,
-  // maxWidth: 750,
-  // minWidth: 950,
-  // minHeight: 200
-};
-
-const nonEditable: NodeSpec = {
-  name: 'nonEditable',
-  inline: true,
-  group: 'inline',
-  content: 'inline+',
-  marks: '',
-  attrs: {
-    contenteditable: { default: null },
-    class: { default: 'non-editable-node' },
-    //style: { default: 'color: red;' },
-    tagid: { default: null },
-    name: { default: null },
-    tagcolor: { default: null }
-  },
-  atom: true,
-  parseDOM: [
-    {
-      tag: 'span.uneditable',
-      priority: 51,
-      getAttrs: (dom: any) => ({
-        tagid: dom.getAttribute('tagid'),
-        name: dom.getAttribute('name'),
-        tagcolor: dom.getAttribute('tagcolor'),
-      }),
-    },
-  ],
-  // The styles can be added via the class as well
-  toDOM: (node) => [
-    'span',
-    {
-      contenteditable: false,
-      class: 'uneditable ' + 'onClickPointer ' + node.attrs.class,
-      tagid: node.attrs.tagid,
-      name: node.attrs.name,
-      tagcolor: node.attrs.tagcolor,
-      style: `user-select: none; opacity: 1; color: ${node.attrs.tagcolor}`,
-    },
-    0,
-  ],
-};
-function useSelectionAnchor(editorRef: React.RefObject<any>) {
-  const anchorRef = React.useRef<HTMLDivElement | null>(null);
-
-  const ensureAnchor = React.useCallback(() => {
-    if (!anchorRef.current) {
-      const el = document.createElement('div');
-      el.style.position = 'absolute';
-      el.style.width = '1px';
-      el.style.height = '1px';
-      el.style.pointerEvents = 'none';
-      el.style.zIndex = '2147483647';
-      document.body.appendChild(el);
-      anchorRef.current = el;
-    }
-    return anchorRef.current;
-  }, []);
-
-  const updateAnchorToSelection = React.useCallback(
-    (pos: number) => {
-      const ed = editorRef.current;
-      const anchorEl = ensureAnchor();
-      if (!ed || !ed.view || !anchorEl) return anchorEl;
-
-      try {
-        const coords = ed.view.coordsAtPos(pos);
-        const x = coords.left;
-        const y = coords.bottom + window.scrollY + 6; // offset below the selection
-        anchorEl.style.left = `${x}px`;
-        anchorEl.style.top = `${y}px`;
-        anchorEl.style.display = 'block';
-      } catch {
-        anchorEl.style.display = 'none';
-      }
-      return anchorEl;
-    },
-    [editorRef, ensureAnchor]
-  );
-
-  const cleanup = React.useCallback(() => {
-    if (anchorRef.current) {
-      try {
-        document.body.removeChild(anchorRef.current);
-      } catch { }
-      anchorRef.current = null;
-    }
-  }, []);
-
-  return { updateAnchorToSelection, cleanup, anchorRef };
-}
-const KendoEditor: React.FC<KendoEditorProps> = ({ tabName, controlName, selectedRowId, contentID, openHistoryPopup, handleCloseHistoryPopup, editorRef, currentTabComments, reportLevelTagList, content, tools, contentStyle, onEditorChange, item, contentKey, headerData, IsError, totalComment, sendDataToRootParent, refreshAllEditor, IsNonDynamicTab, CompGridDetails, setTableName, updateTotalCompGridCommentCount, SectionSerialNumber, sectionTitle, uploadImagePopup, tableCode }) => {
-  const userToken = new UserToken();
-  const userBemsId = userToken.getUserBemsId();
-  const dispatch = useDispatch();
-  const { reportId, tabIndex } = useParams();
-  const [openAddAcronymPopup, setOpenAddAcronymPopup] = React.useState<boolean>(false);
-  const [openAddRevisionPopup, setOpenAddRevisionPopup] = React.useState<boolean>(false);
-  const [selectedText, setSelectedText] = React.useState<string>('');
-  const [commentResolved, setCommentResolved] = useState({ resolvedComments: [], targetId: 0, totalSectionComment: '' });
-  const [totalCommentObj, setTotalCommentObj] = useState({ 'resolvedComment': 0, 'totalCommentCount': 0 });
-  const [getCompGridDetails, setCompGridDetails] = useState<CompGridDetails>();
-  const [state, setState] = useState<AppState>({
-    view: null,
-    showTools: false,
-    position: { top: 0, left: 0 },
-  });
-  const toolSize = useRef<ToolSize>({ width: 36, height: 36 });
-  const toolsCount = useRef(3);
-  const offset = React.useRef({ top: -5, left: 0 });
-  var storageService = new StorageService();
-  const [value, setValue] = useState<string>("");
-  const textAreaRef = useRef<any>({
-    state: null,
-    view: null,
-    iframe: null,
-    contentDocument: null,
-    scrollHeight: 0
-  });
-  const [currentContentID, setCurrentContentID] = useState<number>(0);
-  const [seletedTargetText, setSeletedTargetText] = useState<string>("");
-  const [openContentCommentPopup, setOpenContentCommentPopup] = React.useState(false);
-  const [openCommentHistoryPopup, setOpenCommentHistoryPopup] = React.useState(false);
-  const [contentCommentData, setContentCommentData] = React.useState<any>([]);
-  const [position, setPosition] = React.useState({});
-  const [view, setView] = React.useState<any | undefined>(undefined);
-  const [addNewComment, setAddNewComment] = React.useState(false);
-  const [addCommentAsAuthor, setAddCommentAsAuthor] = React.useState(false);
-  const [showEditModeForCommentID, setShowEditModeForCommentID] = useState<number>(0);
-  const [commetType, setCommentType] = useState<number>(0);
-  const [comment, setComment] = useState<string>("");
-  const [commentStatus, setCommentStatus] = useState('0');
-  const [editFileCount, setEditFileCount] = useState(0);
-  const [selectedTabRowId, setSelectedTabRowId] = useState(0);
-  const [showReplyCommentId, setShowReplyCommentId] = useState<number>(0);
-  const [openAddMentionPopup, setOpenAddMentionPopup] = React.useState<boolean>(false);
-  const [openMentionPopup, setOpenMentionPopup] = React.useState(false);
-  const [getMentionData, setMentionData] = useState<any[]>([]);
-
-  const AbortControllerRef = useRef<AbortController | null>(null);
-  const { updateAnchorToSelection: UpdateAnchor, cleanup: Cleanup, anchorRef: AnchorRef } = useSelectionAnchor(textAreaRef);
-
-  const [Outputs, setOutputs] = useState<InlineAIPromptOutputInterface[]>([]);
-  const [Streaming, setStreaming] = useState<boolean>(false);
-  const [SelectionRange, setSelectionRange] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
-  const [ShowPrompt, setShowPrompt] = useState<boolean>(false);
-  const [AnchorEl, setAnchorEl] = useState<HTMLElement | undefined>(undefined);
-  const clickedInsideRef = useRef(false);
-
-  const readSelection = useCallback(() => {
-    const ed = textAreaRef.current;
-    if (!ed || !ed.view) return { text: '', from: 0, to: 0 };
-    const { from, to } = ed.view.state.selection;
-    const text = ed.view.state.doc.textBetween(from, to, '\n');
-    return { text, from, to };
-  }, [textAreaRef]);
-
-  const getEditorDomHtml = useCallback(() => {
-    const ed = textAreaRef.current;
-    if (!ed || !ed.view) return '';
-    try {
-      const dom = ed.view.dom as HTMLElement;
-      return dom.innerHTML;
-    } catch {
-      return '';
-    }
-  }, [textAreaRef]);
-  const onPromptRequest = async (prompt: string) => {
-    if (!prompt || !selectedText) return;
-    setStreaming(true);
-    const ac = new AbortController();
-    AbortControllerRef.current = ac;
-
-    try {
-      const reply = await getSuggestion(prompt, selectedText, ac.signal);
-      if (!ac.signal.aborted) {
-        setOutputs([{ id: Date.now(), responseContent: reply, prompt }]);
-      }
-    } catch (err: any) {
-      setOutputs([
-        {
-          id: Date.now(),
-          responseContent: 'Error contacting AI service: ',
-          prompt,
-        },
-      ]);
-    } finally {
-      setStreaming(false);
-      AbortControllerRef.current = null;
-    }
-  };
-
-  const onPromptCancel = () => {
-    if (AbortControllerRef.current) {
-      AbortControllerRef.current.abort();
-      AbortControllerRef.current = null;
-      setStreaming(false);
-    }
-  };
-
-  const onCommandExecute = (commandData: CommandItemInterface) => {
-    if (commandData.prompt && selectedText) {
-      const prompt = commandData.prompt(selectedText);
-      onPromptRequest(prompt);
-    }
-  };
-
-  const onOutputAction = (action: OutputActionInterface, output: InlineAIPromptOutputInterface) => {
-    const ed = textAreaRef.current;
-    if (!ed || !ed.view) return;
-    const { state, dispatch } = ed.view;
-    const { start, end } = SelectionRange;
-
-    switch (action.id) {
-      case 'copy':
-        try { navigator.clipboard.writeText(output.responseContent); } catch { }
-        break;
-      case 'insert': {
-        const pNode = state.schema.nodes.paragraph.create(null, state.schema.text(output.responseContent));
-        dispatch(state.tr.insert(end, pNode));
-        break;
-      }
-      case 'replace':
-        dispatch(state.tr.insertText(output.responseContent, start, end));
-        break;
-      case 'discard':
-        setOutputs((prev) => prev.filter((o) => o.id !== output.id));
-        break;
-      default:
-        break;
-    }
-
-    setShowPrompt(false);
-    setSelectedText('');
-    setOutputs([]);
-    setAnchorEl(undefined);
-  };
-
-  const getMentionSuggestionsHTML = items => {
-    return '<div class="suggestion-item-list">' +
-      items.map(i => '<div class="suggestion-item">' + i.name + '</div>').join('') + '</div>';
-  };
-
-  const getTagSuggestionsHTML = items => {
-    return '<div class="suggestion-item-list">' +
-      items.map(i => '<div class="suggestion-item">' + i.tag + '</div>').join('') + '</div>';
-  };
-
-  const mentionPlugin = getMentionsPlugin({
-    getSuggestions: async (type, text, done) => {
-      try {
-        if (type === 'mention') {
-          const response = await CSRDetailsBaseService.GetMentions(text);
-          done(response.data);
-        } else {
-          // const response = await CSRDetailsBaseService.GetTags(text);
-          // done(response.data);
-        }
-      }
-      catch (err) {
-        console.log(err)
-      }
-    },
-    getSuggestionsHTML: (items, type) => {
-      if (type === 'mention') {
-        return getMentionSuggestionsHTML(items);
-      } else if (type === 'tag') {
-        return getTagSuggestionsHTML(items);
-      }
-    }
-  });
-
-  const handleChildComponentData = (childData, targetId, totalCommentCount) => {
-    setCommentResolved({ resolvedComments: childData, targetId: targetId, totalSectionComment: totalCommentCount })
-  }
-
-  const handleOpenAddCommentPopup = (tabSectionId: number, ContentId: number) => {
-    let isTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'IsTabDirty');
-    let IsComplianceGridTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'compliancedirtygriddetail');
-    if (isTabDirty && headerData && headerData.WorkFlowStep == ReportStepId.CREATE_STEP) {
-      let message = `unsaved changes in current session`;
-      userDefinedConfirm({ message: `There are ${message}. Please save the data before adding comment.`, editorUnSavedDataCheck: true, okBtnText: "Yes", cancelBtnText: "Ok" }).then(
-        ({ button, input }) => {
-        },
-        () => {
-          return;
-        }
-      );
-    }
-    else if (IsComplianceGridTabDirty && headerData && headerData.WorkFlowStep == ReportStepId.CREATE_STEP) {
-      let dirtyGridLength = IsComplianceGridTabDirty.split(',').length;
-      // CID 435633: (#1 of 1): Logically dead code (DEADCODE)
-      let message = `unsaved changes in ${dirtyGridLength > 1 ? IsComplianceGridTabDirty.replace(/,(?=[^,]*$)/, " and ") : IsComplianceGridTabDirty}`;
-      userDefinedConfirm({ message: `There are ${message}. Please save the grid data before adding comment.`, editorUnSavedDataCheck: true, okBtnText: "Yes", cancelBtnText: "Ok" }).then(
-        ({ button, input }) => {
-        },
-        () => {
-          return;
-        }
-      );
-    } else {
-      if (IsNonDynamicTab) {
-        setAddNewComment(true);
-        handleOpenCommentHistoryPopup(item, 0, true, getHtml(), 0, false);
-      } else {
-        if (item) {
-          const rowId = CompGridDetails?.RowId ? CompGridDetails.RowId : 0;
-          setAddNewComment(true);
-          if (item.TabSectionId === tabSectionId) {
-            setTotalCommentObj({
-              resolvedComment: item?.SectionCommentResolveStatus == null ? 0 : parseInt(item?.SectionCommentResolveStatus),
-              totalCommentCount: item?.SectionCommentNumber
-            });
-          } else {
-            if (item.ContentId === ContentId) {
-              setTotalCommentObj({
-                resolvedComment: item?.CommentResolveStatus == null ? 0 : parseInt(item?.CommentResolveStatus),
-                totalCommentCount: item?.ContentCommentCount
-              });
-            }
-          }
-          handleOpenCommentHistoryPopup(item, item.ContentId, true, getHtml(), rowId, false);
-        }
-      }
-    }
-  }
-
-  const extractTextFromHTML = (htmlString) => {
-    return htmlString?.replace(/<[^>]*>/g, '');
-  };
-
-  const handleOpenCommentHistoryPopup = (items: any, contentID: any, value: boolean, targetText: any, rowId: any, addNewReply: boolean) => {
-    setOpenContentCommentPopup(false);
-    setOpenCommentHistoryPopup(true);
-    setSelectedTabRowId(rowId);
-    const comment = items && items.length > 0 ? items[0] : null;
-    if (addNewReply) {
-      setComment(comment?.Comments);
-      setCurrentContentID(contentID);
-      setShowReplyCommentId(comment?.CommentId)
-      setShowEditModeForCommentID(0);
-    } else {
-      setShowEditModeForCommentID(comment?.CommentId);
-      setShowReplyCommentId(0);
-      setCommentType(comment?.CommentTypeId);
-      setComment(comment?.Comments);
-      setCurrentContentID(contentID);
-      setEditFileCount(comment?.AttatchmentCount);
-    }
-    if (!targetText) {
-      setAddCommentAsAuthor(true);
-    } else {
-      if (targetText && value) {
-        setSeletedTargetText(extractTextFromHTML(targetText));
-      } else {
-        setSeletedTargetText("");
-      }
-    }
-  }
-
-  const handleCloseCommentHistoryPopup = (isPopupDirty) => {
-    setOpenCommentHistoryPopup(false);
-    setCurrentContentID(0);
-    setSeletedTargetText("");
-    setAddCommentAsAuthor(false);
-    setShowEditModeForCommentID(0);
-    setShowReplyCommentId(0);
-    setCommentType(0);
-    setComment("");
-    handleCloseHistoryPopup(false);
-    if (isPopupDirty) {
-      refreshAllEditor();
-    }
-  }
-
-  const [spanIdList, setspanIdList] = useState('');
-  const ExtractCommentIdFromCommentSpan = () => {
-    let spanList = [] as any;
-    const selection = state.view?.state.selection;
-    const node = state.view?.state.doc.cut(selection.from, selection.to);
-    let selectedSpans = EditorUtils.getHtml({ doc: node, schema: node.type.schema });
-    let parser = new DOMParser();
-    let doc = parser.parseFromString(selectedSpans, 'text/html');
-
-    for (let i = 0; i < doc.querySelectorAll('span').length; i++) {
-      if (doc.querySelectorAll('span')[i].getAttribute('id')) {
-        spanList.push(doc.querySelectorAll('span')[i].getAttribute('id'));
-      }
-    }
-
-    if (spanList.length > 0) {
-      setspanIdList(spanList.join(','));
-    }
-  }
-
-  const unSetLocalStorageDirtyDetails = (IsTabDirty, IsComplianceGridTabDirty) => {
-
-    if (IsTabDirty == false && IsComplianceGridTabDirty == '') {
-      const toolColor = 'rgb(248, 241, 1)';
-      const colorToApply = toolColor;
-      ExtractCommentIdFromCommentSpan();
-      EditorUtils.applyInlineStyle(state.view, { style: 'background-color', value: colorToApply });
-      storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `isTabDirty`, false);
-      // storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `compliancedirtygriddetail`, '');
-    } else if ((IsComplianceGridTabDirty || IsTabDirty) && headerData && headerData.WorkFlowStep !== ReportStepId.CREATE_STEP) {
-      const toolColor = 'rgb(248, 241, 1)';
-      const colorToApply = toolColor;
-      ExtractCommentIdFromCommentSpan();
-      EditorUtils.applyInlineStyle(state.view, { style: 'background-color', value: colorToApply });
-      storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `isTabDirty`, false);
-      // storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `compliancedirtygriddetail`, '');
+var CsrListDetails: CSRHeaderData[] = [];
+var CsrApprovalUserList: CSRApprovalUserList[] = [];
+var CsrListNewDetails: CSRHeaderData[] = [];
+var selectedCsrListDtls: parameterObj[] = [];
+var UnSelectedCsrListDtls: parameterObj[] = [];
+var headerSelected = false;
+var disablNo = 0;
+const DATA_ITEM_KEY: string = "RPT_ID";
+const idGetter = getter(DATA_ITEM_KEY);
+const CSRList = ({ pmdbProjectId, getItarProjectFlag, selectedDisciplinId, csrWorkAppFlag }) => {
+    const dispatch = useDispatch();
+    const [currentUserBemsId, setCurrentUserBemsId] = useState(0);
+    const currentUserBemsIdRef = useRef(currentUserBemsId);
+    const SELECTED_FIELD = 'selected';
+    const [SelectionValue, setSelectionValue] = useState(false);
+    const [multipleSelected, setmultipleSelected] = useState(false);
+    const [isButtonRevDisabled, setisButtonRevDisabled] = useState(true);
+    const [isButtonDelDisabled, setisButtonDelDisabled] = useState(true);
+    const [isButtonDrawingRevDisabled, setisButtonDrawingRevDisabled] = useState(true);
+    const [selectedItems, setSelectedItems] = useState(0);
+    const [open, setOpen] = useState(false);
+    const { projectId } = useParams();
+    const { groupId } = useParams();
+    const { registerId } = useParams();
+    const [hasContent, setHasContent] = useState<any>(false);
+    const navigate = useNavigate();
+    const [data, setData] = useState<any>();
+    const [tableDataLength, setTableDataLength] = useState<number | undefined>(0);
+    const [dataState, setDataState] = React.useState<State>({});
+    const [resultState, setResultState] = useState<any[]>(CsrListDetails);
+    const [gridWidth, setGridWidth] = useState<any>();
+    const [screenPercentage, setScreenPercentage] = useState(0);
+    const [defaultWindowWidth, setDefaultWindowWidth] = useState(
+        window.innerWidth
+    );
+    const [gridHeight, setGridHeight] = useState<any>(window.innerHeight);
+    const [gridRowHeight, setGridRowHeight] = useState(30);
+    const [windowHeight, setWindowHeight] = useState(window.innerHeight);
+    const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
+    const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+    const gridRef = useRef<any>(null);
+    const [reportTypeList, setReportTypeList] = useState<string[]>([]);
+    const commonFunction = new CommonFunction();
+    var storageService = new StorageService();
+    const [getSelectedDisciplined, setSelectedDisciplined] = useState('');
+    const [isCurrentUserUSPerson, setIsCurrentUserUSPerson] = useState(false);
+    const [total, setTotal] = useState(0);
+    const [controlVisibilityDtls, setControlVisibilityDtls] = useState<ControlVisibilityDtls[]>([]);
+    const [templatesPresent, setTemplatePresent] = useState<boolean>(false);
+    const [selectedReportType, setSelectedReportType] = useState ("");
+    const [selectedReportTemplate, setSelectedReportTemplate] = useState({})
+    const [reportTypes, setReportTypes] = useState([]);
+    // const checkDisciplinedValue = () => {
+    //     const selectedDisciplined = storageService.getSelectedDiscipline();
+    //     if (selectedDisciplined == "ECS" || selectedDisciplined == "Electrical") {
+    //         return false;
+    //     } else {
+    //         return true;
+    //     }
+    // }
+    const [shellClientHeight, setShellClientHeight] = useState(
+        document?.getElementById("shell-main-section")?.clientHeight
+    );
+    const [shellHeaderSectionHeight, setShellHeaderSectionHeight] = useState(
+        document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
+    );
+    const [shellOssMenubreadcrumsHeight, setShellOssMenubreadcrumsHeight] =
+        useState(
+            document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
+        );
+    const [shellOssHeaderMenuSectionHeight, setShellOssHeaderMenuSectionHeight] =
+        useState(document?.getElementById("oss-header-menu-setion")?.clientHeight);
+    const [shellWorkAppContainerMaxHeight, setShellWorkAppContainerMaxHeight] =
+        useState(0);
+    const [shellFooterHeight, setShellFooterHeight] = useState(document?.getElementsByTagName('footer')[0]?.clientHeight);
+    const [searchFieldHeight, setSearchFieldHeight] = useState(document?.getElementsByClassName('csr-search-row')[0]?.clientHeight);
+    const [easaMasterType, setEasaMasterType] = useState("");
+    const [templates, setTemplates] = useState<any[]>([]); 
+    const columnProps = field => {
+        return {
+            field: field,
+            columnMenu: ColumnMenu,
+            headerClassName: isColumnActive(field, dataState) ? 'active' : ''
+        };
     };
-  };
-
-  const onToggle = (flag: string, tab: string) => {
-    let IsComplianceGridTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'compliancedirtygriddetail');
-    let IsTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'isTabDirty');
-    if (flag === "success" && state.view) {
-      const selection = state.view.state.selection;
-      if (!selection.empty || (selection.empty && tab == "revision")) {
-
-        const { from, to } = selection;
-        // const text: string = state.view.state.doc.slice(from, to).toString().replace(/\(.*\)/g, "").replace('<"', "").replace('">', "").trim();
-        const text: string = state.view.state.doc.cut(selection.from, selection.to).textContent;
-        if (tab === "comment") {
-          if (headerData && headerData.WorkFlowStep == ReportStepId.CREATE_STEP) {
-            unSetLocalStorageDirtyDetails(IsTabDirty, IsComplianceGridTabDirty);
-          } else if (headerData && headerData.WorkFlowStep !== ReportStepId.CREATE_STEP) {
-            unSetLocalStorageDirtyDetails(IsTabDirty, IsComplianceGridTabDirty);
-          }
+    useEffect(() => {
+        selectedCsrListDtls = [];
+        UnSelectedCsrListDtls = [];
+        headerSelected = false;
+        disablNo = 0;
+        setTimeout(() => {
+            let userToken = new UserToken();
+            let usPersonFlag = userToken.isCurrentUserUSPerson();
+            setIsCurrentUserUSPerson(usPersonFlag);
+        });
+        if (!csrWorkAppFlag) {
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'CsrWorkAppFlag', false)
         }
+    }, []);
 
-        // Check if text is empty after trimming
-        if (!text.trim() && tab != "revision") {
-          dispatch(
-            showSnackbar({
-              snackbarOpen: true,
-              snackbarType: "error",
-              snackbarMessage: "Please select a valid acronym (no spaces).",
-            })
-          );
-          return;
-        }
-
-        setSelectedText(text.trim());
-        // setOpenAddAcronymPopup(true);
-        { tab == "acronym" ? setOpenAddAcronymPopup(true) : (tab == "revision" ? setOpenAddRevisionPopup(true) : (tab == "comment" ? handleOpenAddCommentPopup(0, item?.ContentId) : setOpenAddMentionPopup(true))); };
-      } else {
-        handleOpenAddCommentPopup(0, item?.ContentId);
-      }
-    }
-    else if (flag === "success" && !state.view && tab == "comment") {
-      handleOpenAddCommentPopup(0, item?.ContentId);
-    } else if (flag === "success" && !state.view && tab == "revision") {
-      setOpenAddRevisionPopup(true);
-    } else {
-      //   setNotification({ ...notification, [flag]: !notification[flag] });
-    }
-  };
-
-  const getHtml = () => {
-    if (state && state.view) {
-      const view = state.view;
-      const selection = view.state.selection;
-      if (view && !selection.empty) {
-        const node = view.state.doc.cut(selection.from, selection.to);
-        const formatedHtmlContent = EditorUtils.getHtml({ doc: node, schema: node.type.schema });
-        return formatedHtmlContent;
-      }
-    }
-  };
-
-  const getEditorHtml = () => {
-    if (state && state.view) {
-      const view = state.view;
-      const selection = view.state.selection;
-      if (view && !selection.empty) {
-        const node = view.state.doc;
-        const getEditorHtml = EditorUtils.getHtml({ doc: node, schema: node.type.schema });
-        return getEditorHtml;
-      }
-    }
-  };
-
-  const beforeSelection = () => {
-    if (state && state.view) {
-      const view = state.view;
-      const selection = view.state.selection;
-      if (view && !selection.empty) {
-        const node = view.state.doc.cut(0, selection.from);
-        const formatedHtmlContent = EditorUtils.getHtml({ doc: node, schema: node.type.schema });
-        return formatedHtmlContent;
-      }
-    }
-  };
-
-  const afterSelection = () => {
-    if (state && state.view) {
-      const view = state.view;
-      const selection = view.state.selection;
-      if (view && !selection.empty) {
-        const node = view.state.doc.cut(selection.to, view.state.doc.content.size);
-        const formatedHtmlContent = EditorUtils.getHtml({ doc: node, schema: node.type.schema });
-        return formatedHtmlContent;
-      }
-    }
-  };
-
-  const GetUpdatedHtmlWithCommentId = (targetHtml: boolean) => {
-    let getEditorHtmlText = getEditorHtml() || "";
-    let getTargetHtmlText = getHtml() || "";
-    let formattedEditorHtml = "";
-    let formattedgEditorHtmlText = "";
-    let localSpanList = "";
-    if (getEditorHtmlText && getTargetHtmlText) {
-      let parser = new DOMParser();
-      // Parse the HTML string into a document
-      let doc = parser.parseFromString(getTargetHtmlText, 'text/html');
-
-      if (doc.querySelectorAll('p').length > 1) {
-        let spanTagList = doc.querySelectorAll('span');
-        formattedEditorHtml = getTargetHtmlText;
-        formattedgEditorHtmlText = getEditorHtmlText;
-        for (let i = 0; i < spanTagList.length; i++) {
-          let eachSpanHtml = spanTagList[i].outerHTML;
-          let spanId = spanTagList[i].getAttribute("id");
-          if (spanIdList) {
-            let spanArray = spanIdList.split(",");
-            if (spanArray && spanArray.length > 0) {
-              let s = spanArray.filter((e, i, self) => i === self.indexOf(e));
-              localSpanList = s.join(",");
+    const sendEasaReportDataToShell = (regProjectId, reportType, rev) => {
+        let dataToShare = {
+            AppName: EnvDetail.AppName,
+            Action: 'CSR_EASA_Breadcrum_Details',
+            Detail: {
+                registerNo: regProjectId ? regProjectId : "",
+                reportType: reportType ? reportType : "",
+                groupId: groupId,
+                registerId: registerId,
+                revision: rev,
             }
-          }
+        };
+        let appDataEvent = new ShellEventRegister().getShellEvent();
+        appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
+        window.dispatchEvent(appDataEvent);
+    };
 
-          if (spanId) {
-            let newspanId = spanId + ',X_COMMENT_ID';
-            if (localSpanList) {
-              newspanId = localSpanList + ',X_COMMENT_ID';
-            } // Closing brace for the inner if statement
-
-            let newSpanHtml = eachSpanHtml.replace(/<span\s+id="[^"]*"/g, `<span id="${newspanId}"`);
-            formattedEditorHtml = formattedEditorHtml.replace(eachSpanHtml, newSpanHtml);
-            formattedgEditorHtmlText = formattedgEditorHtmlText.replace(eachSpanHtml, newSpanHtml);
-          }
-          else {
-            spanId = 'X_COMMENT_ID';
-            if (localSpanList) {
-              spanId = localSpanList + ',X_COMMENT_ID';
+    useEffect(() => {
+        loadTempleTypes();
+        fetchData(dataState);
+        CSRListService.getReportNameList().then(reportTypeListResult => {
+            setReportTypeList(reportTypeListResult.data);
+        });
+        CSRListService.getControlVisibilityDetails("PROJECT").then(response => {
+            if (response.data && response.data.length) {
+                setControlVisibilityDtls(response.data);
             }
-            let newSpanHtml = eachSpanHtml.replace("<span", `<span id="${spanId}"`);
-            formattedEditorHtml = formattedEditorHtml.replace(eachSpanHtml, newSpanHtml);
-            formattedgEditorHtmlText = formattedgEditorHtmlText.replace(eachSpanHtml, newSpanHtml);
-          }
-        }
-        if (targetHtml)
-          return "<p>" + formattedEditorHtml + "</p>";
-
-        return formattedgEditorHtmlText
-      }
-
-      // Extract the span element
-      let spanElement = doc.querySelector('span');
-      let isStrikeThroughPresent = getTargetHtmlText?.includes("del") || getTargetHtmlText?.includes('text-decoration: line-through');
-
-      if (isStrikeThroughPresent) {
-        getTargetHtmlText = getTargetHtmlText.replace(/^<p>/i, '').replace(/<\/p>$/i, '');
-      }
-      else {// Get the outer HTML of the span element
-        getTargetHtmlText = spanElement?.outerHTML.toString() || "";
-      }
-      let regex = /<span\s+id="[^"]*"/g;
-      let spanId = spanElement?.getAttribute("id");
-
-      if (spanIdList) {
-        let spanArray = spanIdList.split(",");
-        if (spanArray && spanArray.length > 0) {
-          let s = spanArray.filter((e, i, self) => i === self.indexOf(e));
-          localSpanList = s.join(",");
-        }
-      }
-
-      if (spanId) {
-        let newspanId = spanId + ',X_COMMENT_ID';
-        if (localSpanList) {
-          newspanId = localSpanList + ',X_COMMENT_ID';
-        }
-
-        // Replace the matched pattern with your desired value
-        if (isStrikeThroughPresent) {
-          formattedEditorHtml = getTargetHtmlText.replace(regex, `<span id="${newspanId}"`);
-          formattedEditorHtml = formattedEditorHtml.replace(/<span(?![^>]*\sid=)/gi, `<span id="${newspanId}"`);
-          let before = beforeSelection() || "";
-          let after = afterSelection() || "";
-          formattedgEditorHtmlText = '<p>' + before.replace(/^<p>/i, '').replace(/<\/p>$/i, '') + formattedEditorHtml + after.replace(/^<p>/i, '').replace(/<\/p>$/i, '') + '</p>';
-        }
-        else {
-          formattedEditorHtml = getTargetHtmlText.replace(regex, `<span id="${newspanId}"`);
-          formattedEditorHtml = formattedEditorHtml.replace(/<span(?![^>]*\sid=)/gi, `<span id="${newspanId}"`);
-          formattedgEditorHtmlText = getEditorHtmlText.replace(spanId, newspanId);
-        }
-      }
-      else {
-        spanId = 'X_COMMENT_ID';
-        if (localSpanList) {
-          spanId = localSpanList + ',X_COMMENT_ID';
-        }
-
-        if (isStrikeThroughPresent) {
-          formattedEditorHtml = getTargetHtmlText.replace(/<span(?![^>]*\sid=)/gi, `<span id="${spanId}"`);
-          // formattedEditorHtml = getTargetHtmlText.replace(regex, "<span id='" + spanId + "'");
-          let before = beforeSelection() || "";
-          let after = afterSelection() || "";
-          formattedgEditorHtmlText = '<p>' + before.replace(/^<p>/i, '').replace(/<\/p>$/i, '') + formattedEditorHtml + after.replace(/^<p>/i, '').replace(/<\/p>$/i, '') + '</p>';
-        }
-        else {
-          formattedEditorHtml = getTargetHtmlText.replace("<span", `<span id="${spanId}"`);
-          formattedgEditorHtmlText = getEditorHtmlText.replace(getTargetHtmlText, formattedEditorHtml);
-        }
-      }
-
-
-      if (targetHtml)
-        return "<p>" + formattedEditorHtml + "</p>";
-
-      return formattedgEditorHtmlText
-    }
-    else {
-      return "";
-    }
-  }
-
-  const updateAddNewComment = (value) => {
-    setAddNewComment(value);
-  }
-
-  const setReadOnlyPlugin = () =>
-    new Plugin({
-      key: new PluginKey("readonly"),
-      props: {
-        editable: () => false,
-
-      },
-    });
-
-  const selectionToolsPlugin = () =>
-    new Plugin({
-      key: new PluginKey("selection-tools"),
-      view: () => ({
-        update: (newView, _prevState) => {
-          const state = newView.state;
-          const selection = state.selection;
-
-          // Check if the selection has changed
-          if (selection.from !== _prevState.selection.from || selection.to !== _prevState.selection.to) {
-            let newState = { view: newView, showTools: false, position: { top: 0, left: 0 } };
-            const selectionCollapsed = state.selection.empty;
-            let { from, to } = state.selection;
-            const start = newView.coordsAtPos(from);
-            const end = newView.coordsAtPos(to);
-            let centerClientX = Math.max((start.left + end.left) / 2, start.left);
-            let selectionClientTop = Math.min(start.top, end.top);
-            let clientTopForPopup = selectionClientTop;
-            if (clientTopForPopup < 0) {
-              clientTopForPopup = Math.max(start.bottom, 0);
-            }
-            let clientLeftForPopup = centerClientX - 70;
-            const pageTop = clientTopForPopup + window.scrollY;
-            const pageLeft = clientLeftForPopup + window.scrollX;
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            const minMargin = 8;
-            const maxLeft = window.scrollX + viewportWidth - minMargin;
-            const maxTop = window.scrollY + viewportHeight - minMargin;
-            const finalLeft = Math.min(Math.max(pageLeft, window.scrollX + minMargin), maxLeft);
-            const finalTop = Math.min(Math.max(pageTop, window.scrollY + minMargin), maxTop);
-            newState.showTools = !selectionCollapsed ? true : false;
-            newState.position = { top: finalTop, left: finalLeft };
-
-
-            setPosition(newState.position);
-            setView(newState.view);
-            setState(newState);
-
-            // Changes to Show Content Comment 
-            const { doc, selection } = newView.state;
-            let selectionHtml = '';
-            let selectionText = '';
-            let newTo = selection.to;
-            const node = doc.cut(selection.from, newTo + 1);
-            selectionHtml = EditorUtils.getHtml({
-              doc: node,
-              schema: node.type.schema,
-            });
-            selectionText = node.textContent;
-            // To show Comment details in Popover
-            if (selectionText && selectionText.length == 1 && selectionHtml.indexOf('id=') > -1) {
-              const parser = new DOMParser();
-              const doc: any = parser.parseFromString(selectionHtml, 'text/html');
-              const element = doc.getElementsByTagName('span');
-              if (element && element.length > 0) {
-                let spanId = element[0].getAttribute('id');
-                const spanIdArray = spanId ? spanId.split(',') : [];
-                const filteredComments = currentTabComments?.filter(comment => spanIdArray.includes(comment.CommentId.toString())) || [];
-                setOpenContentCommentPopup(true);
-                setContentCommentData(filteredComments);
-              }
-            } else if (selectionHtml.indexOf('tagid=') > -1) { // To show Tag details in Popover
-              let parser = new DOMParser();
-              let tagHtmlDetail: any = parser.parseFromString(selectionHtml, 'text/html');
-              let elementDetail = tagHtmlDetail.getElementsByTagName('span');
-
-              if (elementDetail && elementDetail.length > 0) {
-                // Fix -- Read all Span element and collect tagids
-                let spanIds = '';
-                let selectedTableCode = '';
-
-                for (let index = 0; index < elementDetail.length; index++) {
-                  const element = elementDetail[index];
-
-                  if (element.hasAttribute('tagid')) {
-                    spanIds += element.getAttribute('tagid');
-                    selectedTableCode = element.getAttribute("name");
-                  }
-                }
-                // spanIds = elementDetail[0].getAttribute('tagid');
-                const spanIdArray: number[] = spanIds ? spanIds.split(',').map(Number) : [];
-
-                if (selectedTableCode) {
-                  const matched = reportLevelTagList?.find(item => item.TableCode === selectedTableCode);
-                  const matchedDetails = (matched && matched.BoeingRefDetailList) ?? [];
-                  const filteredSelectedTagList = matchedDetails.filter(item => spanIdArray.includes(item.BoeingRefId));
-                  setMentionData(filteredSelectedTagList);
-                  setOpenMentionPopup(true);
-                  setOpenAddAcronymPopup(false);
-                }
-              }
+        });
+        CSRListService.getdefaultreportgroups().then(response => {
+            if (response.data && response.data.length) {
+                setTemplatePresent(true);
             }
             else {
-              setOpenContentCommentPopup(false);
-              setOpenMentionPopup(false);
-              setContentCommentData([]);
+                setTemplatePresent(false);
             }
+        });
+        // getting Easa report details
+        let currentBUId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunitid');
+        let checkRegisterId = registerId ? Number(registerId) : 0;
+        let getCurProjectId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easaprojectno'); //?.split(':')[1]?.trim();
+        if (currentBUId == 2 && checkRegisterId != 0) { // check for EASA workspace
+            CSRListService.getEasaReportType(Number(groupId), checkRegisterId).then((response) => {
+                if (response && response.data) {
+                    sendEasaReportDataToShell(getCurProjectId, response.data[0]?.ReportType, response.data[0]?.Revision);
+                }
+            });
+        }
+    }, [projectId, groupId, registerId]);
+
+    useEffect(() => {
+        let userToken = new UserToken();
+        let bemsId = userToken.getUserBemsId();
+        const newBemsId = Number(bemsId);
+        setCurrentUserBemsId(newBemsId);
+        currentUserBemsIdRef.current = newBemsId;
+        const getSelectedDisciplined = storageService.getSelectedDiscipline();
+        setSelectedDisciplined(getSelectedDisciplined);
+    }, [currentUserBemsId]);
+
+    useEffect(() => {
+        if (projectId) {
+            const adobeData: adobeWindowData = {
+                key: "adobe-FINDCSR-CSRListGrid",
+                pageComponentData: {
+                    projectId: projectId,
+                }
+            }
+
+            logPageViewEventWithData(adobeData)
+        }
+    }, [projectId])
+
+
+    const loadTempleTypes = async () => {
+        const registerId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+        const easaWorkspaceId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easaprojectno')?.split(':')[1]?.trim();
+        const selectedDiscipline = storageService.getApplicationDataByKey(`${process.env.REACT_PARENT_APP_NAME}-Shell`, 'currentdiscipline');
+        let templateDetails: TempTemplateDetails = {
+            RegisterProjectId: registerId?.toString(),
+            EasaProjectNo: easaWorkspaceId?.toString(),
+            selectedDisciplineName: selectedDiscipline,
+            groupId: Number(groupId),
+            CsrLastCountFlag: 0,
+
+        }
+        const res = await CSRListService.GetDefaultTemplates(templateDetails)
+        const data = res?.data ?? [];
+        setTemplates(data);
+        const types = data.map(item => item.TemplateTitle).filter(Boolean);
+
+        setReportTypes(types);
+        setSelectedReportType(res?.data[0].TemplateTitle);
+        setSelectedReportTemplate(res?.data[0]);
+         setEasaMasterType(res?.data[0].MasterType);
+    }
+
+    const handleReportTypeChange = async (e) => {
+        setSelectedReportType(e.target.value);
+        const templateTitle = templates.find(x => x.TemplateTitle == e.target.value)
+        if(templateTitle) {
+            setSelectedReportTemplate(templateTitle);
+            setEasaMasterType(templateTitle.MasterType);
+        }
+    };
+
+    //FetchData if SelectedReportType Changes
+    useEffect(() => {
+        setResultState([]);
+        fetchData({});
+    }, [selectedReportType]);
+
+    const uncheckHeaderCheckBox = () => {
+        headerSelected = false;
+        selectedCsrListDtls = [];
+        UnSelectedCsrListDtls = [];
+        disablNo = disablNo - 1;
+
+        setSelectedItems(disablNo);
+        setisButtonRevDisabled(true);
+        setisButtonDelDisabled(true);
+        setisButtonDrawingRevDisabled(true);
+        setSelectionValue(false);
+    }
+    useEffect(() => {
+        CsrListDetails = [];
+        CsrListNewDetails = [];
+        selectedCsrListDtls = [];
+        UnSelectedCsrListDtls = [];
+        headerSelected = false;
+        disablNo = 0;
+        // Reset Flag on First load
+        new StorageService().setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
+
+        // ---- Resetting document number/report id on first load for reading in shell level
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `docnumber`, '');
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `DocRev`, '');
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `reportid`, '');
+        storageService.setApplicationDataByKey(
+          `${EnvDetail.ParentAppName}-EasaRegisterWorkApp`,
+          `easaRegisterDetails`,
+          {
+            isEasaRegister: false,
+            registerType: "",
+            selectedReportTemplate: {},
+            selectedReportGroup: {},
           }
-        },
-      }),
-    });
+        );
+    }, []);
 
-  const isEditorDisabled = () => {
-    let currentUserBemsId = AuthorizationService.getUserBemsId();
-    const isUserDataExist = headerData?.PendingWithBemsId?.filter(item => {
-      return item == currentUserBemsId;
-    });
-
-    if (isUserDataExist && isUserDataExist.length > 0 && headerData?.RELEASE_DATE == null)
-      return false;
-
-    return true;
-  }
-
-  const onEditorMount = (event: EditorMountEvent) => {
-    // Set Editor to disable color
-    // if (isEditorDisabled()) {
-    //   let editorElement = event.target["_element"].getElementsByClassName('k-editor-content');
-    //   editorElement[0].style.backgroundColor = "#f9f9f9";
-    // }
-
-    // set focus to kendo editor in case of paragraph
-    if (item?.isFocusRequired == 'Y' && (item?.IsParagraph == 'Y' || item?.IsTable == 'Y') && item?.IsError !== true && !uploadImagePopup) {
-      let editorElement = event.target["_element"].getElementsByClassName('k-editor-content');
-      setTimeout(() => {
-        event.target.focus();
-        editorElement[0].style.border = "2px solid #1976d2";
-        setTimeout(() => {
-          editorElement[0].style.border = "1px solid rgba(0, 0, 0, 0.08)";
-        }, 10000);
-      });
-    }
+    const isColumnActive = (field, dataState) => {
+        return isColumnMenuFilterActive(field, dataState.filter) || isColumnMenuSortActive(field, dataState.sort);
+    };
 
 
-    const state = event.viewProps.state;
-    const { viewProps } = event;
-    var { plugins, schema } = viewProps.state;
-    const marks = schema.spec.marks;
-    // const nodes = schema.spec.nodes;
-
-    plugins = [...state.plugins, selectionToolsPlugin()];
-
-    // Append a new node.
-    let nodes = schema.spec.nodes.addToEnd('nonEditable', nonEditable);
-
-    // Create the new schema.
-    const mySchema = new Schema({
-      nodes: nodes,
-      marks: schema.spec.marks,
-    });
-
-    // NOTE: ----> Placeholder is set in App.scss file
-    // const editorDocument = event.dom.ownerDocument;
-    // const styleElement = editorDocument && editorDocument.querySelector('style');
-    // if (styleElement) {
-    //   //styleElement.appendChild(editorDocument.createTextNode(kendoEditorPlaceholderStyles));
-    // }
-
-    // Set readonly Editor
-    if (isEditorDisabled()) {
-      plugins = [
-        ...plugins,
-        setReadOnlyPlugin(),
-        KendoEditorPlaceholder('Empty content.')
-      ];
-    } else {
-      plugins = [...plugins, KendoEditorPlaceholder('Click here to add...')];
-    }
-
-    // const mySchema = new Schema({
-    //   nodes: addTagNodes(addMentionNodes(nodes)),
-    //   marks
-    // });
-
-    const doc = EditorUtils.createDocument(mySchema, content);
-
-    if (headerData?.WorkFlowStep == ReportStepId.CREATE_STEP) {
-      // Register Table Resize in case of Create/ Edit report mode
-      plugins = [...tableResizing(), ...plugins];
-      //plugins = [...tableResizing(), imageResizing(), ...plugins]; // NOTE: FOR THIS NEED TO UPDATED EDITOR PACKAGE TO 10.0.0
-
-      // Register Mentions in case of Create/ Edit report mode
-      let extraPlugin: any = plugins;
-      extraPlugin.unshift(mentionPlugin);
-      plugins = extraPlugin;
-    }
-
-    let view: any;
-    view = new EditorView({ mount: event.dom }, { ...viewProps, state: EditorState.create({ doc, plugins }) });
-    return view;
-  };
-
-  const handleCloseAcronymPopup = () => {
-    setOpenAddAcronymPopup(false);
-  }
-
-  const handleCloseRevisionPopup = () => {
-    setOpenAddRevisionPopup(false);
-  };
-
-  const CustomAcronymButton = () => {
-    return (
-      <>
-        {((headerData?.AuthorBemsId == parseInt(userBemsId)) && headerData?.WorkFlowStep == ReportStepId.CREATE_STEP) ?
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onPointerDown={(e) => e.preventDefault()}
-            disabled={!state.showTools || item?.ContentId < 0 || headerData?.EditEnabledFlag == "N" || openMentionPopup}
-            onClick={() => onToggle("success", "acronym")} className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" > Add To Acronym</button >
-          : ''}
-      </>
-    )
-  };
-
-  const CustomRevisionButton = () => {
-    return (
-      <button
-        onMouseDown={(e) => e.preventDefault()}
-        onPointerDown={(e) => e.preventDefault()}
-        onClick={() => onToggle("success", "revision")}
-        className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" >Add To Revision</button >
-    )
-  };
-
-  const CustomAddCommentButton = () => {
-    setCompGridDetails(CompGridDetails);
-    return (
-      <>
-        {((headerData?.AuthorBemsId == parseInt(userBemsId)) ?
-          <button disabled={item?.ContentId < 0} title='Add Comment' style={{ color: "rgba(0, 0, 0, 0.54)", height: "30px", width: "30px" }} onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.preventDefault()} onClick={() => onToggle("success", "comment")}
-            className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" >
-            <SpeakerNotesOutlinedIcon />
-          </button> :
-          <button title='Add Comment' style={{ color: "rgba(0, 0, 0, 0.54)", height: "30px", width: "30px" }} onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.preventDefault()} onClick={() => onToggle("success", "comment")}
-            disabled={!state.showTools || item?.ContentId < 0} className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base">
-            <SpeakerNotesOutlinedIcon />
-          </button>)
+    const onHeaderSelectionChange = useCallback(event => {
+        const checkboxElement = event.syntheticEvent.target;
+        const checked = checkboxElement.checked;
+        const newSelectedState = {};
+        headerSelected = checked;
+        if (checked == true) {
+            disablNo = disablNo + 1;
+            setSelectedItems(disablNo);
+            setisButtonRevDisabled(false);
+            setisButtonDelDisabled(false);
+        } else {
+            disablNo = 0;;
+            setSelectedItems(disablNo);
+            setisButtonRevDisabled(true);
+            setisButtonDelDisabled(true);
         }
-      </>
-    )
-  };
-
-  const handleCloseMentionPopup = (gridValue: string, selectedDocNumIds: string, isDataInserted: boolean, tableCode: string, tagColor: string) => {
-    if (isDataInserted) { //check if data inserted or not
-      const { view } = textAreaRef.current.state;
-      const schema = view.state.schema;
-
-      // get the new node from the schema
-      const nodeType = schema.nodes.nonEditable;
-      // create a new node with the selected text
-      const node = nodeType.createAndFill(
-        { name: `${tableCode}`, tagcolor: `${tagColor}`, tagid: `${selectedDocNumIds}` },
-        schema.text(gridValue),
-      );
-      // Insert the new node
-      EditorUtils.insertNode(view, node);
-      view.focus();
-    };
-    setOpenAddMentionPopup(false);
-  };
+        var newData = CsrListDetails.map(item => {
+            const isInRecords = event.dataItems.some(rec => rec.RPT_ID === item.RPT_ID);
+            return {
+                ...item,
+                [SELECTED_FIELD]: isInRecords ? checked : item[SELECTED_FIELD] //only update if rec is in evnt
+            };
+        });
+        setResultState(newData);
+        CsrListDetails = newData;
 
 
-  const handleOpenMentionPopup = () => {
-    // let isTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'IsTabDirty');
-    // if (isTabDirty) {
-    //   userDefinedConfirm({ message: `There are unsaved changes in current session. Please save the data before inserting tag.`, editorUnSavedDataCheck: true, okBtnText: "Yes", cancelBtnText: "Ok"  }).then(
-    //     ({ button, input }) => {
-    //       setOpenAddMentionPopup(true);
-    //     },
-    //     () => {
-    //       return;
-    //     }
-    //   );
-    // } else {
-    //   setOpenAddMentionPopup(true);
-    // }
-    setOpenAddMentionPopup(true);
-  }
+        selectedCsrListDtls = [];
+        UnSelectedCsrListDtls = [];
+        let isAuthorInCreateState = false;
+        if (headerSelected) {
 
-  const CustomMentionButton = () => {
-    return (
-      <>
-        {((headerData?.AuthorBemsId == parseInt(userBemsId)) && headerData?.WorkFlowStep == ReportStepId.CREATE_STEP) ?
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onPointerDown={(e) => e.preventDefault()}
-            // disabled={!state.showTools}
-            // onClick={() => onToggle("success", "mention")}
-            onClick={handleOpenMentionPopup}
-            className="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" >Insert Tag</button > : ''
+            setmultipleSelected(true);
+            setSelectionValue(checked);//update headercheckbox state true
+            setisButtonRevDisabled(true);
+            CsrListDetails?.map(item => {
+                if (item.selected) {
+                    selectedCsrListDtls.push(item);
+                }
+            });
+            const selectedDataItems = Array.isArray(selectedCsrListDtls) ? selectedCsrListDtls : [];
+            isAuthorInCreateState = selectedDataItems.every(item =>
+                item.BemsId == currentUserBemsIdRef.current &&
+                (item.WorkFlowStep == ReportStepId.CREATE_STEP)
+            );
+
         }
-      </>
-    )
-  };
+        else {
+            setmultipleSelected(false);
+            setSelectionValue(checked);//update headercheckbox state false
+            setisButtonDelDisabled(true);
+            CsrListDetails?.map(item => {
+                UnSelectedCsrListDtls.push(item);
+            });
+            const selectedDataItems = Array.isArray(UnSelectedCsrListDtls) ? UnSelectedCsrListDtls : [];
+            isAuthorInCreateState = selectedDataItems.every(item => {
+                // Check that item is neither null nor undefined before accessing properties
+                if (item && item.BemsId && item.WorkFlowStep) {
+                    return item?.BemsId == currentUserBemsIdRef.current &&
+                        (item.WorkFlowStep == ReportStepId.CREATE_STEP);
+                }
+                return false; // If item is null or its properties are missing, return false
+            });
 
-  const getInitialScreenDimensions = () => {
-    return {
-      maxWidth: window.innerWidth * 0.85,
-      minWidth: window.innerWidth * 0.45,
-    };
-  };
+        }
+        if (isAuthorInCreateState) {
+            setisButtonDelDisabled(false);
+        }
+        else {
+            setisButtonDelDisabled(true);
+        }
+        setisButtonDrawingRevDisabled(true);
+    }, []);
 
-  const getDynamicScreenBasedOnWindowSize = () => {
-    return {
-      maxWidth: window.innerWidth * 0.85,
-      minWidth: window.innerWidth * 0.45,
-    };
-  };
+    const onSelectionChange = useCallback(event => {
+        const checkboxElement = event.syntheticEvent.target;
+        const checked = checkboxElement.checked;
+        let isAuthorInCreateState = false;
+        if (checked == true) {
+            disablNo = disablNo + 1;
+            setSelectedItems(disablNo);
+            setisButtonRevDisabled(false);
+            setisButtonDelDisabled(false);
+        } else {
+            disablNo = disablNo - 1;;
+            setSelectedItems(disablNo);
+            setisButtonRevDisabled(true);
+            setisButtonDelDisabled(true);
+        }
+        var newData: CSRHeaderData[] = [];
 
-  const [dynamicScreenSize, setDynamicScreenSize] = useState(getInitialScreenDimensions());
+        newData = CsrListDetails.map(item => ({
+            ...item,
+            [SELECTED_FIELD]: (event.dataItem.RPT_ID == item.RPT_ID) ? checked : item.selected
+        }));
+        setResultState(newData);
 
-  useEffect(() => {
-    const handleResize = () => {
-      setDynamicScreenSize(getDynamicScreenBasedOnWindowSize());
-    };
+        CsrListDetails = newData;
+        if (false) {//headerSelected
+            newData.forEach(item => {
+                if (item.selected == false && checked == false) {
+                    var parameterObject: parameterObj = {
+                        RPT_ID: item.RPT_ID,
+                        selected: item.selected,
+                        BemsId: item.BemsId,
+                        RELEASE_DATE: item.RELEASE_DATE,
+                        WorkFlowStep: item.WorkFlowStep
+                    };
+                    if (UnSelectedCsrListDtls.length > 0)
+                        UnSelectedCsrListDtls = UnSelectedCsrListDtls.filter(item1 => (item1.RPT_ID != item.RPT_ID));
+                    UnSelectedCsrListDtls.push(parameterObject);
+                }
+            });
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+            const updatedArray2 = UnSelectedCsrListDtls.map(item2 => {
+                const matchingItem1 = newData.find(item1 => (item1.RPT_ID == item2.RPT_ID));
+                return matchingItem1 ? { ...item2, ...matchingItem1 } : item2;
+            });
+            UnSelectedCsrListDtls = [];
+            selectedCsrListDtls = [];
+            headerSelected = false;
+            setSelectionValue(false);
+            updatedArray2.forEach(item => {
+                if (!item.selected) {
+                    UnSelectedCsrListDtls.push(item);
 
-  const handleOnFocus = (event: EditorFocusEvent) => {
-    event.target["_element"].getElementsByClassName('k-editor-toolbar')[0].style.display = 'block';
-    event.target["_element"].getElementsByClassName('k-editor-toolbar')[0].style.zIndex = 1;
-    // Set Editor border color on Focus
-    event.target["_element"].style.border = '1px solid rgba(0, 0, 0, 0.23)';
+                }
+            });
 
-    // Set border in case of Placeholder textbox
-    // let editorElement = event.target["_element"].getElementsByClassName('k-editor-content');
-    // editorElement[0].style.border = "1px solid rgba(0, 0, 0, 0.08)";
-  }
+        }
+        else {
+            newData.forEach(item => {
+                if (item.selected) {
+                    let parameterObject: parameterObj = {
+                        RPT_ID: item.RPT_ID,
+                        selected: item.selected,
+                        BemsId: item.BemsId,
+                        RELEASE_DATE: item.RELEASE_DATE,
+                        WorkFlowStep: item.WorkFlowStep
+                    };
+                    if (selectedCsrListDtls.length > 0)
+                        selectedCsrListDtls = selectedCsrListDtls.filter(item1 => (item1.RPT_ID != item.RPT_ID));
+                    selectedCsrListDtls.push(parameterObject);
+                }
+            });
 
-  const handleOnBlur = (event: EditorBlurEvent) => {
-    event.target["_element"].getElementsByClassName('k-editor-toolbar')[0].style.display = 'none';
-    // Remvoe Editor border color on Blur
-    event.target["_element"].style.border = 'none';
+            const updatedArray2 = selectedCsrListDtls.map(item2 => {
+                const matchingItem1 = newData.find(item1 => (item1.RPT_ID == item2.RPT_ID));
+                return matchingItem1 ? { ...item2, ...matchingItem1 } : item2;
+            });
+            UnSelectedCsrListDtls = [];
+            selectedCsrListDtls = [];
+            updatedArray2.forEach(item => {
+                if (item.selected) {
+                    selectedCsrListDtls.push(item);
 
-    // Remove border in case of Placeholder textbox
-    let editorElement = event.target["_element"].getElementsByClassName('k-editor-content');
-    editorElement[0].style.border = "none";
+                }
+            });
+            const selectedDataItems = Array.isArray(updatedArray2) ? updatedArray2.filter(item => item.selected) : [];
+            if (selectedDataItems.length > 0) {
+                isAuthorInCreateState = selectedDataItems.every(item =>
+                    item.BemsId == currentUserBemsIdRef.current &&
+                    (item.WorkFlowStep == ReportStepId.CREATE_STEP)
+                );
+            }
+            if (selectedCsrListDtls?.length > 1) {
+                setmultipleSelected(true);
+            }
+            else {
+                setmultipleSelected(false);
+            }
 
-    // Hide all opened Mentions
-    let mentionElementList: any = document.querySelectorAll('[class*="suggestion-item-container"]') || [];
+            if (newData.length == selectedCsrListDtls.length) {
+                setSelectionValue(true);
+            }
+            else {
+                headerSelected = false;
+                setSelectionValue(false);
+            }
+            if (selectedCsrListDtls.length == 1) {
+                let tempSelectedCSR = selectedCsrListDtls[0] as CSRHeaderData;
+                tempSelectedCSR.RELEASE_DATE != null ? setisButtonRevDisabled(false) : setisButtonRevDisabled(true);
+                setisButtonDelDisabled(false);
+            }
+            else if (selectedCsrListDtls.length < 1) {
+                setisButtonDelDisabled(true);
+                setisButtonDrawingRevDisabled(true);
+            }
+            else {
+                setisButtonDelDisabled(false);
+                setisButtonRevDisabled(true);
+            }
 
-    for (let index = 0; index < mentionElementList.length; index++) {
-      const element = mentionElementList[index];
-      setTimeout(() => {
-        element.style.display = 'none';
-      }, 1000);
-    }
-  }
+            if (isAuthorInCreateState) {
+                setisButtonDelDisabled(false);
+            }
+            else {
+                setisButtonDelDisabled(true);
+            }
+        }
 
-  const handleCloseContentCommentPopup = () => {
-    setOpenContentCommentPopup(false);
-    setContentCommentData([]);
-  };
 
-  const handleCloseMentionOnPopup = () => {
-    setOpenMentionPopup(false);
-  }
+    }, []);
 
-  const handleCheckbox = (each, status, commentData, RptId, isEditing) => {
-    const CommentStatus = status === '1' ? '0' : '1';
-    let tempStatus = status == '0' ? 'resolved' : 'reopened';
-    if (CommentStatus === '0') {
-      setCommentStatus("0");
-    }
-    else {
-      setCommentStatus("1");
-    };
-    CommentHistoryPopupService.UpdateCommentTypeStatus(each, 0, commentData.ContentID, !isEditing ? CommentStatus : commentStatus).then((response) => {
-      CommentHistoryPopupService.getContentCommentData(commentData.ContentID, RptId, commentData.TabRowId || 0).then((response) => {
-        refreshAllEditor();
-      });
+
+    // to set the height of each container on component render
+    useEffect(() => {
+        if (document?.getElementById('shell-main-section') != undefined) {
+            setShellHeaderSectionHeight(document?.getElementsByClassName('shell-header-setion')[0]?.clientHeight)
+            setShellOssMenubreadcrumsHeight(document?.getElementsByClassName('oss-menu-breadcrums')[0]?.clientHeight)
+            setShellOssHeaderMenuSectionHeight(document?.getElementById('oss-header-menu-setion')?.clientHeight)
+            setShellFooterHeight(document?.getElementsByTagName('footer')[0]?.clientHeight)
+            setSearchFieldHeight(document?.getElementsByClassName('csr-search-row')[0]?.clientHeight);
+        }
     })
-      .catch((error) => {
-        console.error('Error updating comment status:', error);
-      });
-    dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: `Comment ${tempStatus} successfully.` }));
-  };
+    useEffect(() => {
+        let additionalHeight = (pmdbProjectId > -1 && window.innerHeight > 450) ? searchFieldHeight + 50 : 0;
+        let additionalGridHeight = (pmdbProjectId > -1) ? ((window.innerHeight > 450) ? 55 : 400) : 40;
+        setShellWorkAppContainerMaxHeight(
+            shellClientHeight != undefined &&
+                shellOssHeaderMenuSectionHeight != undefined
+                ? shellClientHeight -
+                (shellHeaderSectionHeight +
+                    shellOssMenubreadcrumsHeight +
+                    shellOssHeaderMenuSectionHeight + shellFooterHeight + additionalHeight) + additionalGridHeight
 
-  // Document mousedown listener to detect clicks inside prompt (prevents immediate close)
-   useEffect(() => {
-    const onDocMouseDown = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (
-        target?.closest(".k-inline-ai") ||
-        target?.closest(".k-inline-ai-prompt") ||
-        target?.closest(".k-popup")
-      ) {
-        clickedInsideRef.current = true;
-        return;
-      }
-      const editorDom = textAreaRef.current?.view?.dom;
-      if (editorDom && editorDom.contains(target)) {
-        return;
-      }
-      setShowPrompt(false);
-      setSelectedText("");
-      setOutputs([]);
-      setAnchorEl(undefined);
+                : 0
+        );
+    }, [
+        shellClientHeight,
+        shellHeaderSectionHeight,
+        shellOssMenubreadcrumsHeight,
+        shellOssHeaderMenuSectionHeight,
+        shellFooterHeight,
+        setSearchFieldHeight
+    ]);
+    useEffect(() => {
+        setShellClientHeight(
+            document?.getElementById("shell-main-section")?.clientHeight
+        );
+        setShellHeaderSectionHeight(
+            document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
+        );
+        setShellOssMenubreadcrumsHeight(
+            document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
+        );
+        setShellOssHeaderMenuSectionHeight(
+            document?.getElementById("oss-header-menu-setion")?.clientHeight
+        );
+        setShellFooterHeight(document?.getElementsByTagName('footer')[0]?.clientHeight)
+        setSearchFieldHeight(document?.getElementsByClassName("csr-search-row")[0]?.clientHeight);
+        setGridWidth(window.innerWidth);
+    }, [screenPercentage]);
+    // Function to update the screen percentage
+    const handleScreenResize = () => {
+        const percentage = calculateScreenPercentage(); // Your function to calculate screen percentage
+        setScreenPercentage(percentage);
     };
- 
-    document.addEventListener('mousedown', onDocMouseDown, true);
-    return () => document.removeEventListener('mousedown', onDocMouseDown, true);
-  }, []);
-
-  // Attach native listeners once editor view is available; detect selection changes
-  useEffect(() => {
-    let mounted = true;
-    const tryAttach = () => {
-      if (!mounted) return;
-      const ed = textAreaRef.current;
-      if (ed && ed.view && ed.view.dom) {
-        const dom = ed.view.dom as HTMLElement;
-
-        const onSelect = () => {
-          const { text, from, to } = readSelection();
-          if (text && text.trim().length > 0) {
-            setSelectedText(text);
-            setSelectionRange({ start: from, end: to });
-            const el = UpdateAnchor(from);
-            setAnchorEl(el || undefined);
-            setShowPrompt(true);
-          } else {
-            window.setTimeout(() => {
-              if (!clickedInsideRef.current) {
-                setShowPrompt(false);
-                setSelectedText('');
-                setOutputs([]);
-                setAnchorEl(undefined);
-              } else {
-                clickedInsideRef.current = false;
-              }
-            }, 50);
-          }
-        };
-
-        dom.addEventListener('mouseup', onSelect);
-        dom.addEventListener('keyup', onSelect);
-
+    const calculateScreenPercentage = () => {
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        const totalPixels = screenWidth * screenHeight;
+        // Assuming a reference screen size of 1920x1080 for 100% screen size
+        const referenceWidth = 1920;
+        const referenceHeight = 1080;
+        const referencePixels = referenceWidth * referenceHeight;
+        const percentage = (totalPixels / referencePixels) * 100;
+        return screenWidth == defaultWindowWidth ? 0 : percentage;
+    };
+    // Attach event listener for screen resize
+    useEffect(() => {
+        window.addEventListener("resize", handleScreenResize);
         return () => {
-          dom.removeEventListener('mouseup', onSelect);
-          dom.removeEventListener('keyup', onSelect);
+            window.removeEventListener("resize", handleScreenResize);
         };
-      }
-      setTimeout(tryAttach, 200);
+    }, []); // Empty dependency array ensures this effect runs only once after initial render
+
+    useEffect(() => {
+        let additionalHeight = pmdbProjectId > -1 ? 220 : 180;
+        let numRows = resultState?.length;
+        setGridHeight(isNaN(numRows) ? 0 : ((numRows * gridRowHeight) + additionalHeight));
+    }, [resultState]); //Calculate the total height as per the number of entries
+    const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
+        let k_grid_width = document.querySelector("#kgrid-oss-csr-list")?.clientWidth;
+        let fixedWidth = totalColumnFixedWidth;
+        let dynamicWidth = 0;
+        let minScreenWidth = 2000;
+        let maxScreenWidth;
+        if (k_grid_width) {
+            if (k_grid_width <= minScreenWidth) {
+                return minWidth;
+            }
+            else {
+                dynamicWidth = k_grid_width - fixedWidth;
+                if (width == 0 && dynamicWidth > 0 && percentage > 0) {
+                    const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
+                    return Math.max(minWidth, dynamicColumnWidth);
+                }
+                else {
+                    return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
+                }
+            }
+        }
+    }
+    useEffect(() => {
+        // Check if initial data has been fetched to avoid duplicate API calls
+        if (CsrListDetails && CsrListDetails.length > 0) {
+            setData(kendoProcess(CsrListDetails, dataState)); // Client-side sorting here
+        }
+    }, [dataState]);
+    useEffect(() => {
+        if (gridRef?.current) {
+            const headerCells = gridRef.current.element.querySelectorAll('.k-header');
+            let calculatedFixedColumnWidth = 0;
+            let dynamicWidth = 0;
+            headerCells.forEach((cell, index) => {
+                if (gridRef.current.columns[index].width != undefined) {
+                    if (gridRef.current.columns[index].width.toString().indexOf('px') > -1) {
+                        calculatedFixedColumnWidth = calculatedFixedColumnWidth + parseInt(gridRef.current.columns[index].width)
+                    }
+                    else {
+                        dynamicWidth = dynamicWidth + gridRef.current.columns[index].width;
+                    }
+                };
+                const columnHeader = gridRef.current.columns[index].title;
+                cell.title = columnHeader;
+            });
+            setCalculatedDynamicColWidth(dynamicWidth);
+            setTotalColumnFixedWidth(calculatedFixedColumnWidth)
+        }
+    }, [gridRef, data])
+    const datastatechange = (event: GridDataStateChangeEvent) => {
+        //---adobe Analytics
+        logFilterAction(event);
+        event.dataState?.filter?.filters[0]['filters']?.forEach((item, index) => {
+            if (item.value != undefined && item.field == "RELEASE_DATE") {
+                const dateObject = new Date(item.value);
+                item.value = new Date(item.value);
+            }
+            else if (item.value != undefined && item.field == "CreationDateStr") {
+                const dateObject = new Date(item.value);
+                item.value = new Date(item.value);
+            }
+            else if (item.value != undefined && item.field == "ModificationDateStr") {
+                const dateObject = new Date(item.value);
+                item.value = new Date(item.value);
+            }
+        })
+        setSelectionValue(false);
+        setDataState(event.dataState);
+        fetchData(event.dataState);
+
     };
 
-    const cleanupListener = tryAttach();
-    return () => {
-      mounted = false;
-      if (typeof cleanupListener === 'function') cleanupListener();
-    };
-  }, [readSelection, UpdateAnchor]);
-  useEffect(() => {
-    return () => {
-      Cleanup();
-    };
-  }, [Cleanup]);
+    const handleCreateNewReport = () => {
+        handleCloseCreateNew();
+        if (!csrWorkAppFlag) {
+            new StorageService().setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'ProjectId', projectId);
+        }
+        new StorageService().setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'DocNumber', '');
+        new StorageService().setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `DocRev`, '');
+        new StorageService().setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `ReportTemplate`, selectedReportTemplate);
+        navigate(PathConstants.DYNAMIC_TAB.replace(":reportId", "0").replace(":tabIndex", "-1"), { state: null });
+    }
 
-  return (
-    <>
-      <Editor
-        defaultEditMode="div"
-        // resizable={true}
-        style={{
-          // height: IsNonDynamicTab ? 200 : 140,
-          maxWidth: dynamicScreenSize.maxWidth,
-          minWidth: IsNonDynamicTab ? "200px" : dynamicScreenSize.minWidth,
-          borderRadius: "4px",
-          border: "none",
-          // border: IsError ? "1px solid #d32f2f" : "none",
-          ...constraints,
-          // ...resize
-        }}
-        // ref={editorRef}
-        ref={textAreaRef}
-        // tools={[...toolsEditor[tools], [CustomAcronymButton]]}
-        tools={
-          headerData?.WorkFlowStep !== ReportStepId.CREATE_STEP || (headerData?.WorkFlowStep == ReportStepId.CREATE_STEP && item && item.IsFigure === 'Y') ?
-            (((item && item.IsParagraph === 'Y') || (item && item.IsTable === 'Y') || (item && item.IsFigure === 'Y') || IsNonDynamicTab) ? [[customBlankTool], [CustomStrikethrough], headerData?.CommentEnabledFlag == "Y" ? [CustomAddCommentButton] : [customBlankTool]] : [[customBlankTool]]) :
-            (headerData?.PARENT_RPT_ID == null || headerData?.PARENT_RPT_ID == 0 ?
-              [...toolsEditor[tools], [Strikethrough], headerData?.CommentEnabledFlag == "Y" ?
-                [CustomAddCommentButton] : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool]]
-              : [...toolsEditor[tools], [Strikethrough], headerData?.CommentEnabledFlag == "Y" ? [CustomAddCommentButton]
-                : [customBlankTool], [CustomAcronymButton], easaReportFlag ? [CustomMentionButton] : [customBlankTool], [CustomRevisionButton]])}
-        contentStyle={{ minHeight: CompGridDetails ? '100px' : 'auto' }}
-        defaultContent={content}
-        onChange={(event: EditorChangeEvent) => { onEditorChange && onEditorChange(event as EditorChangeEvent, item as any, contentKey as string), setValue(event.html) }}
-        onMount={onEditorMount}
-        onFocus={(event: EditorFocusEvent) => handleOnFocus(event as EditorFocusEvent)}
-        onBlur={(event: EditorBlurEvent) => handleOnBlur(event as EditorBlurEvent)}
-      />
-      {openAddAcronymPopup && <AddAcronymPopup isOpen={openAddAcronymPopup} reportId={reportId} selectedText={selectedText} handleCloseAcronymPopup={handleCloseAcronymPopup} />}
-      {openContentCommentPopup && <ContentCommentPopup handleCheckbox={handleCheckbox} RptId={reportId} headerData={headerData} handleOpenCommentHistoryPopup={handleOpenCommentHistoryPopup} openContentCommentPopup={openContentCommentPopup} handleCloseContentCommentPopup={handleCloseContentCommentPopup} contentCommentData={contentCommentData} position={position} />}
-       {/* {openCommentHistoryPopup && <CommentHistoryPopup isControlLevelComment={false} tabName={tabName} controlName={controlName} selectedTabRowId={selectedTabRowId} selectedRowId={selectedRowId} editFileCount={editFileCount} IsNonDynamicTab={IsNonDynamicTab} addNewComment={addNewComment} updateAddNewComment={updateAddNewComment} CompGridDetails={getCompGridDetails} contentID={contentID} openHistoryPopup={openHistoryPopup} handleCloseHistoryPopup={handleCloseHistoryPopup} RptId={reportId} item={item} TabSectionId={item?.TabSectionId} headerData={headerData} getFormatedHtmlData={GetUpdatedHtmlWithCommentId(true)} getFormatedEditorHtml={GetUpdatedHtmlWithCommentId(false)}
-        showEditModeForCommentID={showEditModeForCommentID} comment={comment} commetType={commetType} SectionSerialNumber={SectionSerialNumber} seletedTargetText={seletedTargetText} addCommentAsAuthor={addCommentAsAuthor} currentContentID={currentContentID} openCommentHistoryPopup={openCommentHistoryPopup} handleCloseCommentHistoryPopup={handleCloseCommentHistoryPopup} currentTabComments={currentTabComments} showReplyCommentId={showReplyCommentId} />} */}
-      {openAddRevisionPopup && <AddRevisionPopup openRevisionPopup={openAddRevisionPopup} reportId={reportId} selectedText={selectedText} handleCloseRevisionPopup={handleCloseRevisionPopup} tabId={tabIndex} TabSectionId={item?.TabSectionId} ContentID={item?.ContentId} secIndex={SectionSerialNumber} item={item} sectionTitle={sectionTitle} tableCode={tableCode} />}
-      {openAddMentionPopup && <AddMentionPopup openMentionPopup={openAddMentionPopup} handleCloseMentionPopup={handleCloseMentionPopup} />}
-      {openMentionPopup && <MentionPopup RptId={reportId} headerData={headerData} openMentionOnPopup={openMentionPopup} handleCloseMentionOnPopup={handleCloseMentionOnPopup} position={position} mentionData={getMentionData} />}
-      {ShowPrompt && (
-        <InlineAIPrompt
-          width={544}
-          streaming={Streaming}
-          enableSpeechToText={true}
-          outputs={Outputs}
-          anchor={AnchorEl || textAreaRef.current?.view?.dom || undefined}
-          commands={Commands}
-          onCommandExecute={onCommandExecute}
-          onPromptRequest={onPromptRequest}
-          onPromptCancel={onPromptCancel}
-          outputActions={outputActions}
-          onOutputAction={onOutputAction}
-          onDiscard={(o) => setOutputs((prev) => prev.filter((x) => x.id !== o.id))}
-          show={ShowPrompt}
-        />
-      )}
-    </>
-  );
-}
-export default KendoEditor;
+    const [openRevisionModelPopup, setOpenRevisionModelPopup] = useState(false);
 
+    const filterReportData = resultState.filter((data) => data.RPT_ID == selectedCsrListDtls[0]?.RPT_ID);
+
+    const [openCreateCopyModel, setOpenCreateCopyModel] = useState(false);
+    const handleOpenRevision = () => {
+        setOpenRevisionModelPopup(true);
+
+    }
+
+    const handleOpenCreatePopup = () => {
+        setOpenCreateCopyModel(true);
+
+    }
+
+    const handleCloseCreatePopup = () => {
+        setOpenCreateCopyModel(false);
+
+    }
+
+    const handleCloseRevisionPopup = () => {
+        setOpenRevisionModelPopup(false);
+        // let rptId = selectedCsrListDtls[0]?.RPT_ID;
+        // CSRListService.CreateRevision(rptId).then((response) => {
+        //     if (response.data && response.data > 0) {
+        //         let reportId = response.data;
+        //         navigate(PathConstants.COMPLIANCE_REPORT_BASE.replace(":reportId", reportId.toString()));
+        //     }
+        //     else {
+        //         dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Unable to create a revision. Please connect with Administrator" }));
+        //     }
+        // });
+    }
+
+    const handleConfigReg = () => {
+        if (projectId && parseInt(projectId) > 0)
+            navigate(PathConstants.PROJECT_REGULATION.replace(":projectId", projectId));
+        else
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Invalid Project Id." }));
+    }
+
+    const handleDrawingReview = () => {
+        if (selectedCsrListDtls && selectedCsrListDtls.length == 1) {
+
+        }
+        else if (selectedCsrListDtls && selectedCsrListDtls.length > 1) {
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "info", snackbarMessage: "Please select only one report." }));
+        }
+        else {
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "info", snackbarMessage: "Please select report." }));
+        }
+    }
+
+    const fetchData = async (dataState) => {
+
+
+        const sortVal = {
+            field: dataState?.sort?.length > 0 ? dataState.sort[0].field : null,
+            dir: dataState?.sort?.length > 0 ? dataState.sort[0].dir : null,
+        };
+
+        let filterVal: ParameterObject[] = [];
+        let filterObjects: FilterParam[] = [];
+
+        if (dataState?.filter?.length > 0) {
+            if (dataState.filter.filters?.length > 0) {
+                for (let i = 0; i < dataState.filter.filters.length; i++) {
+
+                    if (dataState.filter.filters[i].filters.length != 0) {
+                        filterVal = [];
+                        for (let j = 0; j < dataState.filter.filters[i].filters.length; j++) {
+                            const parameterObject: ParameterObject = {
+                                field: dataState.filter.filters[i].filters[j].field,
+                                operator: dataState.filter.filters[i].filters[j].operator,
+                                value: dataState.filter.filters[i].filters[j].value
+                            };
+
+                            filterVal.push(parameterObject);
+                        }
+
+                        const filterObj: FilterParam = {
+                            filterObject: filterVal,
+                            logic: dataState.filter.filters[i].logic
+                        };
+                        filterObjects.push(filterObj);
+
+                    }
+
+                }
+            }
+        }
+        let selectedDisciplineId = (selectedDisciplinId != undefined && selectedDisciplinId != null && selectedDisciplinId != "") ? selectedDisciplinId : "N/A";
+        let inputProjectId = projectId != undefined && projectId != null ? projectId : "-1";
+        let projectRegisterId = (registerId === "0" || (registerId == undefined)) ? 0 : Number(registerId);
+        CsrListDetails = [];
+        selectedCsrListDtls = [];
+        CSRListService.getCSRList(inputProjectId, selectedDisciplineId, Number(groupId), projectRegisterId,selectedReportType).then((result) => {
+            CsrListDetails = result.data;
+            setData(kendoProcess(result.data, dataState));
+            setResultState(result.data);
+            setHasContent(result.data.length != 0 ? true : false);
+            // Set Current User bemsId while loading page
+            let userToken = new UserToken();
+            let bemsId = userToken.getUserBemsId();
+            const newBemsId = Number(bemsId);
+            setCurrentUserBemsId(newBemsId);
+        });
+
+        // CSRListService.GetItarFlag(projectId || 0).then((responce)=>{
+        //     setItarProjectFlag(responce.data);(responce.data);
+        // });
+    }
+    const onDeleteClick = () => {
+        var hdrSelected = false;
+        var documentIds: string;
+        if (selectedCsrListDtls && selectedCsrListDtls.length > 0) {
+            userDefinedConfirm({ message: 'Are you sure want to delete this report?', okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
+                ({ button, input }) => {
+                    if (selectedCsrListDtls.length > 0) {
+                        hdrSelected = false;
+                        documentIds = selectedCsrListDtls.map(item => item.RPT_ID).join(',');
+                    }
+                    else if (UnSelectedCsrListDtls.length > 0) {
+                        hdrSelected = true;
+                        documentIds = UnSelectedCsrListDtls.map(item => item.RPT_ID).join(',');
+                    }
+                    else {
+                        hdrSelected = true;
+                        documentIds = "";
+                    }
+                    selectedCsrListDtls = [];
+                    UnSelectedCsrListDtls = [];
+                    var documentIdsList = documentIds.trim().split(',');
+                    CSRListService.DeleteCSRListDetails(documentIdsList).then((response) => {
+                        fetchData(dataState);
+                        dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: "Report(s) is deleted successfully." }));
+                        disablNo = disablNo - 1;;
+                        setSelectedItems(disablNo);
+                        setisButtonRevDisabled(true);
+                        setisButtonDelDisabled(true);
+                        setisButtonDrawingRevDisabled(true);
+                        uncheckHeaderCheckBox();
+                    });
+                },
+                () => {
+                    return;
+                }
+            );
+        } else {
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "info", snackbarMessage: "Please select report(s)." }));
+        }
+        setOpen(false);
+    }
+
+    const [isPopupOpen, setIsPopupOpen] = useState(false);
+    const [userStateData, setUserStateData] = useState('');
+    const [popupData, setPopupData] = useState<CSRApprovalUserList[]>([]);
+    const handleClosePopup = () => {
+        setIsPopupOpen(false);
+    };
+    const onStatusClick = (
+        data
+    ) => {
+        if (data.TemplateTitle.toUpperCase() == ReportType.Drawing.toUpperCase()) {
+            CSRListService.getReportWorkflowDetailsForDrawing(data.RPT_ID).then((response) => {
+                setUserStateData(data);
+                setPopupData(response.data);
+                setIsPopupOpen(true);
+            });
+        }
+        else {
+            CSRListService.getReportWorkflowDetails(data.RPT_ID).then((response) => {
+                setUserStateData(data);
+                setPopupData(response.data);
+                setIsPopupOpen(true);
+            });
+        }
+    };
+
+    const CustomCell = (prop) => {
+        return (
+            <td className="statusCol" title={prop.dataItem.STATE} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px" }}>
+
+                <Button
+                    variant={"text"}
+                    color={"primary"}
+                    onClick={() => onStatusClick(prop.dataItem)}
+                    sx={{
+                        textTransform: 'none',
+                        fontSize: "14px",
+                        padding: 0,
+                        justifyContent: "flex-start",
+                        "&:hover": {
+                            backgroundColor: "transparent", // Set the background color to transparent on hover
+                        },
+                        color: '#0078B8'
+                    }}
+                >
+                    {prop.dataItem.STATE}
+                </Button>
+                {/* <CircleIcon className="statusIcon" fontSize="small" style={{ fill }} /> */}
+            </td>
+        )
+    };
+
+    const downloadFile = (response, fileName) => {
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName; // Change this as needed
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    }
+
+    const onFileClickDownload = (fileName: string, rptId: number) => {
+        DrawingAttachPopupService.downloadDrawingAttachments(fileName, rptId).then((response) => {
+            downloadFile(response, fileName);
+        });
+    }
+
+    const onDocumentNumberClick = (
+        reportId: string, project_id: number, reportType: string
+    ) => {
+        if (csrWorkAppFlag) {
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'CsrPmdbProjectId', project_id);
+        }
+        //navigate(PathConstants.DYNAMIC_TAB.replace(":reportId", (reportId.toString() || "0")).replace(":tabIndex", ""));
+        navigate(PathConstants.COMPLIANCE_REPORT_BASE.replace(":reportId", reportId));
+        //navigate(PathConstants.GENERAL_TAB.replace(":reportId", reportId));
+
+    };
+
+    const ColumnMenuCheckboxFilter = (props: GridColumnMenuProps) => {
+        return (
+            <div>
+                <GridColumnMenuCheckboxFilter {...props} data={CsrListDetails} expanded={true} />
+            </div>
+        );
+    }
+    const [anchorElCreate, setAnchorElCreate] = React.useState<null | HTMLElement>(null);
+
+    const openCreateNew = Boolean(anchorElCreate);
+    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+        setAnchorElCreate(event.currentTarget);
+    };
+
+    const handleCloseCreateNew = () => {
+        setAnchorElCreate(null);
+    };
+
+    const shouldDisplayButton = (buttonName: string): boolean => {
+        if (controlVisibilityDtls && controlVisibilityDtls.length > 0)
+            return !controlVisibilityDtls.some(item => item.ControlName.toUpperCase() === buttonName.toUpperCase() && item.VisibilityFlag === "Y");
+        return true;
+    }
+
+    const checkIsAuthorReport = (selectedReportDetails) => {
+        if(selectedReportDetails && selectedReportDetails.length > 0){
+            const checkAuthorReports = selectedReportDetails.filter((list) => list.CreatedBy == currentUserBemsId);
+            const checkIsReleasedReport = checkAuthorReports.filter((list) => list.STATE?.toLowerCase() == ReportStages.Released.toLowerCase());
+            if((checkAuthorReports.length == selectedReportDetails.length) && checkIsReleasedReport.length == 0){
+                return false;
+            }
+        }
+        return true;
+    };
+    
+    const card = (
+
+        <div key={easaMasterType} style={{ height: (gridHeight >= window.innerHeight || shellWorkAppContainerMaxHeight != 0) ? '100%' : '', width: '100%' }}>
+            {/* <div className="project-register-grid"> */}
+            <GridHelper toolbarSettings={{
+                showColumnsConfigurator: true
+
+            }}
+                style={{ height: (gridHeight >= window.innerHeight || shellWorkAppContainerMaxHeight != 0) ? '100%' : '', width: '100%' }}
+                dataItemKey={'RPT_ID'}
+                groupable={false}
+                data={resultState}
+                selectedReportType={selectedReportType}            >
+                <AnyGrid
+                    id="kgrid-oss-csr-list"
+                    ref={gridRef}
+                    style={{
+                        height:
+                            gridHeight >= window.innerHeight ||
+                                shellWorkAppContainerMaxHeight != 0
+                                ? "100%"
+                                : "",
+                        width: "100%",
+                    }}
+                    data={resultState}
+                    {...dataState}
+
+                    onDataStateChange={datastatechange}
+                    resizable={true}
+                    sortable={true}
+                    scrollable={"scrollable"}
+                    rowHeight={gridRowHeight}
+                    selectable={{
+                        enabled: true,
+                        drag: false,
+                        cell: false,
+                        mode: "multiple",
+                    }}
+                    dataItemKey={DATA_ITEM_KEY}
+                    onHeaderSelectionChange={onHeaderSelectionChange}
+                    onSelectionChange={onSelectionChange}
+                    selectedField={SELECTED_FIELD}
+                    columnMenuIcon={filterIcon}
+                >
+                    <GridToolbar className="topbarmain-height-grid">
+                        <div className="topbarmain-grid-wrap">
+                            <Grid item md={6}>
+                                {<Button disabled={commonFunction.getItarAccessStatus(getItarProjectFlag, isCurrentUserUSPerson) || !templatesPresent || shouldDisplayButton("Create New")} className="csrlist-marginLeft10" id="createBtn" title="Create New" onClick={handleCreateNewReport} size={'small'} color={'inherit'}><LibraryAddOutlinedIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Create New</Typography></Button>}
+                                {/* {<Button disabled={commonFunction.getItarAccessStatus(getItarProjectFlag, isCurrentUserUSPerson) || checkDisciplinedValue()} className="csrlist-marginLeft10" id="createBtn" onClick={handleCreateNewReport} title="Create New Report" variant={"outlined"} size={'small'} color={'inherit'}><AddCircleOutlineIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Create New</Typography></Button>} */}
+                                {<Button disabled={filterReportData[0]?.RELEASE_DATE == null || selectedCsrListDtls.length > 1 || shouldDisplayButton("Create Revision")} className="csrlist-marginLeft10" id="craeteRevBtn" variant={"outlined"} title="Create Revision" onClick={handleOpenRevision} size={'small'} color={'inherit'}><LibraryAddOutlinedIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Create Revision</Typography></Button>}
+                                {/* {<Button  className="csrlist-marginLeft10" id="createCopyBtn"  title="Create Copy" variant={"outlined"}  onClick={handleOpenCreatePopup} size={'small'} color={'inherit'}><LibraryAddOutlinedIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Create Copy</Typography></Button>} */}
+                                {<Button disabled={commonFunction.getItarAccessStatus(getItarProjectFlag, isCurrentUserUSPerson) || isButtonDelDisabled || checkIsAuthorReport(selectedCsrListDtls)} className="csrlist-marginLeft10" id="deleteBtn" title="Delete" onClick={onDeleteClick} variant={"outlined"} size={'small'} color={'inherit'}><DeleteSharpIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Delete</Typography></Button>}
+                                {!csrWorkAppFlag && <Button disabled={commonFunction.getItarAccessStatus(getItarProjectFlag, isCurrentUserUSPerson) || shouldDisplayButton("Regulations")} className="csrlist-marginLeft10" id="configure-reg" title="Configure Regulations" variant={"outlined"} onClick={handleConfigReg} size={'small'} color={'inherit'}><LibraryAddOutlinedIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Regulations</Typography></Button>}
+                                {(selectedReportType.toUpperCase() == ReportType.Drawing.toUpperCase()) &&
+                                    <Button disabled={commonFunction.getItarAccessStatus(getItarProjectFlag, isCurrentUserUSPerson) || isButtonDrawingRevDisabled || shouldDisplayButton("Review")} className="csrlist-marginLeft10" id="createBtn" title="Create New" onClick={handleDrawingReview} size={'small'} color={'inherit'}><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Review</Typography></Button>
+                                }
+                            </Grid>
+                            <Grid item md={6}>
+                                {registerId !== undefined && Number(registerId) > 1 &&
+                                    <FormControl variant="outlined" sx={{ minWidth: '165px' }}>
+                                        <Select
+                                            value={selectedReportType}
+                                            onChange={handleReportTypeChange}
+                                            displayEmpty
+                                            inputProps={{ 'aria-label': 'Report Type' }}
+                                            size="small"
+                                            sx={{
+
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                width: '100%'
+
+                                            }}
+                                        >
+                                            {reportTypes.map((rt, index) => (
+                                                <MenuItem key={index} value={rt}>
+                                                    {rt}
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                }
+                            </Grid>
+                        </div>
+                    </GridToolbar>
+                    <GridColumn field={SELECTED_FIELD} title="Select/Deselect all rows" filterable={false} width="45px" headerSelectionValue={SelectionValue} columnType="checkbox" />
+                    {csrWorkAppFlag && registerId === '0' ?// Only render the Project Id column if csrWorkAppFlag is true
+                        <GridColumn
+                            {...columnProps('PROJECT_ID')}
+                            field="PROJECT_ID"
+                            title="Project Id"
+                            width="120px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.PROJECT_ID}>{props.dataItem.PROJECT_ID}</td>
+                                )
+                            }}
+                        /> : <></>
+                    }
+                    <GridColumn
+                        {...columnProps('DOCUMENT_NUMBER')}
+                        field="DOCUMENT_NUMBER"
+                        title={((csrWorkAppFlag && registerId === '0') || (!csrWorkAppFlag && Number(projectId) > 0)) ? "Document No" : "Report No"}
+                        width={setPercentage(undefined, 0, 180)}
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.DOCUMENT_NUMBER}>
+                                    <Button
+                                        variant={"text"}
+                                        color={"primary"}
+                                        onClick={() => onDocumentNumberClick(props.dataItem.RPT_ID, props.dataItem.PROJECT_ID, props.dataItem.REPORT_TYPE)}
+                                        sx={{
+                                            textTransform: 'none',
+                                            fontSize: "14px",
+                                            padding: 0,
+                                            justifyContent: "flex-start",
+                                            "&:hover": {
+                                                backgroundColor: "transparent", // Set the background color to transparent on hover
+                                            },
+                                            color: '#0078B8',
+                                            width: '100%',
+                                        }}
+                                    >
+                                        <span style={{
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                        }}>
+                                            {props.dataItem.DOCUMENT_NUMBER}
+                                        </span>
+                                    </Button>
+                                </td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('DOCUMENT_NAME')}
+                        field="DOCUMENT_NAME"
+                        title={((csrWorkAppFlag && registerId === '0') || (!csrWorkAppFlag && Number(projectId) > 0)) ? "Document Name" : "Report Name"}
+                        width={setPercentage(180, 0, 200)}
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.DOCUMENT_NAME}>{props.dataItem.DOCUMENT_NAME}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('TemplateTitle')}
+                        field="TemplateTitle"
+                        title="Report Type"
+                        width="175px"
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.TemplateTitle}>{props.dataItem.TemplateTitle}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('DrawingFileName')}
+                        field="DrawingFileName"
+                        title="Drawing File"
+                        width={selectedReportType.toUpperCase() == ReportType.Drawing.toUpperCase() ? "200px" : "0px"}
+                        cells={
+                            {
+                                data: (props) => (
+                                    <td title={props.dataItem.DrawingFileName}>
+                                        <Button
+                                            variant={"text"}
+                                            sx={{
+                                                fontSize: "14px",
+                                                padding: 0,
+                                                justifyContent: "flex-start",
+                                                color: '#0078B8',
+                                                marginLeft: '12px',
+                                                paddingRight: '12px',
+                                                textTransform: 'none',
+                                                "&:hover": {
+                                                    backgroundColor: "transparent", // Set the background color to transparent on hover
+                                                },
+                                                width: '100%',
+                                            }}>
+                                            <span style={{
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                            }}
+                                                onClick={() => onFileClickDownload(props.dataItem.DrawingFileName, props.dataItem.RPT_ID)}
+                                            >
+                                                {props.dataItem.DrawingFileName}
+                                            </span>
+                                        </Button>
+                                    </td>
+                                )
+                            }
+                        }
+                    />
+                    <GridColumn
+                        {...columnProps('REVISION')}
+                        field="REVISION"
+                        title="Revision"
+                        width={setPercentage(100, 0, 110)}
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.REVISION}>{props.dataItem.REVISION}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('RELEASE_DATE') as any}
+                        field="RELEASE_DATE"
+                        title="Release Date"
+                        width="160px"
+                        filter="date"
+                        cells={{
+                            filterCell: (props: any) => (
+                                <DatePicker
+                                    {...props}
+                                    value={props.value ? new Date(`${props.value}`) : null}
+                                    format="MM-dd-yyyy" // Specify the format for the date picker
+                                    onChange={(event) => {
+                                        props.onChange({
+                                            value: event.target.value instanceof Date ? event.target.value : null,
+                                            operator: 'eq', // You can adjust the operator as needed
+                                            syntheticEvent: event.nativeEvent,
+                                        });
+                                    }}
+                                />
+                            ),
+                            data: (props) => {
+                                const releaseDate = props.dataItem.RELEASE_DATE ? new Date(props.dataItem.RELEASE_DATE) : null;
+                                return (<td title={releaseDate ? releaseDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' }) : ""}
+                                >
+                                    {releaseDate && releaseDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                                </td>)
+                            }
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('AUTHOR')}
+                        field="AUTHOR"
+                        title="Author"
+                        width="150px"
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.AUTHOR}>{props.dataItem.AUTHOR}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('MODEL')}
+                        field="MODEL"
+                        title="Model"
+                        width={setPercentage(110, 0, 120)}
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.MODEL}>{props.dataItem.MODEL}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('STATE')}
+                        field="STATE"
+                        title="Stage"
+                        width="100px"
+                        cells={{ data: CustomCell }}
+                    />
+                    {((csrWorkAppFlag && registerId === '0') || (!csrWorkAppFlag && Number(projectId) > 0)) &&
+                        <GridColumn
+                            {...columnProps('CERTIFICATION')}
+                            field="CERTIFICATION"
+                            title="Certification"
+                            width="154px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.CERTIFICATION}>{props.dataItem.CERTIFICATION}</td>
+                                )
+                            }}
+                        />}
+                    {((csrWorkAppFlag && registerId === '0') || (!csrWorkAppFlag && Number(projectId) > 0)) &&
+                        <GridColumn
+                            {...columnProps('CERT_TYPE')}
+                            field="CERT_TYPE"
+                            title="Cert Type"
+                            width="135px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.CERT_TYPE}>{props.dataItem.CERT_TYPE}</td>
+                                )
+                            }}
+                        />}
+                    <GridColumn
+                        {...columnProps('ECCN')}
+                        field="ECCN"
+                        title="ECCN"
+                        width="110px"
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.ECCN}>{props.dataItem.ECCN}</td>
+                            )
+                        }}
+                    />
+                    {easaMasterType == EasaMasterType.Supplier && (
+                        <GridColumn
+                            {...columnProps('SupplierName')}
+                            field="SupplierName"
+                            title="Supplier Name"
+                            width="180px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.SupplierName}>{props.dataItem.SupplierName}</td>
+                                )
+                            }}
+
+                        />)}
+                    {easaMasterType == EasaMasterType.Supplier &&
+                    (
+
+
+                            <GridColumn
+                                {...columnProps('AssessmentRef')}
+                                field="AssessmentRef"
+                                title="Assessment Ref"
+                                width="180px"
+                                cells={{
+                                    data: props => (
+                                        <td title={props.dataItem.AssessmentRef}>{props.dataItem.AssessmentRef}</td>
+                                    )
+                                }}
+                            />)
+                    }
+                    {easaMasterType === EasaMasterType.MRO &&(
+
+                        <GridColumn
+                            {...columnProps('MRO_Name')}
+                            field="MRO_Name"
+                            title="MRO Name"
+                            width="160px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.MRO_Name}>{props.dataItem.MRO_Name}</td>
+                                )
+                            }}
+                        />)
+                    }
+                    { easaMasterType === EasaMasterType.MRO &&
+                    
+
+                        <GridColumn
+                            {...columnProps('MOA_Number')}
+                            field="MOA_Number"
+                            title="MOA Number"
+                            width="160px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.MOA_Number}>{props.dataItem.MOA_Number}</td>
+                                )
+                            }}
+                        />
+                    }
+                    {((csrWorkAppFlag && registerId === '0') || (!csrWorkAppFlag && Number(projectId) > 0)) &&
+                        <GridColumn
+                            {...columnProps('CONTENT_OWNER')}
+                            field="CONTENT_OWNER"
+                            title="Content Owner"
+                            width={setPercentage(undefined, 0, 270)}
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.CONTENT_OWNER}>{props.dataItem.CONTENT_OWNER}</td>
+                                )
+                            }}
+                        />}
+                    <GridColumn
+                        {...columnProps('CreatedByName')}
+                        field="CreatedByName"
+                        title="Created By"
+                        width="154px"
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.CreatedByName}>{props.dataItem.CreatedByName}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('CreationDateStr') as any}
+                        field="CreationDateStr"
+                        title="Creation Date"
+                        width="160px"
+                        filter="date"
+                        filterCell={(props) => (
+                            <DatePicker
+                                {...props}
+                                value={props.value ? new Date(`${props.value}`) : null}
+                                format="MM-dd-yyyy" // Specify the format for the date picker
+                                onChange={(event) => {
+                                    props.onChange({
+                                        value: event.target.value instanceof Date ? event.target.value : null,
+                                        operator: 'eq', // You can adjust the operator as needed
+                                        syntheticEvent: event.nativeEvent,
+                                    });
+                                }}
+                            />
+                        )}
+
+                        cell={(props) => {
+                            const creationDate = props.dataItem.CreationDateStr ? new Date(props.dataItem.CreationDateStr) : null;
+                            return (<td title={creationDate ? creationDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' }) : ""}
+                            >
+                                {creationDate && creationDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                            </td>)
+                        }} />
+                    <GridColumn
+                        {...columnProps('ModifiedByName')}
+                        field="ModifiedByName"
+                        title="Modified By"
+                        width="154px"
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.ModifiedByName}>{props.dataItem.ModifiedByName}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('ModificationDateStr') as any}
+                        field="ModificationDateStr"
+                        title="Modification Date"
+                        width="180px"
+                        filter="date"
+                        filterCell={(props: any) => (
+                            <DatePicker
+                                {...props}
+                                value={props.value ? new Date(`${props.value}`) : null}
+                                format="MM-dd-yyyy" // Specify the format for the date picker
+                                onChange={(event) => {
+                                    props.onChange({
+                                        value: event.target.value instanceof Date ? event.target.value : null,
+                                        operator: 'eq', // You can adjust the operator as needed
+                                        syntheticEvent: event.nativeEvent,
+                                    });
+                                }}
+                            />
+                        )}
+
+                        cell={(props) => {
+                            const modificationDate = props.dataItem.ModificationDateStr ? new Date(props.dataItem.ModificationDateStr) : null;
+                            return (<td title={modificationDate ? modificationDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' }) : ""}
+                            >
+                                {modificationDate && modificationDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                            </td>)
+                        }} />
+
+                </AnyGrid>
+            </GridHelper>
+        </div >
+    );
+    useEffect(() => {
+        if (selectedCsrListDtls?.length > 0) {
+            setisButtonDelDisabled(false);
+        } else {
+            setisButtonDelDisabled(true);
+        }
+    }, [selectedCsrListDtls]);
+    return (
+        <>
+            {openCreateCopyModel && <CreateCopyPopup isOpen={openCreateCopyModel} onCloseRevisionModelPopup={handleCloseCreatePopup} />}
+            {openRevisionModelPopup && <CreateRevisionPopup isOpen={openRevisionModelPopup} DocId={filterReportData[0]?.DOCUMENT_NUMBER} onCloseRevisionModelPopup={handleCloseRevisionPopup} rptId={selectedCsrListDtls[0]?.RPT_ID} />}
+            <Container
+                fixed
+                style={{
+                    height:
+                        gridHeight >= window.innerHeight
+                            ? "100vh"
+                            : `${window.innerHeight}px`,
+                    maxHeight:
+                        shellWorkAppContainerMaxHeight != 0
+                            ? shellWorkAppContainerMaxHeight
+                            : `${window.innerHeight}px`,
+                    width: `${window.innerWidth}px`,
+                    overflowY: "hidden",
+                    marginTop: '6px'
+                }}
+                className="adobe-FINDCSR-CSRListGrid"
+            >
+                <Card
+                    style={{
+                        height:
+                            shellWorkAppContainerMaxHeight != 0
+                                ? gridHeight >= shellWorkAppContainerMaxHeight
+                                    ? "100%"
+                                    : ""
+                                : gridHeight >= window.innerHeight
+                                    ? "100%"
+                                    : "",
+                        borderLeft: "5px solid rgb(227, 150, 78)",
+                    }}
+                >
+                    {card}
+                </Card>
+                {isPopupOpen && <WorkFlowPopup
+                    isOpen={isPopupOpen}
+                    handleClose={handleClosePopup}
+                    dataList={popupData}
+                    userData={userStateData}
+
+                />}
+            </Container>
+        </>
+    );
+};
+export default CSRList;
