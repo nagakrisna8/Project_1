@@ -1,13 +1,19 @@
 const onSelectionChange = (e) => {
-  const target = e?.nativeEvent?.target;
+  // ✅ if selection came from row click, stop it
+  const native = e?.nativeEvent;
+  const target = native?.target;
 
-  // ✅ IMPORTANT: If it's not a checkbox click, ignore
-  if (target?.type !== "checkbox") {
-    return;
+  const isCheckboxClick =
+    target?.closest?.(".k-checkbox") || // checkbox element
+    target?.type === "checkbox" ||       // native checkbox
+    target?.classList?.contains("k-checkbox");
+
+  if (!isCheckboxClick) {
+    return; // ✅ ignore row click selection
   }
 
-  const { dataItem } = e;
   const checked = target.checked;
+  const { dataItem } = e;
 
   setResultState((prev) =>
     prev.map((item) =>
