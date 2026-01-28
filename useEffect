@@ -1,58 +1,132 @@
 const gridChildren = React.useMemo(() => {
-  const allChildren = React.Children.toArray(GridProps.children);
-
-  const toolBar = allChildren.find(
-    (c: any) => c?.type?.displayName === "KendoReactGridToolbar"
+  const toolBar = GridProps.children.find(
+    (c) => c.type?.displayName === "KendoReactGridToolbar"
   );
 
   const gridToolBar = (
     <GridToolbar key="grid-toolbar" {...toolBar?.props}>
-      {/* your existing toolbar content */}
+      {expandCollapseAllButton && configuration.groupable && (
+        <div>
+          <ExpandCollapseButton
+            onClick={onGroupsToggle}
+            collapse={!collapsedState.length}
+          />
+        </div>
+      )}
+
+      {externalFilter && (
+        <div>
+          <ExternalFilter
+            filterValue={filterValue}
+            onChange={onExternalFilterChange}
+          />
+        </div>
+      )}
+
       {toolBar && toolBar.props.children && <div>{toolBar.props.children}</div>}
+
+      <div
+        className="grid-right-icons"
+        style={{
+          right: "-11px",
+          float: "right",
+          position: "absolute",
+          display: "flex",
+        }}
+      >
+        <div>
+          {excelExportButton && (
+            <Button
+              className="exportBtn"
+              onClick={exportToExcel}
+              variant={"outlined"}
+              size={"small"}
+              color={"inherit"}
+              title={"Export to Excel"}
+            >
+              <FileDownloadOutlinedIcon color="disabled" className="iconClass" />
+              <Typography variant={"button"} sx={{ textTransform: "none" }}>
+                Export
+              </Typography>
+            </Button>
+          )}
+        </div>
+
+        <div>
+          {pdfExportButton && (
+            <Button
+              onClick={exportToPdf}
+              variant={"outlined"}
+              size={"small"}
+              color={"inherit"}
+              title={"Export to PDF"}
+            >
+              <SvgIcon icon={filePdfIcon} size="medium" />
+            </Button>
+          )}
+        </div>
+
+        <div className="showHideDiv" style={{ marginTop: "5px" }}>
+          {showColumnsConfigurator && (
+            <ColumnsButton onChange={updateColumns} options={columnsState} />
+          )}
+        </div>
+
+        <div>
+          {showFeaturesConfigurator && (
+            <ConfiguratorButton
+              onChange={updateConfiguration}
+              options={configuration}
+            />
+          )}
+        </div>
+      </div>
     </GridToolbar>
   );
 
+  // ✅ Minimal Fix Starts Here ---------------------------------
+
   let children: any[] = [];
 
-  allChildren.forEach((child: any, index) => {
-    if (!child || child === ",") return;
+  // ✅ 1) Add checkbox column first (from GridProps.children[1])
+  const checkboxCol = GridProps.children?.[1];
+  if (checkboxCol?.type?.displayName === "KendoReactGridColumn") {
+    children.push(<Column {...checkboxCol.props} key={"select-col"} />);
+  }
 
-    // ✅ Skip toolbar here (we add it later)
-    if (child?.type?.displayName === "KendoReactGridToolbar") return;
-
-    // ✅ Checkbox column is a normal GridColumn → always include
-    if (child?.type?.displayName === "KendoReactGridColumn") {
-      children.push(<Column {...child.props} key={`col-${index}`} />);
-      return;
-    }
-
-    // ✅ Dynamic columns are inside ARRAY → apply hide/show here
-    if (Array.isArray(child)) {
-      child.forEach((colChild: any, colIndex: number) => {
-        if (colChild?.type?.displayName === "KendoReactGridColumn") {
-          const key = colChild.props.title ?? colChild.props.field;
-
-          // ✅ Hide/Show check
-          if (columnsState[key]) {
-            children.push(
-              <Column {...colChild.props} key={`dyn-${colIndex}`} />
-            );
-          }
+  // ✅ 2) Render dynamic columns (GridChildrenProps)
+  GridChildrenProps?.forEach((child: any, index: number) => {
+    if (child !== ",") {
+      if (child.type?.displayName === "KendoReactGridColumn") {
+        // ✅ show/hide logic
+        if (columnsState[child.props.title ?? child.props.field]) {
+          children.push(<Column {...child.props} key={index} />);
+        } else if (!child.props.field) {
+          children.push(<Column {...child.props} key={index} />);
         }
-      });
-      return;
+      } else if (child.type?.displayName === "KendoReactGridToolbar") {
+        return null;
+      } else {
+        children.push(child);
+      }
     }
-
-    // ✅ Any other element
-    children.push(child);
   });
 
-  // ✅ Add toolbar at end
+  // ✅ 3) Add toolbar at end (same as your logic)
   if (props.toolbarSettings) {
     children.push(gridToolBar);
   } else if (toolBar) {
     children.push(toolBar);
   }
 
+  // ✅ Minimal Fix Ends Here ---------------------------------
+
   return children;
-}, [GridProps.children, columnsState, filterValue, collapsedState, configuration]);
+}, [
+  GridProps.children,
+  columnsState,
+  collapsedState,
+  configuration,
+  dataState,
+  filterValue,
+]);
