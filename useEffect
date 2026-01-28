@@ -1,25 +1,29 @@
-const onSelectionChange = (e) => {
-  // ✅ if selection came from row click, stop it
-  const native = e?.nativeEvent;
-  const target = native?.target;
-
-  const isCheckboxClick =
-    target?.closest?.(".k-checkbox") || // checkbox element
-    target?.type === "checkbox" ||       // native checkbox
-    target?.classList?.contains("k-checkbox");
-
-  if (!isCheckboxClick) {
-    return; // ✅ ignore row click selection
-  }
-
-  const checked = target.checked;
-  const { dataItem } = e;
-
-  setResultState((prev) =>
-    prev.map((item) =>
-      item?.[DATA_ITEM_KEY] === dataItem?.[DATA_ITEM_KEY]
-        ? { ...item, [SELECTED_FIELD]: checked }
-        : item
-    )
-  );
-};
+<AnyGrid
+  ...
+  data={resultState.map((item) => ({
+    ...item,
+    [SELECTED_FIELD]: selectedState[idGetter(item)],
+  }))}
+  dataItemKey={DATA_ITEM_KEY}
+  selectedField={SELECTED_FIELD}
+  selectable={{
+    enabled: true,
+    mode: "multiple",
+    checkboxOnly: true,   // ✅ now this works properly
+  }}
+  onSelectionChange={(event) => {
+    setSelectedState(getSelectedState({
+      event,
+      selectedState,
+      dataItemKey: DATA_ITEM_KEY,
+    }));
+  }}
+  onHeaderSelectionChange={(event) => {
+    const checked = event.syntheticEvent.target.checked;
+    const newState = {};
+    event.dataItems.forEach((item) => {
+      newState[idGetter(item)] = checked;
+    });
+    setSelectedState(newState);
+  }}
+>
