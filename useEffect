@@ -1,4 +1,4 @@
-const rowRender = (tr, rowProps) => {
+const rowRender = (tr, props) => {
   return React.cloneElement(tr, {
     ...tr.props,
     onClick: (e) => {
@@ -6,14 +6,14 @@ const rowRender = (tr, rowProps) => {
         e.target?.type === "checkbox" ||
         e.target?.classList?.contains("k-checkbox");
 
-      // ✅ block row click
+      // ✅ block row click selection
       if (!isCheckboxClick) {
         e.preventDefault();
         e.stopPropagation();
         return;
       }
 
-      // ✅ allow checkbox click default behavior
+      // ✅ allow checkbox click selection
       if (tr.props.onClick) {
         tr.props.onClick(e);
       }
