@@ -1,21 +1,17 @@
-const onSelectionChange = (e) => {
-  // ✅ allow selection only if click happened on checkbox input
-  const isCheckboxClick =
-    e?.nativeEvent?.target?.type === "checkbox" ||
-    e?.nativeEvent?.target?.classList?.contains("k-checkbox");
+const rowRender = (tr, props) => {
+  return React.cloneElement(tr, {
+    ...tr.props,
+    onClick: (e) => {
+      // ✅ allow ONLY checkbox click
+      const isCheckboxClick =
+        e.target?.type === "checkbox" ||
+        e.target?.classList?.contains("k-checkbox");
 
-  if (!isCheckboxClick) return;
-
-  const { dataItem } = e;
-
-  const checked =
-    e?.nativeEvent?.target?.checked ?? !Boolean(dataItem?.[SELECTED_FIELD]);
-
-  setResultState((prev) =>
-    prev.map((item) =>
-      item?.[DATA_ITEM_KEY] === dataItem?.[DATA_ITEM_KEY]
-        ? { ...item, [SELECTED_FIELD]: checked }
-        : item
-    )
-  );
+      if (!isCheckboxClick) {
+        e.preventDefault();
+        e.stopPropagation();   // ✅ important
+        return;
+      }
+    }
+  });
 };
