@@ -1,22 +1,19 @@
-const rowRender = (tr, props) => {
-  return React.cloneElement(tr, {
-    ...tr.props,
-    onClick: (e) => {
-      const isCheckboxClick =
-        e.target?.type === "checkbox" ||
-        e.target?.classList?.contains("k-checkbox");
+const onSelectionChange = (e) => {
+  const target = e?.nativeEvent?.target;
 
-      // ✅ block row click selection
-      if (!isCheckboxClick) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
+  // ✅ IMPORTANT: If it's not a checkbox click, ignore
+  if (target?.type !== "checkbox") {
+    return;
+  }
 
-      // ✅ allow checkbox click selection
-      if (tr.props.onClick) {
-        tr.props.onClick(e);
-      }
-    }
-  });
+  const { dataItem } = e;
+  const checked = target.checked;
+
+  setResultState((prev) =>
+    prev.map((item) =>
+      item?.[DATA_ITEM_KEY] === dataItem?.[DATA_ITEM_KEY]
+        ? { ...item, [SELECTED_FIELD]: checked }
+        : item
+    )
+  );
 };
