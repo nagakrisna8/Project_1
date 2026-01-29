@@ -1,42 +1,56 @@
-<GridColumn
-  field={SELECTED_FIELD}
-  width="50px"
-  title="Select/Deselect all rows"
-  headerSelectionValue={isAllSelected}
-  headerCell={(props) => (
-    <th>
+<ColumnAny
+  field="Select"
+  width="70px"
+  title=""   // ✅ remove header text
+  headerCell={SelectAllHeaderCell}  // ✅ checkbox header
+  cells={{
+    data: (props: any) => {
+      const isChecked = selectedState[idGetter(props.dataItem)];
+      return (
+        <td className="sub-checkbox">
+          <input
+            type="checkbox"
+            disabled={props.dataItem.disable}
+            checked={!!isChecked}
+            onChange={(e) => handleCheckboxChange(e, props.dataItem)}
+          />
+        </td>
+      );
+    },
+  }}
+/>
+
+const SelectAllHeaderCell = () => {
+  return (
+    <th style={{ width: "70px", textAlign: "center" }}>
       <input
         type="checkbox"
-        checked={isAllSelected}
-        onChange={(e) => {
-          const checked = e.target.checked;
-          setResultState((prev) =>
-            prev.map((item) => ({ ...item, [SELECTED_FIELD]: checked }))
-          );
-        }}
-        onClick={(e) => e.stopPropagation()}
+        checked={isAllSelected()}
+        onChange={onSelectAllChange}
+        aria-label="Select All"
       />
     </th>
-  )}
-  cell={(props) => (
-    <td>
-      <input
-        type="checkbox"
-        checked={props.dataItem?.[SELECTED_FIELD] || false}
-        onChange={(e) => {
-          const checked = e.target.checked;
-          const id = props.dataItem?.[DATA_ITEM_KEY];
+  );
+};
 
-          setResultState((prev) =>
-            prev.map((item) =>
-              item?.[DATA_ITEM_KEY] === id
-                ? { ...item, [SELECTED_FIELD]: checked }
-                : item
-            )
-          );
-        }}
-        onClick={(e) => e.stopPropagation()} // ✅ MOST IMPORTANT
-      />
-    </td>
-  )}
+<ColumnAny
+  field={SELECTED_FIELD}
+  width="60px"
+  title=""   // ✅ remove header text
+  headerCell={ChildSelectAllHeaderCell(parentId, childData)}
+  cells={{
+    data: (props: any) => {
+      const isChecked = selectedState[idGetter(props.dataItem)];
+      return (
+        <td className="sub-checkbox">
+          <input
+            type="checkbox"
+            disabled={props.dataItem.disable}
+            checked={!!isChecked}
+            onChange={(e) => handleCheckboxChange(e, props.dataItem)}
+          />
+        </td>
+      );
+    }
+  }}
 />
