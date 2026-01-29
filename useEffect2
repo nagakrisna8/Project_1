@@ -1,23 +1,41 @@
 <GridColumn
   field={SELECTED_FIELD}
+  width="50px"
   title="Select/Deselect all rows"
-  filterable={false}
-  width="45px"
-  headerSelectionValue={SelectionValue}
+  headerSelectionValue={isAllSelected}
+  headerCell={(props) => (
+    <th>
+      <input
+        type="checkbox"
+        checked={isAllSelected}
+        onChange={(e) => {
+          const checked = e.target.checked;
+          setResultState((prev) =>
+            prev.map((item) => ({ ...item, [SELECTED_FIELD]: checked }))
+          );
+        }}
+        onClick={(e) => e.stopPropagation()}
+      />
+    </th>
+  )}
   cell={(props) => (
     <td>
       <input
         type="checkbox"
-        checked={props.dataItem[SELECTED_FIELD] || false}
+        checked={props.dataItem?.[SELECTED_FIELD] || false}
         onChange={(e) => {
-          props.onChange?.({
-            dataItem: props.dataItem,
-            field: SELECTED_FIELD,
-            syntheticEvent: e,
-            value: e.target.checked,
-          });
+          const checked = e.target.checked;
+          const id = props.dataItem?.[DATA_ITEM_KEY];
+
+          setResultState((prev) =>
+            prev.map((item) =>
+              item?.[DATA_ITEM_KEY] === id
+                ? { ...item, [SELECTED_FIELD]: checked }
+                : item
+            )
+          );
         }}
-        onClick={(e) => e.stopPropagation()} // ✅ IMPORTANT
+        onClick={(e) => e.stopPropagation()} // ✅ MOST IMPORTANT
       />
     </td>
   )}
