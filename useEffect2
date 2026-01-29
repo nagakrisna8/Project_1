@@ -12,7 +12,853 @@ import {
   GridColumnMenuFilter,
   GridColumnMenuSort,
   GridDataStateChangeEvent,
+  getSelectedState,import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Box, Typography, Modal, Button } from "@mui/material";
+import {
+  Grid as KendoGrid,
+  GridColumn as KendoGridColumn,
+  GridColumnMenuFilter,
+  GridColumnMenuSort,
+  GridDataStateChangeEvent,
   getSelectedState,
+  GridCellProps,
+  GridDetailExpandChangeEvent,
+} from "@progress/kendo-react-grid";
+import { getter } from "@progress/kendo-react-common";
+import CloseIcon from "@mui/icons-material/Close";
+
+import "./SubInsertPopupData.scss";
+
+import {
+  OperationType,
+  ContentOwenerDetails,
+  InsertSubstantiationDetails,
+  ProjectRegulationInputData,
+  RevisionListDetails,
+  ScreenNameEnum,
+  SectionTitleEnum,
+} from "../../../../../../model/Model";
+
+import { State, process } from "@progress/kendo-data-query";
+import { useDispatch } from "react-redux";
+import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
+import { useParams } from "react-router-dom";
+import SubInsertPopupDataService from "./SubInsertPopupDataService";
+import StorageService from "../../../../../../utils/StorageService";
+import AddRevisionPopupService from "../../dynamic-tabs/add-revision-popup/AddRevisionPopupService";
+import { chevronDownIcon, chevronRightIcon, filterIcon } from "@progress/kendo-svg-icons";
+import { DetailExpandDescriptor } from "@progress/kendo-react-data-tools";
+import { Button as KendoButton } from "@progress/kendo-react-buttons";
+
+const DATA_ITEM_KEY = "ConfigProjRegId";
+const SELECTED_FIELD = "";
+const idGetter = getter(DATA_ITEM_KEY);
+
+var InsertSupCheckItems: InsertSubstantiationDetails[] = [];
+var InsertSubstantiationCheckedDetail: InsertSubstantiationDetails[] = [];
+
+/*
+  NOTE:
+  - To avoid hundreds of type errors caused by mismatched @progress/kendo-react-grid types
+    across versions, we cast the Grid and GridColumn to `any` before usage (GridAny/ColumnAny).
+  - This is a pragmatic compile-first fix: it prevents TS complaints while preserving behavior.
+  - Later you should either pin Kendo versions or migrate to the new typed API properly.
+*/
+
+const GridAny: any = KendoGrid as any;
+const ColumnAny: any = KendoGridColumn as any;
+
+const ColumnMenu = (props: any) => {
+  const { sort } = props;
+
+  const getSortData = (sortData: any) => {
+    if (sortData && sortData.length > 0) {
+      return sortData.map((s: any) =>
+        s.field === "RegSortOrder"
+          ? { ...s, field: "Regulation" }
+          : s.field === "AmendmentSortOrder"
+          ? { ...s, field: "AmendmentLevel" }
+          : s.field === "RegTypeSortOrder"
+          ? { ...s, field: "RegType" }
+          : s
+      );
+    }
+    return sortData;
+  };
+
+  return (
+    <div>
+      <GridColumnMenuSort {...props} sort={getSortData(sort)} />
+      <GridColumnMenuFilter {...props} expanded={true} />
+    </div>
+  );
+};
+
+const SubstantiationInsertPopup = (props: any) => {
+  const dispatch = useDispatch();
+  const gridRef = useRef<any>(null);
+
+  const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
+  const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+
+  const [selectedState, setSelectedState] = React.useState<{ [id: string]: boolean | number[] }>({});
+  const [selectedSupState, setSelectedSupState] = useState<{ [id: string]: boolean | number[] }>({});
+  const [selectedSupProject, setSelectedSupProject] = useState<string[]>([]);
+
+  const [getSubInsertData, setSubInsertData] = useState<InsertSubstantiationDetails[]>([]);
+  var { reportId = "", tabIndex = "" } = useParams();
+  const reportIdParam = Number(reportId);
+
+  const [dataState, setDataState] = React.useState<State>({} as State);
+  const [childDataStates, setChildDataStates] = useState<{ [parentId: string]: State }>({});
+  const [parentColWidths, setParentColWidths] = useState<{ [field: string]: number }>({});
+  const [childColWidths, setChildColWidths] = useState<{ reg?: number; model?: number; type?: number }>({});
+  const [childLeftOffset, setChildLeftOffset] = useState(0);
+  const [childGridWidthStyle, setChildGridWidthStyle] = useState<string | undefined>(undefined);
+  const [detailExpand, setDetailExpand] = useState<DetailExpandDescriptor>();
+
+  //read selected discipline id
+  const storageService = new StorageService();
+  const selectedDisciplined = storageService.getSelectedDiscipline();
+
+  // helper to check if column is active - guard if 'active' helper missing
+  const isColumnActive = (field: string, dataState: any) => {
+    try {
+      const filterActive = (GridColumnMenuFilter as any)?.active
+        ? (GridColumnMenuFilter as any).active(field, dataState?.filter)
+        : false;
+
+      const sortActive = (GridColumnMenuSort as any)?.active
+        ? (GridColumnMenuSort as any).active(field, dataState?.sort)
+        : false;
+
+      return filterActive || sortActive;
+    } catch {
+      return false;
+    }
+  };
+
+  const columnProps = (field: string, dataState: any) => {
+    return {
+      field: field,
+      columnMenu: ColumnMenu,
+      headerClassName: isColumnActive(field, dataState) ? "active" : "",
+    };
+  };
+
+  // fetching content ownerId by api call
+  const fetchContentOwnerDetails = async () => {
+    fetchSubstantiationInsertData();
+  };
+
+  useEffect(() => {
+    const parentReg = parentColWidths["Regulation"];
+    const parentAmend = parentColWidths["AmendmentLevel"];
+    const parentModel = parentColWidths["RegModel"];
+    const parentType = parentColWidths["RegType"];
+
+    const childReg = parentReg > 0 || parentAmend > 0 ? parentReg + parentAmend - 20 : undefined;
+    const childModel = typeof parentModel === "number" && parentModel > 0 ? parentModel + 20 : undefined;
+    const childType = typeof parentType === "number" && parentType > 0 ? parentType : undefined;
+
+    setChildColWidths({ reg: childReg, model: childModel, type: childType });
+  }, [parentColWidths]);
+
+  // fetching insert substantiation records
+  const fetchSubstantiationInsertData = async () => {
+    let projectRegulationInputData = {
+      ProjectId: Number(props.projectId),
+      ReportId: Number(reportId),
+    } as ProjectRegulationInputData;
+
+    await SubInsertPopupDataService.GetInsertSubstantiationPopUpData(projectRegulationInputData).then(
+      (res) => {
+        if (res && res.data) {
+          const updatedData = res.data.map((row) => {
+            return {
+              ...row,
+              ChildRegulationDtls: row.ChildRegulationDtls.map((item) => {
+                return {
+                  ...item,
+                  disable: true,
+                };
+              }),
+              expanded: row && row.ChildRegulationDtls.length > 0 ? true : false,
+              disable: false,
+            };
+          });
+
+          setSubInsertData(updatedData);
+        }
+      }
+    );
+  };
+
+  useEffect(() => {
+    if (selectedDisciplined) {
+      fetchContentOwnerDetails();
+    }
+  }, []);
+
+  const modalStyle = {
+    position: "absolute" as const,
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: 1090,
+    bgcolor: "background.paper",
+    boxShadow: 24,
+    borderRadius: "0.5rem",
+    padding: "24px",
+  };
+
+  useEffect(() => {
+    const filteredSelectedState = Object.fromEntries(
+      Object.entries(selectedSupState).filter(([key, value]) => value)
+    );
+    setSelectedSupProject(Object.keys(filteredSelectedState));
+  }, [selectedSupState]);
+
+  const ensureParentEntry = (parentRow: InsertSubstantiationDetails) => {
+    let entry = InsertSubstantiationCheckedDetail.find(
+      (p: InsertSubstantiationDetails) => p.ConfigProjRegId === parentRow.ConfigProjRegId
+    );
+
+    if (!entry) {
+      entry = { ...parentRow, ChildRegulationDtls: [] } as InsertSubstantiationDetails;
+      InsertSubstantiationCheckedDetail.push(entry);
+    } else if (!entry.ChildRegulationDtls) {
+      entry.ChildRegulationDtls = [];
+    }
+
+    return entry;
+  };
+
+  const addCheckedItem = (item: InsertSubstantiationDetails) => {
+    const parentInGrid = getSubInsertData.find(
+      (p: InsertSubstantiationDetails) => p.ConfigProjRegId === item.ConfigProjRegId
+    );
+
+    if (parentInGrid) {
+      ensureParentEntry(parentInGrid);
+      return;
+    }
+
+    const parent = getSubInsertData.find((p: InsertSubstantiationDetails) =>
+      p.ChildRegulationDtls?.some((c: InsertSubstantiationDetails) => c.ConfigProjRegId === item.ConfigProjRegId)
+    );
+
+    if (parent) {
+      const entry = ensureParentEntry(parent);
+      entry.ChildRegulationDtls = entry.ChildRegulationDtls || [];
+
+      const existsChild = entry.ChildRegulationDtls.some(
+        (c: InsertSubstantiationDetails) => c.ConfigProjRegId === item.ConfigProjRegId
+      );
+
+      if (!existsChild) {
+        entry.ChildRegulationDtls.push({ ...item } as InsertSubstantiationDetails);
+      }
+    } else {
+      ensureParentEntry(item);
+    }
+  };
+
+  const removeCheckedItem = (item: InsertSubstantiationDetails): void => {
+    const parentIndex = InsertSubstantiationCheckedDetail.findIndex(
+      (p: InsertSubstantiationDetails) => p.ConfigProjRegId === item.ConfigProjRegId
+    );
+
+    if (parentIndex > -1) {
+      InsertSubstantiationCheckedDetail.splice(parentIndex, 1);
+      return;
+    }
+
+    for (let i = 0; i < InsertSubstantiationCheckedDetail.length; i++) {
+      const entry = InsertSubstantiationCheckedDetail[i];
+
+      if (entry.ChildRegulationDtls && entry.ChildRegulationDtls.length > 0) {
+        const childIdx = entry.ChildRegulationDtls.findIndex(
+          (c: InsertSubstantiationDetails) => c.ConfigProjRegId === item.ConfigProjRegId
+        );
+
+        if (childIdx > -1) {
+          entry.ChildRegulationDtls.splice(childIdx, 1);
+          break;
+        }
+      }
+    }
+  };
+
+  const handleCheckboxChange = (e: any, dataItem: any) => {
+    const checked = e.target.checked;
+    const newSelectedState: any = { ...selectedState };
+    const thisId = idGetter(dataItem);
+
+    // ✅ parent/child selection logic
+    if (dataItem.ChildRegulationDtls && dataItem.ChildRegulationDtls.length > 0) {
+      newSelectedState[thisId] = checked;
+
+      dataItem.ChildRegulationDtls.forEach((child: any) => {
+        const childId = idGetter(child);
+        newSelectedState[childId] = checked;
+
+        if (checked) addCheckedItem(child);
+        else removeCheckedItem(child);
+
+        // ✅ sub-child support if exists
+        if (child.ChildRegulationDtls?.length) {
+          child.ChildRegulationDtls.forEach((subChild: any) => {
+            const subChildId = idGetter(subChild);
+            newSelectedState[subChildId] = checked;
+
+            if (checked) addCheckedItem(subChild);
+            else removeCheckedItem(subChild);
+          });
+        }
+      });
+
+      if (checked) addCheckedItem(dataItem);
+      else removeCheckedItem(dataItem);
+    } else {
+      newSelectedState[thisId] = checked;
+
+      if (checked) addCheckedItem(dataItem);
+      else removeCheckedItem(dataItem);
+    }
+
+    setSelectedState(newSelectedState);
+    setSelectedSupState(newSelectedState);
+  };
+
+  // handle popup height dynamically
+  const getInitialScreenDimensions = () => ({
+    height: window.innerHeight * 0.75,
+    width: window.innerWidth * 0.7,
+  });
+
+  const [dynamicScreenSize, setDynamicScreenSize] = useState(getInitialScreenDimensions());
+
+  useEffect(() => {
+    const handleResize = () => {
+      setDynamicScreenSize(getInitialScreenDimensions());
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const handleGridHeight = (mainHeight: number) => `${mainHeight - 141}px`;
+
+  const datastatechange = (event: GridDataStateChangeEvent) => {
+    setDataState(event.dataState);
+  };
+
+  const processedData = useMemo(() => {
+    return process(getSubInsertData, {
+      ...dataState,
+      sort:
+        dataState &&
+        dataState?.sort &&
+        dataState.sort.map((s: any) =>
+          s.field === "Regulation"
+            ? { ...s, field: "RegSortOrder" }
+            : s.field === "AmendmentLevel"
+            ? { ...s, field: "AmendmentSortOrder" }
+            : s.field === "RegType"
+            ? { ...s, field: "RegTypeSortOrder" }
+            : s
+        ),
+    });
+  }, [getSubInsertData, dataState]);
+
+  // ✅ Fix 1: Parent Select All should include children & sub-children
+  const isAllSelected = () => {
+    const filteredData = process(getSubInsertData, dataState).data;
+    if (filteredData.length === 0) return false;
+
+    const dataIds: any[] = [];
+
+    filteredData.forEach((parent: any) => {
+      dataIds.push(idGetter(parent));
+
+      if (parent.ChildRegulationDtls?.length) {
+        parent.ChildRegulationDtls.forEach((child: any) => {
+          dataIds.push(idGetter(child));
+
+          if (child.ChildRegulationDtls?.length) {
+            child.ChildRegulationDtls.forEach((subChild: any) => {
+              dataIds.push(idGetter(subChild));
+            });
+          }
+        });
+      }
+    });
+
+    return dataIds.every((id) => selectedState[id]);
+  };
+
+  // ✅ FULL FIXED Select All Header
+  const onSelectAllChange = (e: any) => {
+    const checked = e.target.checked;
+    const newSelectedState: any = { ...selectedState };
+
+    const filteredParents = process(getSubInsertData, dataState).data;
+
+    if (!checked) {
+      filteredParents.forEach((parent: any) => {
+        newSelectedState[idGetter(parent)] = false;
+        removeCheckedItem(parent);
+
+        if (parent.ChildRegulationDtls?.length) {
+          parent.ChildRegulationDtls.forEach((child: any) => {
+            newSelectedState[idGetter(child)] = false;
+            removeCheckedItem(child);
+
+            // ✅ sub-child uncheck
+            if (child.ChildRegulationDtls?.length) {
+              child.ChildRegulationDtls.forEach((subChild: any) => {
+                newSelectedState[idGetter(subChild)] = false;
+                removeCheckedItem(subChild);
+              });
+            }
+          });
+        }
+      });
+    } else {
+      filteredParents.forEach((parent: any) => {
+        newSelectedState[idGetter(parent)] = true;
+        addCheckedItem(parent);
+
+        if (parent.ChildRegulationDtls?.length) {
+          parent.ChildRegulationDtls.forEach((child: any) => {
+            newSelectedState[idGetter(child)] = true;
+            addCheckedItem(child);
+
+            // ✅ sub-child check
+            if (child.ChildRegulationDtls?.length) {
+              child.ChildRegulationDtls.forEach((subChild: any) => {
+                newSelectedState[idGetter(subChild)] = true;
+                addCheckedItem(subChild);
+              });
+            }
+          });
+        }
+      });
+    }
+
+    setSelectedState(newSelectedState);
+    setSelectedSupState(newSelectedState);
+  };
+
+  const SelectAllHeaderCell = () => {
+    return (
+      <th style={{ width: "70px" }}>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <input type="checkbox" checked={isAllSelected()} onChange={onSelectAllChange} aria-label="Select All" />
+        </div>
+      </th>
+    );
+  };
+
+  // ✅ Fix 2: Child header select all should select child + sub-child
+  const ChildSelectAllHeaderCell = (parentId: any, childData: any) => () => {
+    const childIds = (childData || []).map((c: any) => idGetter(c));
+    const allChildrenSelected = childIds.length > 0 && childIds.every((id: any) => selectedState[id]);
+
+    const onChange = (e: any) => {
+      const checked = e.target.checked;
+      const newSelectedState = { ...selectedState };
+
+      if (checked) {
+        (childData || []).forEach((child: any) => {
+          const cid = idGetter(child);
+          newSelectedState[cid] = true;
+          addCheckedItem(child);
+
+          // ✅ include sub-child if exists
+          if (child.ChildRegulationDtls?.length) {
+            child.ChildRegulationDtls.forEach((subChild: any) => {
+              const sid = idGetter(subChild);
+              newSelectedState[sid] = true;
+              addCheckedItem(subChild);
+            });
+          }
+        });
+
+        const parentRow = getSubInsertData.find((p: any) => p.ConfigProjRegId === parentId);
+        if (parentRow) {
+          newSelectedState[idGetter(parentRow)] = true;
+          addCheckedItem(parentRow);
+        }
+      } else {
+        (childData || []).forEach((child: any) => {
+          const cid = idGetter(child);
+          newSelectedState[cid] = false;
+          removeCheckedItem(child);
+
+          // ✅ uncheck sub-child
+          if (child.ChildRegulationDtls?.length) {
+            child.ChildRegulationDtls.forEach((subChild: any) => {
+              const sid = idGetter(subChild);
+              newSelectedState[sid] = false;
+              removeCheckedItem(subChild);
+            });
+          }
+        });
+      }
+
+      setSelectedState(newSelectedState);
+      setSelectedSupState(newSelectedState);
+    };
+
+    return (
+      <th style={{ width: "60px" }}>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <input
+            type="checkbox"
+            checked={allChildrenSelected}
+            disabled={childData?.[0]?.disable}
+            onChange={onChange}
+            aria-label="Select/Deselect child rows"
+          />
+        </div>
+      </th>
+    );
+  };
+
+  const ChildSubStantiation = (props: any) => {
+    const parentId = props.dataItem.ConfigProjRegId;
+    const childData = props.dataItem.ChildRegulationDtls || [];
+    if (!childData || childData.length === 0) return null;
+
+    const childState = childDataStates[parentId] || {};
+    const filteredChildData = process(childData, childState);
+    const childGridRef = useRef(null);
+
+    const onChildDataStateChange = (event: any) => {
+      setChildDataStates((prev) => ({
+        ...prev,
+        [parentId]: event.dataState,
+      }));
+    };
+
+    return (
+      <div style={{ marginLeft: `${childLeftOffset}px` }}>
+        <GridAny
+          ref={childGridRef}
+          id="kgrid-oss-csr-projectSubChildgrid"
+          data={filteredChildData}
+          {...childState}
+          onDataStateChange={onChildDataStateChange}
+          sortable={true}
+          resizable={true}
+          columnMenuIcon={filterIcon}
+        >
+          <ColumnAny
+            field={SELECTED_FIELD}
+            width="50px"
+            title="Select/Deselect all rows"
+            columnType="checkbox"
+            headerCell={ChildSelectAllHeaderCell(parentId, childData)}
+            cells={{
+              data: (props: any) => {
+                const isChecked = selectedState[idGetter(props.dataItem)];
+                return (
+                  <td className="sub-checkbox">
+                    <input
+                      type="checkbox"
+                      disabled={props.dataItem.disable}
+                      checked={!!isChecked}
+                      onChange={(e) => handleCheckboxChange(e, props.dataItem)}
+                    />
+                  </td>
+                );
+              },
+            }}
+          />
+
+          <ColumnAny {...columnProps("Regulation", childState)} field="Regulation" title="Regulation" width="170px" />
+          <ColumnAny {...columnProps("RegModel", childState)} field="RegModel" title="Model" width="170px" />
+          <ColumnAny {...columnProps("RegType", childState)} field="RegType" title="Type" width="110px" />
+        </GridAny>
+      </div>
+    );
+  };
+
+  const onDetailExpandChange = (e: GridDetailExpandChangeEvent) => {
+    setDetailExpand(e.detailExpand);
+  };
+
+  const expandedAll: DetailExpandDescriptor = React.useMemo(() => {
+    return processedData?.data.reduce((acc: any, item: any) => {
+      if (item.ChildRegulationDtls.length > 0) {
+        acc[item.ConfigProjRegId] = true;
+      }
+      return acc;
+    }, {} as DetailExpandDescriptor);
+  }, [processedData]);
+
+  React.useEffect(() => {
+    setDetailExpand(expandedAll);
+  }, [expandedAll]);
+
+  const CustomExpandCell = (
+    props: GridCellProps & {
+      detailExpand?: DetailExpandDescriptor;
+      onDetailExpandChange: (e: GridDetailExpandChangeEvent) => void;
+    }
+  ) => {
+    const { dataItem, rowType, detailExpand, onDetailExpandChange } = props;
+
+    if (rowType === "groupHeader" || !dataItem) {
+      return <td />;
+    }
+
+    const hasDetails = (dataItem?.ChildRegulationDtls?.length ?? 0) > 0;
+    const isExpanded = !!detailExpand && !!detailExpand[dataItem.ConfigProjRegId];
+
+    if (!hasDetails) {
+      return <td style={{ width: 60 }} />;
+    }
+
+    const handleExpandClick = () => {
+      const newDetailExpand = { ...(detailExpand ?? {}) };
+      const shouldExpand = !isExpanded;
+
+      if (shouldExpand) {
+        newDetailExpand[dataItem.ConfigProjRegId] = true;
+      } else {
+        delete newDetailExpand[dataItem.ConfigProjRegId];
+      }
+
+      onDetailExpandChange({
+        detailExpand: newDetailExpand,
+        dataItem: dataItem,
+        syntheticEvent: null,
+        nativeEvent: null,
+        target: null,
+      } as unknown as GridDetailExpandChangeEvent);
+    };
+
+    return (
+      <td style={{ textAlign: "center", width: 60 }}>
+        <KendoButton
+          onClick={handleExpandClick}
+          fillMode="flat"
+          themeColor="primary"
+          size="small"
+          svgIcon={isExpanded ? chevronDownIcon : chevronRightIcon}
+          title={isExpanded ? "Collapse" : "Expand"}
+          aria-label={isExpanded ? "Collapse details" : "Expand details"}
+          aria-expanded={isExpanded}
+        />
+      </td>
+    );
+  };
+
+  // insert click handler (same as your code)
+  const onInsertSubStantiationCheckedItemClick = () => {
+    let tempRevisionDataList: RevisionListDetails[] = [];
+
+    for (let i = 0; i < InsertSubstantiationCheckedDetail.length; i++) {
+      let InsertSubCheckItemsDetails: InsertSubstantiationDetails = {} as InsertSubstantiationDetails;
+
+      InsertSubCheckItemsDetails.ConfigProjRegId = InsertSubstantiationCheckedDetail[i].ConfigProjRegId;
+      InsertSubCheckItemsDetails.RegModel = InsertSubstantiationCheckedDetail[i].RegModel;
+      InsertSubCheckItemsDetails.RegType = InsertSubstantiationCheckedDetail[i].RegType;
+      InsertSubCheckItemsDetails.Regulation = InsertSubstantiationCheckedDetail[i].Regulation;
+      InsertSubCheckItemsDetails.AmendmentLevel = InsertSubstantiationCheckedDetail[i].AmendmentLevel;
+      InsertSubCheckItemsDetails.TcdsImpact = InsertSubstantiationCheckedDetail[i].TcdsImpact;
+      InsertSubCheckItemsDetails.RegDescription = InsertSubstantiationCheckedDetail[i].RegDescription;
+      InsertSubCheckItemsDetails.Moc = InsertSubstantiationCheckedDetail[i].Moc;
+      InsertSubCheckItemsDetails.AspectsReq = InsertSubstantiationCheckedDetail[i].AspectsReq;
+      InsertSubCheckItemsDetails.IsActive = InsertSubstantiationCheckedDetail[i].IsActive;
+      InsertSubCheckItemsDetails.ProjectId = InsertSubstantiationCheckedDetail[i].ProjectId;
+      InsertSubCheckItemsDetails.ContentOwnerId = InsertSubstantiationCheckedDetail[i].ContentOwnerId;
+      InsertSubCheckItemsDetails.CreationDate = InsertSubstantiationCheckedDetail[i].CreationDate;
+      InsertSubCheckItemsDetails.ItemStatus = OperationType.ADD;
+      InsertSubCheckItemsDetails.AttributedToReport = InsertSubstantiationCheckedDetail[i].AttributedToReport;
+      InsertSubCheckItemsDetails.AttributedReportNames = InsertSubstantiationCheckedDetail[i].AttributedReportNames;
+      InsertSubCheckItemsDetails.AdditionalRegulationList = InsertSubstantiationCheckedDetail[i].AdditionalRegulationList;
+      InsertSubCheckItemsDetails.SubSystem = InsertSubstantiationCheckedDetail[i].SubSystem;
+      InsertSubCheckItemsDetails.ChildRegulationDtls = InsertSubstantiationCheckedDetail[i].ChildRegulationDtls;
+      InsertSubCheckItemsDetails.RegSortOrder = InsertSubstantiationCheckedDetail[i].RegSortOrder;
+      InsertSubCheckItemsDetails.AmendmentSortOrder = InsertSubstantiationCheckedDetail[i].AmendmentSortOrder;
+
+      InsertSupCheckItems.push(InsertSubCheckItemsDetails);
+
+      if (props.revision && props.parentReportId != null) {
+        tempRevisionDataList.push({
+          ReportId: reportIdParam,
+          Description: InsertSubstantiationCheckedDetail[i].Regulation,
+          OperationType: OperationType.ADD,
+          CreatedBy: 0,
+          TabId: parseInt(tabIndex),
+          TabTitle: "",
+          AuthorComment: InsertSubstantiationCheckedDetail[i].Regulation,
+          TabSectionId: props.TabSectionId,
+          ContentId: props.ContentID,
+          SecIndexValue: "",
+          ContIndexValue: "",
+          ModifiedBy: 0,
+          TabSectionName: ScreenNameEnum.CONFIG_SUBSTANTIATION,
+          ContentTitleName: SectionTitleEnum.CONFIG_SUBSTANTIATION,
+          ActualTabTitle: "",
+        });
+      }
+    }
+
+    InsertSubstantiationCheckedDetail = [];
+
+    SubInsertPopupDataService.SaveSubstantiationByReportId(reportIdParam, InsertSupCheckItems)
+      .then((res) => {
+        props.onCloseInsSubStantiationPopup(true);
+
+        if (tempRevisionDataList.length > 0 && props.parentReportId != null && props.parentReportId > 0) {
+          AddRevisionPopupService.InsertContentLogDetails(tempRevisionDataList).then((res) => {});
+        }
+
+        dispatch(
+          showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: "Substantiation saved successfully.",
+          })
+        );
+
+        InsertSupCheckItems = [];
+      })
+      .catch((error) => {
+        console.log("Save error", error);
+      });
+  };
+
+  return (
+    <>
+      <Modal
+        className="SubstantiationInsertModal"
+        open={props.isOpen}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
+        sx={{ zIndex: "1" }}
+      >
+        <Box sx={{ ...modalStyle, height: dynamicScreenSize.height, width: dynamicScreenSize.width }}>
+          <div className="modal-heading">
+            <Typography variant="h5" gutterBottom className="sub-titleBody">
+              Insert Substantiation
+            </Typography>
+            <CloseIcon className="sub-closeIcon" onClick={() => props.onCloseInsSubStantiationPopup(false)} />
+          </div>
+
+          <Typography id="modal-modal-btn" sx={{ mt: 2 }} fontSize="small" style={{ padding: "0px" }}>
+            <GridAny
+              editField="inEdit"
+              id="kgrid-oss-SubStantiation-Insertlookup"
+              ref={gridRef}
+              data={processedData}
+              style={{ height: handleGridHeight(dynamicScreenSize.height) }}
+              {...(dataState as any)}
+              onDataStateChange={datastatechange}
+              dataItemKey={DATA_ITEM_KEY}
+              selectedField={SELECTED_FIELD}
+              selectable={{
+                enabled: true,
+                drag: false,
+                cells: false,
+                mode: "multiple",
+              }}
+              sortable={true}
+              resizable={true}
+              detail={ChildSubStantiation}
+              columnMenuIcon={filterIcon}
+              detailExpand={detailExpand}
+              onDetailExpandChange={onDetailExpandChange}
+            >
+              <ColumnAny
+                title=""
+                width={60}
+                cells={{
+                  data: (props: any) => {
+                    const hasChildren = props?.dataItem?.ChildRegulationDtls?.length ?? 0;
+                    if (hasChildren > 0) {
+                      return (
+                        <CustomExpandCell
+                          {...props}
+                          detailExpand={detailExpand}
+                          onDetailExpandChange={onDetailExpandChange}
+                        />
+                      );
+                    }
+                    return <td style={{ width: 60 }} />;
+                  },
+                }}
+              />
+
+              <ColumnAny
+                field="Select"
+                width="50px"
+                title="Select/Deselect all rows"
+                columnType="checkbox"
+                headerCell={SelectAllHeaderCell}
+                cells={{
+                  data: (props: any) => {
+                    const isChecked = selectedState[idGetter(props.dataItem)];
+                    return (
+                      <td className="sub-checkbox">
+                        <input
+                          type="checkbox"
+                          disabled={props.dataItem.disable}
+                          checked={!!isChecked}
+                          onChange={(e) => handleCheckboxChange(e, props.dataItem)}
+                        />
+                      </td>
+                    );
+                  },
+                }}
+              />
+
+              <ColumnAny {...columnProps("Regulation", dataState)} title="Regulation" width="170px" />
+              <ColumnAny {...columnProps("AmendmentLevel", dataState)} title="Amendment" width="150px" />
+              <ColumnAny {...columnProps("RegModel", dataState)} field="RegModel" title="Model" width="170px" />
+              <ColumnAny {...columnProps("RegType", dataState)} title="Type" width="110px" />
+              <ColumnAny {...columnProps("SubSystem", dataState)} field="SubSystem" title="Sub-System" width="170px" />
+            </GridAny>
+          </Typography>
+
+          <Typography
+            id="modal-modal-btn"
+            className="sub-button-Insert"
+            sx={{ mt: 2 }}
+            textAlign={"end"}
+            style={{ padding: "16px 0 0 0" }}
+          >
+            <Button
+              className="button-style-create-new"
+              variant="contained"
+              size="small"
+              onClick={() => onInsertSubStantiationCheckedItemClick()}
+              disabled={selectedSupProject.length == 0 ? true : false}
+              style={{
+                fontSize: "14px",
+                backgroundColor: "#0033A1",
+                color: "white",
+                textTransform: "capitalize",
+                height: "32px",
+                padding: "8px 10px",
+              }}
+            >
+              Insert
+            </Button>
+          </Typography>
+        </Box>
+      </Modal>
+    </>
+  );
+};
+
+export default SubstantiationInsertPopup;
+
   GridCellProps,
   GridDetailExpandChangeEvent,
 } from "@progress/kendo-react-grid";
