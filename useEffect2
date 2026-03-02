@@ -1,21 +1,19 @@
-<Select
-    id="admin-table-categorytype-selector"
-    style={{ maxWidth: 180, minWidth: 180, backgroundColor: "#ffffff" }}
-    value={selectedCategoryType ? selectedCategoryType.ORGID : ""}
-    size="small"
-    onChange={(e) => {
-        const selectedId = Number(e.target.value);
-        const selectedObj = organizationTypeData.find(x => x.ORGID === selectedId) || null;
+const handleOrganizationTypeChange = async (orgId: number) => {
+    try {
+        const response = await EasaListService.getAdminMasterDetailsType(1, orgId);
 
-        setSelectedCategoryType(selectedObj);
-        handleOrganizationTypeChange(selectedId);
-    }}
->
-    {organizationTypeData
-        .filter(opt => opt.ISACTIVE)
-        .map((opt) => (
-            <MenuItem key={opt.ORGID} value={opt.ORGID}>
-                {opt.ORGTYPE}
-            </MenuItem>
-        ))}
-</Select>
+        const result: OrganizationTableData[] = response?.data.map((org: any) => ({
+            ID: org.ID,
+            ORGANIZATIONNAME: org.ORGANIZATIONNAME,
+            ORGANIZATIONDESCRIPTION: org.ORGANIZATIONDESCRIPTION,
+            NOTES: org.NOTES,
+            SORT_ORDER: org.SORT_ORDER,
+            ISACTIVE: org.ISACTIVE === "Y",
+            newFlag: false
+        }));
+
+        setOrganizationData(result);
+    } catch (error) {
+        console.error("Error fetching organization data:", error);
+    }
+};
