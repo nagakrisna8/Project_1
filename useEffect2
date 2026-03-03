@@ -1,111 +1,234 @@
-return (
-  <div style={{ paddingBottom: 20 }}>
-    <Card
-      style={{
-        borderLeft: "4px solid #0033A1",
-        marginLeft: "22px",
-      }}
-    >
-      <AnyGrid
-        id="kgrid-oss-checklistType"
-        ref={gridRefBuilder}
-        style={{ height: "60vh", minHeight: 400 }}   // 🔥 Inner Grid Scroll
-        scrollable="scrollable"
-        data={process(props.organizationTypeData, props.dataState).data}
-        selectable={{ enabled: true, drag: false, cell: false, mode: "multiple" }}
-        editField={editField}
-        onItemChange={props.itemChange}
-        resizable
-        dataItemKey={props.KEY}
-        sortable={false}
-        rowHeight={30}
-        {...props.dataState}
-        selectedField={SELECTED_FIELD}
-        onDataStateChange={props.dataStateChange}
-        columnMenuIcon={filterIcon}
-      >
-        <GridToolbar>
-          <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-            
-            {/* LEFT SIDE BUTTONS */}
-            <div style={{ display: "flex", gap: 8 }}>
-              <Button
-                startIcon={
-                  <AddCircleOutlineIcon
-                    style={{ width: 20, height: 20, color: "#737373" }}
-                  />
-                }
-                onClick={props.createOrganizationType}
-                variant="outlined"
-                size="small"
-                color="inherit"
-              >
-                <Typography variant="button" sx={{ textTransform: "none" }}>
-                  Create New
-                </Typography>
-              </Button>
+const saveSupplierCategory = async () => {
+    if (!dirtyFlag) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No data to save.",
+        }));
+        return;
+    }
 
-              <Button
-                onClick={props.saveOrganizationType}
-                variant="outlined"
-                size="small"
-                color="inherit"
-              >
-                <Typography variant="button" sx={{ textTransform: "none" }}>
-                  Save
-                </Typography>
-              </Button>
-            </div>
+    const current = [...supplierCategoryData];
+    const original = [...originalSupplierCategoryData];
 
-            {/* RIGHT SIDE SORT DROPDOWN */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Typography variant="body2">Sort Order :</Typography>
+    // Validation
+    if (current.some((i) => !i.DESCRIPTION || i.DESCRIPTION.trim() === "")) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Please fill details.",
+        }));
+        return;
+    }
 
-              <Select
-                value={props.sortBy || "custom"}
-                style={{ width: 200 }}
-                onChange={(e) =>
-                  props.handleSortByChange(
-                    "organizationType",
-                    e.target.value as "custom" | "asc" | "desc"
-                  )
-                }
-              >
-                <MenuItem value="custom">
-                  <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                  Customize
-                </MenuItem>
-                <MenuItem value="asc">
-                  <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                  Organization Type: Ascending
-                </MenuItem>
-                <MenuItem value="desc">
-                  <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                  Organization Type: Descending
-                </MenuItem>
-              </Select>
-            </div>
-          </div>
-        </GridToolbar>
+    const uniqueCount = new Set(
+        current.map((i) => i.DESCRIPTION.trim().toLowerCase())
+    ).size;
 
-        <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
+    if (uniqueCount !== current.length) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Supplier Category must be unique.",
+        }));
+        return;
+    }
 
-        <GridColumn
-          {...props.columnPropsBuilder("ORGTYPE")}
-          title="Organization Type"
-          cells={{ data: OrganizationTypeNameCell }}
-          width={setPercentage(undefined, 0, 272)}
-          columnMenu={GridFilterMenuWithoutSort}
-        />
+    // 🔥 Detect changes
+    const items: MasterDataItem[] = [];
 
-        <GridColumn
-          {...props.columnPropsBuilder("ISACTIVE")}
-          title="Active"
-          cells={{ data: activeCheckbox }}
-          width="165px"
-          columnMenu={GridFilterMenuWithoutSort}
-        />
-      </AnyGrid>
-    </Card>
-  </div>
-);
+    current.forEach((row) => {
+        const originalRow = original.find(o => o.ID === row.ID);
+
+        // 🟢 New row
+        if (!originalRow) {
+            items.push({
+                Id: 0,
+                OperationType: "add",
+                Name: "",
+                Description: row.DESCRIPTION.trim(),
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Notes: "",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
+            });
+        }
+        // 🟡 Updated row
+        else if (
+            originalRow.DESCRIPTION !== row.DESCRIPTION ||
+            originalRow.ISACTIVE !== row.ISACTIVE ||
+            originalRow.SORT_ORDER !== row.SORT_ORDER
+        ) {
+            items.push({
+                Id: row.ID,
+                OperationType: "update",
+                Name: "",
+                Description: row.DESCRIPTION.trim(),
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Notes: "",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
+            });
+        }
+    });
+
+    if (items.length === 0) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No changes detected.",
+        }));
+        return;
+    }
+
+    const payload: MasterDataPayload = {
+        MasterDataType: "SupplierCategory",
+        Items: items,
+    };
+
+    try {
+        await EasaListService.addMasterDataType(payload);
+
+        setDirtyFlag(false);
+        fetchSupplierCategory();
+
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: "Supplier Category saved successfully.",
+        }));
+    } catch (error) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Error saving Supplier Category.",
+        }));
+    }
+};
+
+
+
+
+
+
+
+const onSaveSupplierActivity = async () => {
+    if (!dirtyFlag) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No data to save.",
+        }));
+        return;
+    }
+
+    const current = [...supplierActivityData];
+    const original = [...originalSupplierActivityData];
+
+    // Validation
+    if (current.some((i) => !i.ACTIVITYCATEGORY || i.ACTIVITYCATEGORY.trim() === "")) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Please fill details.",
+        }));
+        return;
+    }
+
+    const uniqueCount = new Set(
+        current.map((i) => i.ACTIVITYCATEGORY.trim().toLowerCase())
+    ).size;
+
+    if (uniqueCount !== current.length) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Supplier Activity must be unique.",
+        }));
+        return;
+    }
+
+    // 🔥 Detect changes
+    const items: MasterDataItem[] = [];
+
+    current.forEach((row) => {
+        const originalRow = original.find(o => o.ID === row.ID);
+
+        // 🟢 New
+        if (!originalRow) {
+            items.push({
+                Id: 0,
+                OperationType: "add",
+                Name: row.ACTIVITYCATEGORY.trim(),
+                Description: row.ACTIVITYDESCRIPTION?.trim() || "",
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Notes: "",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
+            });
+        }
+        // 🟡 Updated
+        else if (
+            originalRow.ACTIVITYCATEGORY !== row.ACTIVITYCATEGORY ||
+            originalRow.ACTIVITYDESCRIPTION !== row.ACTIVITYDESCRIPTION ||
+            originalRow.ISACTIVE !== row.ISACTIVE ||
+            originalRow.SORT_ORDER !== row.SORT_ORDER
+        ) {
+            items.push({
+                Id: row.ID,
+                OperationType: "update",
+                Name: row.ACTIVITYCATEGORY.trim(),
+                Description: row.ACTIVITYDESCRIPTION?.trim() || "",
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Notes: "",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
+            });
+        }
+    });
+
+    if (items.length === 0) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No changes detected.",
+        }));
+        return;
+    }
+
+    const payload: MasterDataPayload = {
+        MasterDataType: "SupplierActivity",
+        Items: items,
+    };
+
+    try {
+        await EasaListService.addMasterDataType(payload);
+
+        setDirtyFlag(false);
+        fetchSupplierActivity();
+
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: "Supplier Activity saved successfully.",
+        }));
+    } catch (error) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Error saving Supplier Activity.",
+        }));
+    }
+};
