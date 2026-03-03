@@ -247,139 +247,139 @@ const TableMaintenance: React.FC = () => {
 
 
 
-   const saveOrganizationType = async () => {
-    if (!dirtyFlag) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "No data to save.",
-        }));
-        return;
-    }
-
-    const current = [...organizationTypeData];
-    const original = [...originalOrganizationTypeData];
-
-    // Validation
-    if (current.some((i) => !i.ORGTYPE || i.ORGTYPE.trim() === "")) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "Please fill details.",
-        }));
-        return;
-    }
-
-    const uniqueCount = new Set(
-        current.map((i) => i.ORGTYPE.trim().toLowerCase())
-    ).size;
-
-    if (uniqueCount !== current.length) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "Organization Types must be unique.",
-        }));
-        return;
-    }
-
-    // 🔥 Detect changed rows
-    const items: MasterDataItem[] = [];
-
-    current.forEach((row) => {
-        const originalRow = original.find(o => o.ORGID === row.ORGID);
-
-        // 🟢 NEW RECORD
-        if (!originalRow) {
-            items.push({
-                Id: 0,
-                OperationType: "add",
-                Name: row.ORGTYPE.trim(),
-                IsActive: row.ISACTIVE ? "Y" : "N",
-                Description: "",
-                Notes: "",
-                Address: "",
-                Department: "",
-                Phone: "",
-                Email: "",
-                Title: "",
-            });
-        }
-        // 🟡 MODIFIED RECORD
-        else if (
-            originalRow.ORGTYPE !== row.ORGTYPE ||
-            originalRow.ISACTIVE !== row.ISACTIVE ||
-            originalRow.SORT_ORDER !== row.SORT_ORDER
-        ) {
-            items.push({
-                Id: row.ORGID,
-                OperationType: "update",
-                Name: row.ORGTYPE.trim(),
-                IsActive: row.ISACTIVE ? "Y" : "N",
-                Description: "",
-                Notes: "",
-                Address: "",
-                Department: "",
-                Phone: "",
-                Email: "",
-                Title: "",
-            });
-        }
-    });
-
-    // 🚨 Nothing changed
-    if (items.length === 0) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "No changes detected.",
-        }));
-        return;
-    }
-
-    const payload: MasterDataPayload = {
-        MasterDataType: "OrganizationType",
-        Items: items,
-    };
-
-    console.log("Final Payload:", payload);
-
-    try {
-        await EasaListService.addMasterDataType(payload);
-
-        setDirtyFlag(false);
-        fetchOrganizationType();
-
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "success",
-            snackbarMessage: "Organization Type saved successfully.",
-        }));
-    } catch (error) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "Error saving Organization Type.",
-        }));
-    }
-};
-   const fetchOrganizationType = () => {
-    let masterdataType = 0;
-    EasaListService.getAdminMasterDetailsType(masterdataType)
-        .then((response) => {
-            let result: OrganizationTypeMasterTable[] = response?.data.map(x => ({
-                ORGID: x.ORGID,
-                ORGTYPE: x.ORGTYPE,
-                SORT_ORDER: x.SORT_ORDER,
-                USERDEFINED_FLAG: x.USERDEFINED_FLAG,
-                ISACTIVE: x.ISACTIVE === "Y"
+    const saveOrganizationType = async () => {
+        if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
             }));
+            return;
+        }
 
-            setOrganizationTypeData([...result].reverse());
-            setOriginalOrganizationTypeData([...result].reverse()); // 🔥 store original copy
-        })
-        .catch((err) => console.error(err));
-};
+        const current = [...organizationTypeData];
+        const original = [...originalOrganizationTypeData];
+
+        // Validation
+        if (current.some((i) => !i.ORGTYPE || i.ORGTYPE.trim() === "")) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Please fill details.",
+            }));
+            return;
+        }
+
+        const uniqueCount = new Set(
+            current.map((i) => i.ORGTYPE.trim().toLowerCase())
+        ).size;
+
+        if (uniqueCount !== current.length) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Organization Types must be unique.",
+            }));
+            return;
+        }
+
+        // 🔥 Detect changed rows
+        const items: MasterDataItem[] = [];
+
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.ORGID === row.ORGID);
+
+            // 🟢 NEW RECORD
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: row.ORGTYPE.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Description: "",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                });
+            }
+            // 🟡 MODIFIED RECORD
+            else if (
+                originalRow.ORGTYPE !== row.ORGTYPE ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.ORGID,
+                    OperationType: "update",
+                    Name: row.ORGTYPE.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Description: "",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                });
+            }
+        });
+
+        // 🚨 Nothing changed
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
+        }
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "OrganizationType",
+            Items: items,
+        };
+
+        console.log("Final Payload:", payload);
+
+        try {
+            await EasaListService.addMasterDataType(payload);
+
+            setDirtyFlag(false);
+            fetchOrganizationType();
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Organization Type saved successfully.",
+            }));
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Organization Type.",
+            }));
+        }
+    };
+    const fetchOrganizationType = () => {
+        let masterdataType = 0;
+        EasaListService.getAdminMasterDetailsType(masterdataType)
+            .then((response) => {
+                let result: OrganizationTypeMasterTable[] = response?.data.map(x => ({
+                    ORGID: x.ORGID,
+                    ORGTYPE: x.ORGTYPE,
+                    SORT_ORDER: x.SORT_ORDER,
+                    USERDEFINED_FLAG: x.USERDEFINED_FLAG,
+                    ISACTIVE: x.ISACTIVE === "Y"
+                }));
+
+                setOrganizationTypeData([...result].reverse());
+                setOriginalOrganizationTypeData([...result].reverse()); // 🔥 store original copy
+            })
+            .catch((err) => console.error(err));
+    };
     const organizationtypeDragStart = (dataItem: OrganizationTypeMasterTable) => {
         setChecklistTypeActiveItem(dataItem);
     };
@@ -540,7 +540,8 @@ const TableMaintenance: React.FC = () => {
     };
     const fetchOrganization = () => {
         let masterdataType = 1;
-        EasaListService.getAdminMasterDetailsType(masterdataType)
+        let orgTypeId =1;
+        EasaListService.getAdminMasterDetailsOrgType(masterdataType, orgTypeId)
             .then((response) => {
                 let result: OrganizationTableData[] = response?.data.map(org => ({
                     ORGANIZATIONNAME: org.ORGANIZATIONNAME,
@@ -564,19 +565,17 @@ const TableMaintenance: React.FC = () => {
     };
     // Supplier Activity handlers
     const CreateSupplierActivity = () => {
-        if (!disableErrorCodePage) {
-            const newSupplierActivity: SupplierActivityMasterTable = {
-                ID: new Date().getTime(),
-                ACTIVITYDESCRIPTION: "",
-                ACTIVITYCATEGORY: "",
-                newFlag: true,
-                SORT_ORDER: supplierActivityData.length + 1,
-                ISACTIVE: true,
-                USERDEFINED_FLAG: "Y",
-            };
-            setSupplierActivityData([newSupplierActivity, ...supplierActivityData]);
-            setDirtyFlag(true);
-        }
+        const newSupplierActivity: SupplierActivityMasterTable = {
+            ID: new Date().getTime(),
+            ACTIVITYDESCRIPTION: "",
+            ACTIVITYCATEGORY: "",
+            newFlag: true,
+            SORT_ORDER: supplierActivityData.length + 1,
+            ISACTIVE: true,
+            USERDEFINED_FLAG: "Y",
+        };
+        setSupplierActivityData([newSupplierActivity, ...supplierActivityData]);
+        setDirtyFlag(true);
     };
     const supplierActivityColumnPropsBuilder = (field) => {
         return {
@@ -601,95 +600,133 @@ const TableMaintenance: React.FC = () => {
     };
     const onSaveSupplierActivity = async () => {
         if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
+            return;
+        }
+
+        const current = [...supplierActivityData];
+        const original = [...originalSupplierActivityData];
+
+        // Validation
+        console.log(current, supplierActivityData, 'current');
+        // 1️⃣ Empty validation (both fields)
+        if (
+            current.some(
+                (i) =>
+                    !i.ACTIVITYCATEGORY ||
+                    i.ACTIVITYCATEGORY.trim() === "" ||
+                    !i.ACTIVITYDESCRIPTION ||
+                    i.ACTIVITYDESCRIPTION.trim() === ""
+            )
+        ) {
             dispatch(
                 showSnackbar({
                     snackbarOpen: true,
                     snackbarType: "error",
-                    snackbarMessage: "No data to save.",
+                    snackbarMessage: "Please fill details.",
                 })
             );
             return;
         }
 
-        // 1) Basic validation: empty & duplicate check (case-insensitive)
-        const copy = [...supplierActivityData];
+        const uniqueCombinationCount = new Set(
+            current.map(
+                (i) =>
+                    `${i.ACTIVITYCATEGORY.trim().toLowerCase()}__${i.ACTIVITYDESCRIPTION.trim().toLowerCase()}`
+            )
+        ).size;
 
-        if (copy.some((i) => i.ACTIVITYCATEGORY.trim() === "")) {
+        if (uniqueCombinationCount !== current.length) {
             dispatch(
                 showSnackbar({
                     snackbarOpen: true,
                     snackbarType: "error",
-                    snackbarMessage: "Please Fill details.",
+                    snackbarMessage:
+                        "Activity Category + Description  must be unique.",
                 })
             );
             return;
         }
 
-        const uniqueCount = Array.from(
-            new Set(copy.map((i) => i.ACTIVITYCATEGORY.trim().toLowerCase()))
-        ).length;
+        // 🔥 Detect changes
+        const items: MasterDataItem[] = [];
 
-        if (uniqueCount !== copy.length) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Supplier Activity must be unique.",
-                })
-            );
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.ID === row.ID);
+
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: row.ACTIVITYCATEGORY.trim(),
+                    Description: row.ACTIVITYDESCRIPTION?.trim() || "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                });
+            }
+            // 🟡 Updated
+            else if (
+                originalRow.ACTIVITYCATEGORY !== row.ACTIVITYCATEGORY ||
+                originalRow.ACTIVITYDESCRIPTION !== row.ACTIVITYDESCRIPTION ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.ID,
+                    OperationType: "update",
+                    Name: row.ACTIVITYCATEGORY.trim(),
+                    Description: row.ACTIVITYDESCRIPTION?.trim() || "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                });
+            }
+        });
+
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
             return;
         }
-
-        let sorted = [...supplierActivityData];
-        if (sortBy.supplierActivity === "asc" || sortBy.supplierActivity === "desc") {
-            sorted = _.orderBy(sorted, ["ACTIVITYCATEGORY"], [sortBy.supplierActivity]);
-            let i = 1;
-            sorted = sorted.map((x) => ({ ...x, SORT_ORDER: i++ }));
-        }
-
-        // 3) Build Items for the new MasterData payload
-        const items: MasterDataItem[] = sorted.map((row) => ({
-            Id: row.newFlag ? 0 : Number(row.ID ?? 0),
-            OperationType: row.newFlag ? "add" : "update",
-            Name: String(row.ACTIVITYCATEGORY ?? "").trim(),
-            IsActive: row.ISACTIVE ? "Y" : "N",
-            Description: String(row.ACTIVITYDESCRIPTION ?? "").trim(),
-            Notes: "",
-            Address: "",
-            Department: "",
-            Phone: "",
-            Email: "",
-            Title: "",
-
-        }));
 
         const payload: MasterDataPayload = {
-            MasterDataType: "SupplierActivity",
+            MasterDataType: "SupplierActivityAuthorised",
             Items: items,
         };
 
         try {
-
             await EasaListService.addMasterDataType(payload);
-            setSupplierActivityData(sorted);
+
             setDirtyFlag(false);
             fetchSupplierActivity();
 
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "success",
-                    snackbarMessage: "Supplier Activity saved successfully.",
-                })
-            );
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Supplier Activity saved successfully.",
+            }));
         } catch (error) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Error saving Supplier Activity.",
-                })
-            );
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Supplier Activity.",
+            }));
         }
     };
     const fetchSupplierActivity = () => {
@@ -698,7 +735,7 @@ const TableMaintenance: React.FC = () => {
             .then((response) => {
                 console.log(response, 'fetchSupplierActivity');
                 let result: SupplierActivityMasterTable[] = response?.data.map(x => ({
-                    ID: x.ORGID,
+                    ID: x.ID,
                     ACTIVITYCATEGORY: x.ACTIVITYCATEGORY,
                     ACTIVITYDESCRIPTION: x.ACTIVITYDESCRIPTION,
                     ISACTIVE: x.ISACTIVE === "Y"
@@ -778,67 +815,92 @@ const TableMaintenance: React.FC = () => {
     };
     const saveSupplierCategory = async () => {
         if (!dirtyFlag) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "No data to save.",
-                })
-            );
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
             return;
         }
 
-        // 1) Basic validation: empty & duplicate check (case-insensitive)
-        const copy = [...supplierCategoryData];
+        const current = [...supplierCategoryData];
+        const original = [...originalSupplierCategoryData];
 
-        if (copy.some((i) => i.DESCRIPTION.trim() === "")) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Please Fill details.",
-                })
-            );
+        // Validation
+        if (current.some((i) => !i.DESCRIPTION || i.DESCRIPTION.trim() === "")) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Please fill details.",
+            }));
             return;
         }
 
-        const uniqueCount = Array.from(
-            new Set(copy.map((i) => i.DESCRIPTION.trim().toLowerCase()))
-        ).length;
+        const uniqueCount = new Set(
+            current.map((i) => i.DESCRIPTION.trim().toLowerCase())
+        ).size;
 
-        if (uniqueCount !== copy.length) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Supplier Category must be unique.",
-                })
-            );
+        if (uniqueCount !== current.length) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Supplier Category must be unique.",
+            }));
             return;
         }
 
-        let sorted = [...supplierCategoryData];
-        if (sortBy.supplierCategory === "asc" || sortBy.supplierCategory === "desc") {
-            sorted = _.orderBy(sorted, ["ORGTYPE"], [sortBy.supplierCategory]);
-            let i = 1;
-            sorted = sorted.map((x) => ({ ...x, SORT_ORDER: i++ }));
+        // 🔥 Detect changes
+        const items: MasterDataItem[] = [];
+
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.ID === row.ID);
+
+            // 🟢 New row
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: "",
+                    Description: row.DESCRIPTION.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                });
+            }
+            // 🟡 Updated row
+            else if (
+                originalRow.DESCRIPTION !== row.DESCRIPTION ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.ID,
+                    OperationType: "update",
+                    Name: "",
+                    Description: row.DESCRIPTION.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                });
+            }
+        });
+
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
         }
-
-        // 3) Build Items for the new MasterData payload
-        const items: MasterDataItem[] = sorted.map((row) => ({
-            Id: row.newFlag ? 0 : Number(row.ID ?? 0),
-            OperationType: row.newFlag ? "add" : "update",
-            Name: "",
-            IsActive: row.ISACTIVE ? "Y" : "N",
-            Description: String(row.DESCRIPTION ?? "").trim(),
-            Notes: "",
-            Address: "",
-            Department: "",
-            Phone: "",
-            Email: "",
-            Title: "",
-
-        }));
 
         const payload: MasterDataPayload = {
             MasterDataType: "SupplierCategory",
@@ -846,29 +908,28 @@ const TableMaintenance: React.FC = () => {
         };
 
         try {
-
             await EasaListService.addMasterDataType(payload);
-            setSupplierCategoryData(sorted);
+
             setDirtyFlag(false);
             fetchSupplierCategory();
 
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "success",
-                    snackbarMessage: "Supplier Category saved successfully.",
-                })
-            );
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Supplier Category saved successfully.",
+            }));
         } catch (error) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Error saving Supplier Category.",
-                })
-            );
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Supplier Category.",
+            }));
         }
     };
+
+
+
+
     const fetchSupplierCategory = () => {
         let masterdataType = 2;
         EasaListService.getAdminMasterDetailsType(masterdataType)
