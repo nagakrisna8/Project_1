@@ -1,1094 +1,284 @@
-import "./AdminTable.scss";
-import {
-    MenuItem, Select,
-    SelectChangeEvent
-} from "@mui/material";
-import React, { useEffect, useState } from "react";
-import {
-    CategoryTypeTable,
-    OrganizationTypeMasterTable,
-    SupplierActivityMasterTable, GetAdminSortByResponse,
-    SortByData,
-    SupplierCategoryMasterTable, OrganizationTableData
-} from "./AdminModal";
+import React, { memo, useCallback, useRef, useEffect, useState } from "react";
+import { SupplierActivityMasterTable, SortByData } from "../AdminModal";
+import { getter, State, process } from "@progress/kendo-data-query";
+import { Grid as DataGrid, GridCellProps, GridColumn, GridColumnMenuFilter, GridColumnMenuProps, GridDataStateChangeEvent, GridHeaderSelectionChangeEvent, GridItemChangeEvent, GridToolbar } from "@progress/kendo-react-grid";
+import { Button, Card, MenuItem, Select, TextField, Typography } from "@mui/material";
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import SettingsIcon from '@mui/icons-material/Settings';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import SortIcon from '@mui/icons-material/Sort';
+import { filterIcon } from "@progress/kendo-svg-icons";
 
-import EasaListService from "../EasaRegisterListService";
-import { useDispatch } from "react-redux";
-import { State, getter } from "@progress/kendo-data-query";
-import {
-    GridColumnMenuFilter, GridColumnMenuSort,
-    GridDataStateChangeEvent, GridItemChangeEvent,
-    isColumnMenuFilterActive,
-    isColumnMenuSortActive
-} from "@progress/kendo-react-grid";
-import * as _ from "lodash";
-import ConfigurationService from "./ConfigurationService";
-import EnvDetail from "../../../../../utils/EnvDetail";
-import { showSnackbar } from "../../../../core/snackbar/CustomSnackBarSlice";
-import StorageService from "../../../../../utils/StorageService";
-import OrganizationTypeTable from "./OrganizationType/OrganizationTypeTable";
-import SupplierActivityTable from "./SupplierActivity/SupplierActivityTable";
-import SupplierCategoryTable from "./SupplierCategory/SupplierCategoryTable";
-import OrganizationTable from "./Organization/OrganizationTable.Component";
-
-// constants
-const CATEGORY_CHECKLIST_DATA_ITEM_KEY: string = "Category_ID";
-const CATEGORY_CHECKLIST_idGetter = getter(CATEGORY_CHECKLIST_DATA_ITEM_KEY);
-
-const CATEGORY_DATA_ITEM_KEY = "CategoryTypeId";
-
-const ORGANIZATION_TYPE_DATA_ITEM_KEY: string = "ORGID";
-const ORGANIZATION_TYPE_idGetter = getter(ORGANIZATION_TYPE_DATA_ITEM_KEY);
-
-const SUPPLIER_ACTIVITY_DATA_ITEM_KEY: string = "ID";
-const SUPPLIER_ACTIVITY_idGetter = getter(SUPPLIER_ACTIVITY_DATA_ITEM_KEY);
-
-const ORGANIZATION_DATA_ITEM_KEY = "ID";
-const REASON_CODE_idGetter = getter(ORGANIZATION_DATA_ITEM_KEY);
-
-const SUPPLIER_CATEGORY_DATA_ITEM_KEY: string = "ID";
-const SUPPLIER_CATEGORY_idGetter = getter(SUPPLIER_CATEGORY_DATA_ITEM_KEY);
-// kendo grid utilities
-const ColumnMenuBuilder = (props) => {
-    return (
-        <div>
-            <GridColumnMenuSort {...props} />
-            <GridColumnMenuFilter {...props} expanded={true} />
-        </div>
-    );
+const editField = "inEdit";
+const SELECTED_FIELD: string = "selected";
+const AnyGrid = DataGrid as any;
+const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => {
+  return (
+    <div>
+      <GridColumnMenuFilter {...props} expanded={true} />
+    </div>
+  );
 };
-interface MasterDataItem {
-    Id: number;
-    OperationType: string;
-    Name: string;
-    Description: string;
-    Notes: string;
-    IsActive: "Y" | "N";
-    Address: string;
-    Department: string;
-    Phone: string;
-    Email: string;
-    Title: string;
+interface SupplierActivityTableProps {
+  KEY: string;
+  columnPropsBuilder: (field: any) => {
+    field: any;
+    columnMenu: (props: any) => JSX.Element;
+    headerClassName: string;
+  };
+  supplierActivityData: SupplierActivityMasterTable[];
+  dataState: State;
+  dataStateChange: (event: GridDataStateChangeEvent) => void;
+  itemChange: (event: GridItemChangeEvent) => void;
+  createSupplierActivity: () => void;
+  saveSupplierActivity: () => void;
+  dragStart: (dataItem: SupplierActivityMasterTable) => void;
+  reorder: (dataItem: SupplierActivityMasterTable) => void;
+  sortBy: "custom" | "asc" | "desc" | undefined
+  handleSortByChange: (key: keyof SortByData, value: "custom" | "asc" | "desc", setScreenDirty?: boolean) => void
 }
-interface MasterDataPayload {
-    MasterDataType: string;
-    Items: MasterDataItem[];
-}
-const Options = [
-    "Organization Type",
-    "Organization",
-    "Supplier Category",
-    "Supplier Activity Authorized"
-];
-const isColumnActive = (field, dataState) => {
-    return isColumnMenuFilterActive(field, dataState.filter) || isColumnMenuSortActive(field, dataState.sort);
-};
-type TableMaintenancePage = "category" | "errorCode" | "checklistType" | "categoryType" | "reasonCode" | "errorCode2" | "errorCode3" | "Organization Type" | "Organization" | "Supplier Category" | "Supplier Activity Authorized";
 
-const TableMaintenance: React.FC = () => {
-    const dispatch = useDispatch();
-    const [sortBy, setSortBy] = useState<SortByData>({
-        organization: 'custom',
-        organizationType: 'custom',
-        supplierCategory: 'custom',
-        supplierActivity: 'custom',
-    });
-    const [initialAdminSortBy, setInitialAdminSortBy] = useState<GetAdminSortByResponse>({
-        BusinessUnitId: 0,
-        DisciplineId: 0,
-        BuSystemMappingId: 0,
-        OrganizationTypeSortBy: "custom",
-        OrganizationSortBy: 'custom',
-        SupplierCategorySortBy: 'custom',
-        SupplierActivitySortBy: 'custom'
-    });
-    const [masterDataOptions, setMasterDataOptions] = useState<any[]>([]);
-    const [selectedPage, setSelectedPage] = useState<TableMaintenancePage>("Organization Type");
-    const [dirtyFlag, setDirtyFlag] = React.useState(false);
-    const [isItarAppFlag, setIsItarAppFlag] = React.useState(false);
+const SupplierActivityTable: React.FC<SupplierActivityTableProps> = memo((props) => {
+  const [isItarApp, setIsItarApp] = useState(false);
+  const idGetter = getter(props.KEY);
+  const gridRefBuilder = useRef<any>(null);
+  const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+  const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
 
-    const handlePageChange = async (event: SelectChangeEvent<TableMaintenancePage>): Promise<void> => {
-        var storageService = new StorageService();
-        const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
-        if (!dirtyResponse) return;
-
-        if (dirtyFlag) {
-            if (selectedPage === 'Supplier Activity Authorized') fetchSupplierActivity();
-            else if (selectedPage === 'Supplier Category') fetchSupplierCategory();
-            else if (selectedPage === 'Organization Type') fetchOrganizationType();
-            else if (selectedPage === 'Organization') fetchOrganization();
-        }
-
-        setDirtyFlag(false);
-        setSelectedPage(event.target.value as TableMaintenancePage);
-    };
-
-    // category type grid page
-    const [categoryTypeGridData, setCategoryTypeGridData] = useState<CategoryTypeTable[]>([]);
-
-
-
-    const getAdminSortValues = async () => {
-        var storageService = new StorageService();
-        let bu = storageService.getSelectedBusinessUnitId();
-        let di = storageService.getSelectedDisciplineId();
-
-        const res = await ConfigurationService.getAdminSortByValues(bu, di);
-        const resData: GetAdminSortByResponse = res.data;
-        if (resData.BusinessUnitId == bu && resData.DisciplineId == di) {
-            const match = resData;
-            if (!match.OrganizationTypeSortBy) match.OrganizationTypeSortBy = "custom";
-            if (!match.OrganizationSortBy) match.OrganizationSortBy = "custom";
-            if (!match.SupplierCategorySortBy) match.SupplierCategorySortBy = "custom";
-            if (!match.SupplierActivitySortBy) match.SupplierActivitySortBy = "custom";
-            if (match) {
-                const sortByCopy = { ...sortBy };
-                let initialAdminSortByCopy = { ...initialAdminSortBy };
-
-                if (match.OrganizationTypeSortBy) {
-                    //ChecklistType
-                    initialAdminSortByCopy = match;
-                    sortByCopy.organizationType = match.OrganizationTypeSortBy;
-                } else {
-                    //ChecklistType
-                    initialAdminSortByCopy = { ...match, OrganizationTypeSortBy: 'custom' };
-                    sortByCopy.organizationType = 'custom';
-                }
-
-                if (match.OrganizationSortBy) {
-                    //CategoryType
-                    initialAdminSortByCopy = match;
-                    sortByCopy.organization = match.OrganizationSortBy;
-                } else {
-                    //CategoryType
-                    initialAdminSortByCopy = { ...match, OrganizationSortBy: 'custom' };
-                    sortByCopy.organization = 'custom';
-                }
-
-                if (match.SupplierCategorySortBy) {
-                    //Error Code1
-                    initialAdminSortByCopy = match;
-                    sortByCopy.supplierActivity = match.SupplierCategorySortBy;
-
-                } else {
-                    //Error Code1
-                    initialAdminSortByCopy = { ...match, SupplierCategorySortBy: 'custom' };
-                    sortByCopy.supplierActivity = 'custom';
-                }
-
-
-                setInitialAdminSortBy(initialAdminSortByCopy);
-                setSortBy(sortByCopy);
-            }
-        }
+  useEffect(() => {
+    if (gridRefBuilder?.current) {
+      const headerCells = gridRefBuilder.current.element.querySelectorAll('.k-header');
+      let calculatedFixedColumnWidth = 0;
+      let dynamicWidth = 0;
+      headerCells.forEach((cell, index) => {
+        if (gridRefBuilder.current.columns[index].width != undefined) {
+          if (gridRefBuilder.current.columns[index].width.toString().indexOf('px') > -1) {
+            calculatedFixedColumnWidth = calculatedFixedColumnWidth + parseInt(gridRefBuilder.current.columns[index].width)
+          }
+          else {
+            dynamicWidth = dynamicWidth + gridRefBuilder.current.columns[index].width;
+          }
+        };
+        const columnHeader = gridRefBuilder.current.columns[index].title;
+        cell.title = columnHeader;
+      });
+      setCalculatedDynamicColWidth(dynamicWidth);
+      setTotalColumnFixedWidth(calculatedFixedColumnWidth)
     }
+  }, [gridRefBuilder])
 
-    // checklistType states
-    const [organizationTypeData, setOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
-    const [disableChecklistTypePage, setDisableChecklistTypePage] = useState(false);
-    const [organizationTypeDataState, setOrganizationTypeDataState] = React.useState<State>({});
-    const [checklistTypeActiveItem, setChecklistTypeActiveItem] = useState<OrganizationTypeMasterTable | null>(null);
-    const [organizationData, setOrganizationData] = useState<OrganizationTableData[]>([]);
-    // Error code 1 states
-    const [supplierActivityData, setSupplierActivityData] = useState<SupplierActivityMasterTable[]>([]);
-    const [supplierCategoryData, setSupplierCategoryData] = useState<SupplierCategoryMasterTable[]>([]);
-    const [supplierCategoryDataState, setSupplierCategoryDataState] = useState<State>({});
-    const [organizationDataState, setOrganizationDataState] = useState<State>({});
-    const [errorCodeDeleteData, setErrorCodeDeleteData] = useState<SupplierActivityMasterTable[]>([]);
-    const [disableErrorCodePage, setDisableErrorCodePage] = useState(false);
-    const [selectedOrgId, setSelectedOrgId] = useState<OrganizationTypeMasterTable | null>(null);
-    const [selectedSupplierActivityState, setSelectedSupplierActivityState] = useState<{
-        [id: string]: boolean | number[];
-    }>({});
-    const [supplierActivityDataState, setSupplierActivityDataState] = React.useState<State>({});
-    const [errorCodeMasterActiveItem, setErrorCodeMasterActiveItem] = useState<SupplierActivityMasterTable | null>(null);
-    const [supplierCategoryActiveItem, setSupplierCategoryActiveItem] = useState<SupplierCategoryMasterTable | null>(null);
-    const [organizationActiveItem, setOrganizationActiveItem] = useState<OrganizationTableData | null>(null);
-
-    // Organization Type handlers
-    const CreateOrganizationType = () => {
-        const newOrganizatonType: OrganizationTypeMasterTable = {
-            ORGID: new Date().getTime(),
-            ORGTYPE: "",
-            newFlag: true,
-            SORT_ORDER: organizationTypeData.length + 1,
-            USERDEFINED_FLAG: "Y",
-            ISACTIVE: true
-        };
-
-        setOrganizationTypeData([newOrganizatonType, ...organizationTypeData]);
-        setDirtyFlag(true);
-
-    };
-    const organizationTypeColumnPropsBuilder = (field) => {
-        return {
-            field: field,
-            columnMenu: ColumnMenuBuilder,
-            headerClassName: isColumnActive(field, organizationTypeDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
-        };
-    };
-    const onOrganizationTypeDatastateChange = (event: GridDataStateChangeEvent) => {
-        setOrganizationTypeDataState(event.dataState);
-    };
-    const organizationTypeItemChange = async (event: GridItemChangeEvent) => {
-        let tempChickListType = [...organizationTypeData];
-        const match = tempChickListType.findIndex((i) => i.ORGID === event.dataItem.ORGID);
-
-        if (match !== -1 && event.field) {
-            tempChickListType[match] = event.dataItem;
-            setOrganizationTypeData(tempChickListType);
-            setDirtyFlag(true);
+  const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
+    let k_grid_width = document.querySelector(`kgrid-oss-admin-table-errorCode`)?.clientWidth;
+    let fixedWidth = totalColumnFixedWidth;
+    let dynamicWidth = 0;
+    let minScreenWidth = 1250;
+    if (k_grid_width) {
+      if (k_grid_width <= minScreenWidth) {
+        return minWidth;
+      }
+      else {
+        dynamicWidth = k_grid_width - fixedWidth;
+        if (width == 0 && dynamicWidth > 0 && percentage > 0) {
+          const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
+          return Math.max(minWidth, dynamicColumnWidth);
         }
-    };
-    type OperationType = "add" | "update" | "delete";
-
-
-
-    const saveOrganizationType = async () => {
-        if (!dirtyFlag) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "No data to save.",
-                })
-            );
-            return;
+        else {
+          return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
         }
+      }
+    }
+  }
 
-        // 1) Basic validation: empty & duplicate check (case-insensitive)
-        const copy = [...organizationTypeData];
+  const SupplierActivityCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
+    const { dataItem } = cellProps;
+    const field = cellProps.field || "";
+    const dataValue = dataItem[field] === null ? "" : dataItem[field];
 
-        if (copy.some((i) => i.ORGTYPE.trim() === "")) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Please Fill details.",
-                })
-            );
-            return;
-        }
+    const handleChange: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (event) => {
+      if (cellProps.onChange) {
+        const updatedDataItem: SupplierActivityMasterTable = { ...cellProps.dataItem };
+        updatedDataItem.ACTIVITYCATEGORY = event.target.value;
 
-        const uniqueCount = Array.from(
-            new Set(copy.map((i) => i.ORGTYPE.trim().toLowerCase()))
-        ).length;
-
-        if (uniqueCount !== copy.length) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Organization Types must be unique.",
-                })
-            );
-            return;
-        }
-
-        let sorted = [...organizationTypeData];
-        if (sortBy.organizationType === "asc" || sortBy.organizationType === "desc") {
-            sorted = _.orderBy(sorted, ["ORGTYPE"], [sortBy.organizationType]);
-            let i = 1;
-            sorted = sorted.map((x) => ({ ...x, SORT_ORDER: i++ }));
-        }
-
-        // 3) Build Items for the new MasterData payload
-
-
-        const items: MasterDataItem[] = sorted
-            .filter(row => row.newFlag) // keep only adds
-            .map(row => ({
-                Id: 0,
-                OperationType: "add" as const,
-                Name: String(row.ORGTYPE ?? "").trim(),
-                IsActive: row.ISACTIVE ? "Y" : "N",
-                Description: "",
-                Notes: "",
-                Address: "",
-                Department: "",
-                Phone: "",
-                Email: "",
-                Title: "",
-            }));
-
-        const payload: MasterDataPayload = {
-            MasterDataType: "OrganizationType",
-            Items: items,
-        };
-
-        try {
-
-            await EasaListService.addMasterDataType(payload);
-            setOrganizationTypeData(sorted);
-            setDirtyFlag(false);
-            fetchOrganizationType();
-
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "success",
-                    snackbarMessage: "Organization Type(s) saved successfully.",
-                })
-            );
-        } catch (error) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Error saving Organization Types.",
-                })
-            );
-        }
-    };
-    const fetchOrganizationType = () => {
-        let masterdataType = 0;
-        EasaListService.getAdminMasterDetailsType(masterdataType)
-            .then((response) => {
-                let result: OrganizationTypeMasterTable[] = response?.data.map(x => ({
-                    ORGID: x.ORGID,
-                    ORGTYPE: x.ORGTYPE,
-                    newFlag: x.newFlag,
-                    SORT_ORDER: x.SORT_ORDER,
-                    USERDEFINED_FLAG: x.USERDEFINED_FLAG,
-                    ISACTIVE: x.ISACTIVE === "Y"
-                }));
-
-                setOrganizationTypeData(result);
-            })
-            .catch((err) => console.error(err));
-    };
-    const organizationtypeDragStart = (dataItem: OrganizationTypeMasterTable) => {
-        setChecklistTypeActiveItem(dataItem);
-    };
-    const organizationTypeReorder = (dataItem: OrganizationTypeMasterTable) => {
-        if (checklistTypeActiveItem === dataItem) return;
-
-        let reorderData = [...organizationTypeData];
-        let prevIndex = reorderData.findIndex((p) => p === checklistTypeActiveItem);
-        let nextIndex = reorderData.findIndex((p) => p === dataItem);
-        reorderData.splice(prevIndex, 1);
-        reorderData.splice(nextIndex, 0, checklistTypeActiveItem || reorderData[0]);
-        let sorOrderIndex: number = 1;
-        reorderData.forEach((row) => {
-            row.SORT_ORDER = sorOrderIndex;
-            sorOrderIndex++;
+        cellProps.onChange({
+          dataIndex: cellProps.dataIndex,
+          dataItem: updatedDataItem,
+          field: cellProps.field,
+          syntheticEvent: event,
+          value: event.target.value,
         });
-        setOrganizationTypeData(reorderData);
-        setDirtyFlag(true);
+      }
     };
-    //organization handlers
-    function organizationDragStart(dataItem: OrganizationTableData) {
-        setOrganizationActiveItem(dataItem);
-    }
-    function organizationMasteReorder(dataItem: OrganizationTableData) {
-        if (selectedPage === "Organization") {
-            if (organizationActiveItem === dataItem) return;
-            let reorderData = [...organizationData];
-            let prevIndex = reorderData.findIndex((p) => p === organizationActiveItem);
-            let nextIndex = reorderData.findIndex((p) => p === dataItem);
-            reorderData.splice(prevIndex, 1);
-            reorderData.splice(nextIndex, 0, organizationActiveItem || reorderData[0]);
-            let sorOrderIndex: number = 1;
-            reorderData.forEach((row) => {
-                row.SORT_ORDER = sorOrderIndex;
-                sorOrderIndex++;
-            });
-            setOrganizationData(reorderData);
-        }
 
-        setDirtyFlag(true);
-    }
-    const organizationItemChange = async (event: GridItemChangeEvent) => {
-        let tempOrg = [...organizationData];
-        const match = tempOrg.findIndex((i) => i.ID === event.dataItem.ID);
-
-        if (match !== -1 && event.field) {
-            tempOrg[match] = event.dataItem;
-            setOrganizationData(tempOrg);
-            setDirtyFlag(true);
-        }
-    };
-    const CreateOrganization = () => {
-        const newOrganization: OrganizationTableData = {
-            ID: new Date().getTime(),
-            newFlag: true,
-            SORT_ORDER: organizationData.length + 1,
-            NOTES: "",
-            ORGANIZATIONNAME: "",
-            ORGANIZATIONDESCRIPTION: "",
-            ISACTIVE: true,
-
-        };
-        setOrganizationData([newOrganization, ...organizationData]);
-        setDirtyFlag(true);
-
-    };
-    const saveOrganization = async () => {
-        if (!dirtyFlag) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "No data to save.",
-                })
-            );
-            return;
-        }
-
-        const copy = [...organizationData];
-
-        if (copy.some((i) => i.ORGANIZATIONNAME.trim() === "")) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Please Fill details.",
-                })
-            );
-            return;
-        }
-
-        const uniqueCount = Array.from(
-            new Set(copy.map((i) => i.ORGANIZATIONNAME.trim().toLowerCase()))
-        ).length;
-
-        if (uniqueCount !== copy.length) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Organization Name must be unique.",
-                })
-            );
-            return;
-        }
-
-        let sorted = [...organizationData];
-        if (sortBy.organization === "asc" || sortBy.organization === "desc") {
-            sorted = _.orderBy(sorted, ["ORGANIZATIONNAME"], [sortBy.organization]);
-            let i = 1;
-            sorted = sorted.map((x) => ({ ...x, SORT_ORDER: i++ }));
-        }
-
-        // 3) Build Items for the new MasterData payload
-        const items: MasterDataItem[] = sorted.map((row) => ({
-            Id: row.newFlag ? 0 : Number(row.ID ?? 0),
-            OperationType: row.newFlag ? "add" : "update",
-            Name: String(row.ORGANIZATIONNAME ?? "").trim(),
-            IsActive: row.ISACTIVE ? "Y" : "N",
-            Description: String(row.ORGANIZATIONDESCRIPTION ?? "").trim(),
-            Notes: String(row.NOTES ?? "").trim(),
-            Address: "",
-            Department: "",
-            Phone: "",
-            Email: "",
-            Title: "",
-
-        }));
-
-        const payload: MasterDataPayload = {
-            MasterDataType: "Organization",
-            Items: items,
-        };
-
-        try {
-
-            await EasaListService.addMasterDataType(payload);
-            setOrganizationData(sorted);
-            setDirtyFlag(false);
-            fetchOrganization();
-
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "success",
-                    snackbarMessage: "Organization saved successfully.",
-                })
-            );
-        } catch (error) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Error saving Organization",
-                })
-            );
-        }
-    };
-    const fetchOrganization = () => {
-        let masterdataType = 1;
-        EasaListService.getAdminMasterDetailsType(masterdataType)
-            .then((response) => {
-                let result: OrganizationTableData[] = response?.data.map(org => ({
-                    ORGANIZATIONNAME: org.ORGANIZATIONNAME,
-                    ORGANIZATIONDESCRIPTION: org.ORGANIZATIONDESCRIPTION,
-                    NOTES: org.NOTES,
-                    ISACTIVE: org.ISACTIVE
-                }));
-                setOrganizationData(result);
-            })
-            .catch((err) => console.error(err));
-    };
-    const onOrganizationDatastateChange = (event: GridDataStateChangeEvent) => {
-        setOrganizationDataState(event.dataState)
-    };
-    const OrganizationColumnPropsBuilder = (field) => {
-        return {
-            field: field,
-            columnMenu: ColumnMenuBuilder,
-            headerClassName: isColumnActive(field, supplierCategoryDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
-        };
-    };
-    // Supplier Activity handlers
-    const CreateSupplierActivity = () => {
-        if (!disableErrorCodePage) {
-            const newSupplierActivity: SupplierActivityMasterTable = {
-                ID: new Date().getTime(),
-                ACTIVITYDESCRIPTION: "",
-                ACTIVITYCATEGORY: "",
-                newFlag: true,
-                SORT_ORDER: supplierActivityData.length + 1,
-                ISACTIVE: true,
-                USERDEFINED_FLAG: "Y",
-            };
-            setSupplierActivityData([newSupplierActivity, ...supplierActivityData]);
-            setDirtyFlag(true);
-        }
-    };
-    const supplierActivityColumnPropsBuilder = (field) => {
-        return {
-            field: field,
-            columnMenu: ColumnMenuBuilder,
-            headerClassName: isColumnActive(field, supplierActivityDataState) ? "active kgrid-oss-admin-table-errorCode1-header" : "kgrid-oss-admin-table-errorCode1-header",
-        };
-    };
-    const onSupplierActivityDataStateChange = (event: GridDataStateChangeEvent) => {
-        setSupplierActivityDataState(event.dataState);
-    };
-    const supplierActivityItemChange = async (event: GridItemChangeEvent) => {
-        let tempErrorCodes = [...supplierActivityData];
-        const match = tempErrorCodes.findIndex((i) => i.ID === event.dataItem.ID);
-
-        if (match !== -1 && event.field) {
-            tempErrorCodes[match] = event.dataItem;
-
-            setSupplierActivityData(tempErrorCodes);
-            setDirtyFlag(true);
-        }
-    };
-    const onSaveSupplierActivity = async () => {
-        if (!dirtyFlag) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "No data to save.",
-                })
-            );
-            return;
-        }
-
-        // 1) Basic validation: empty & duplicate check (case-insensitive)
-        const copy = [...supplierActivityData];
-
-        if (copy.some((i) => i.ACTIVITYCATEGORY.trim() === "")) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Please Fill details.",
-                })
-            );
-            return;
-        }
-
-        const uniqueCount = Array.from(
-            new Set(copy.map((i) => i.ACTIVITYCATEGORY.trim().toLowerCase()))
-        ).length;
-
-        if (uniqueCount !== copy.length) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Supplier Activity must be unique.",
-                })
-            );
-            return;
-        }
-
-        let sorted = [...supplierActivityData];
-        if (sortBy.supplierActivity === "asc" || sortBy.supplierActivity === "desc") {
-            sorted = _.orderBy(sorted, ["ACTIVITYCATEGORY"], [sortBy.supplierActivity]);
-            let i = 1;
-            sorted = sorted.map((x) => ({ ...x, SORT_ORDER: i++ }));
-        }
-
-        // 3) Build Items for the new MasterData payload
-        const items: MasterDataItem[] = sorted.map((row) => ({
-            Id: row.newFlag ? 0 : Number(row.ID ?? 0),
-            OperationType: row.newFlag ? "add" : "update",
-            Name: String(row.ACTIVITYCATEGORY ?? "").trim(),
-            IsActive: row.ISACTIVE ? "Y" : "N",
-            Description: String(row.ACTIVITYDESCRIPTION ?? "").trim(),
-            Notes: "",
-            Address: "",
-            Department: "",
-            Phone: "",
-            Email: "",
-            Title: "",
-
-        }));
-
-        const payload: MasterDataPayload = {
-            MasterDataType: "SupplierActivity",
-            Items: items,
-        };
-
-        try {
-
-            await EasaListService.addMasterDataType(payload);
-            setSupplierActivityData(sorted);
-            setDirtyFlag(false);
-            fetchSupplierActivity();
-
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "success",
-                    snackbarMessage: "Supplier Activity saved successfully.",
-                })
-            );
-        } catch (error) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Error saving Supplier Activity.",
-                })
-            );
-        }
-    };
-    const fetchSupplierActivity = () => {
-        let masterdataType = 3;
-        EasaListService.getAdminMasterDetailsType(masterdataType)
-            .then((response) => {
-                console.log(response, 'fetchSupplierActivity');
-                let result: SupplierActivityMasterTable[] = response?.data.map(x => ({
-                    ID: x.ORGID,
-                    ACTIVITYCATEGORY: x.ACTIVITYCATEGORY,
-                    ACTIVITYDESCRIPTION: x.ACTIVITYDESCRIPTION,
-                    ISACTIVE: x.ISACTIVE === "Y"
-                }));
-
-                setSupplierActivityData(result);
-            })
-            .catch((err) => console.error(err));
-    };
-    function supplierActivityMasterTableDragStart(dataItem: SupplierActivityMasterTable) {
-        setErrorCodeMasterActiveItem(dataItem);
-    }
-    function supplierActivityMastereorder(dataItem: SupplierActivityMasterTable) {
-        if (selectedPage === "Supplier Activity Authorized") {
-            if (errorCodeMasterActiveItem === dataItem) return;
-            let reorderData = [...supplierActivityData];
-            let prevIndex = reorderData.findIndex((p) => p === errorCodeMasterActiveItem);
-            let nextIndex = reorderData.findIndex((p) => p === dataItem);
-            reorderData.splice(prevIndex, 1);
-            reorderData.splice(nextIndex, 0, errorCodeMasterActiveItem || reorderData[0]);
-            let sorOrderIndex: number = 1;
-            reorderData.forEach((row) => {
-                row.SORT_ORDER = sorOrderIndex;
-                sorOrderIndex++;
-            });
-            setSupplierActivityData(reorderData);
-        }
-        setDirtyFlag(true);
-    }
-
-    //supplier category Handles
-    function supplierCategoryMasterTableDragStart(dataItem: SupplierCategoryMasterTable) {
-        setSupplierCategoryActiveItem(dataItem);
-    }
-    function supplierCategoryMasterReorder(dataItem: SupplierCategoryMasterTable) {
-        if (selectedPage === "Supplier Category") {
-            if (supplierCategoryActiveItem === dataItem) return;
-            let reorderData = [...supplierCategoryData];
-            let prevIndex = reorderData.findIndex((p) => p === supplierCategoryActiveItem);
-            let nextIndex = reorderData.findIndex((p) => p === dataItem);
-            reorderData.splice(prevIndex, 1);
-            reorderData.splice(nextIndex, 0, supplierCategoryActiveItem || reorderData[0]);
-            let sorOrderIndex: number = 1;
-            reorderData.forEach((row) => {
-                row.SORT_ORDER = sorOrderIndex;
-                sorOrderIndex++;
-            });
-            setSupplierCategoryData(reorderData);
-        }
-
-        setDirtyFlag(true);
-    }
-    const supplierCategoryTypeItemChange = async (event: GridItemChangeEvent) => {
-        let tempSupplierCategoryType = [...supplierCategoryData];
-        const match = tempSupplierCategoryType.findIndex((i) => i.ID === event.dataItem.ID);
-
-        if (match !== -1 && event.field) {
-            tempSupplierCategoryType[match] = event.dataItem;
-            setSupplierCategoryData(tempSupplierCategoryType);
-            setDirtyFlag(true);
-        }
-    };
-    const CreateSupplierCategory = () => {
-        const newSupplierCategory: SupplierCategoryMasterTable = {
-            ID: new Date().getTime(),
-            DESCRIPTION: "",
-            newFlag: true,
-            SORT_ORDER: supplierActivityData.length + 1,
-            ISACTIVE: true,
-            USERDEFINED_FLAG: "Y",
-
-        };
-        setSupplierCategoryData([newSupplierCategory, ...supplierCategoryData]);
-        setDirtyFlag(true);
-
-    };
-    const saveSupplierCategory = async () => {
-        if (!dirtyFlag) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "No data to save.",
-                })
-            );
-            return;
-        }
-
-        // 1) Basic validation: empty & duplicate check (case-insensitive)
-        const copy = [...supplierCategoryData];
-
-        if (copy.some((i) => i.DESCRIPTION.trim() === "")) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Please Fill details.",
-                })
-            );
-            return;
-        }
-
-        const uniqueCount = Array.from(
-            new Set(copy.map((i) => i.DESCRIPTION.trim().toLowerCase()))
-        ).length;
-
-        if (uniqueCount !== copy.length) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Supplier Category must be unique.",
-                })
-            );
-            return;
-        }
-
-        let sorted = [...supplierCategoryData];
-        if (sortBy.supplierCategory === "asc" || sortBy.supplierCategory === "desc") {
-            sorted = _.orderBy(sorted, ["ORGTYPE"], [sortBy.supplierCategory]);
-            let i = 1;
-            sorted = sorted.map((x) => ({ ...x, SORT_ORDER: i++ }));
-        }
-
-        // 3) Build Items for the new MasterData payload
-        const items: MasterDataItem[] = sorted.map((row) => ({
-            Id: row.newFlag ? 0 : Number(row.ID ?? 0),
-            OperationType: row.newFlag ? "add" : "update",
-            Name: "",
-            IsActive: row.ISACTIVE ? "Y" : "N",
-            Description: String(row.DESCRIPTION ?? "").trim(),
-            Notes: "",
-            Address: "",
-            Department: "",
-            Phone: "",
-            Email: "",
-            Title: "",
-
-        }));
-
-        const payload: MasterDataPayload = {
-            MasterDataType: "SupplierCategory",
-            Items: items,
-        };
-
-        try {
-
-            await EasaListService.addMasterDataType(payload);
-            setSupplierCategoryData(sorted);
-            setDirtyFlag(false);
-            fetchSupplierCategory();
-
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "success",
-                    snackbarMessage: "Supplier Category saved successfully.",
-                })
-            );
-        } catch (error) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Error saving Supplier Category.",
-                })
-            );
-        }
-    };
-    const fetchSupplierCategory = () => {
-        let masterdataType = 2;
-        EasaListService.getAdminMasterDetailsType(masterdataType)
-            .then((response) => {
-                let result: SupplierCategoryMasterTable[] = response?.data.map(category => ({
-                    ID: category.ID,
-                    DESCRIPTION: category.DESCRIPTION,
-                    ISACTIVE: category.ISACTIVE,
-                }));
-                setSupplierCategoryData(result);
-            })
-            .catch((err) => console.error(err));
-    };
-    const onSupplierCategoryDatastateChange = (event: GridDataStateChangeEvent) => {
-        setSupplierCategoryDataState(event.dataState)
-    };
-    const supplierCategoryColumnPropsBuilder = (field) => {
-        return {
-            field: field,
-            columnMenu: ColumnMenuBuilder,
-            headerClassName: isColumnActive(field, supplierCategoryDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
-        };
-    };
-    //sorting functionality
-    const handleSortByChange = (key: keyof SortByData, value: 'custom' | 'asc' | 'desc', setScreenDirty: boolean = true) => {
-        if (key === 'organization') {
-            let ascCategoryData: CategoryTypeTable[] = [...categoryTypeGridData];
-
-            if (value === 'asc' || value === 'desc') {
-                ascCategoryData = _.orderBy(ascCategoryData, ["CategoryType"], [value]);
-
-                let i = 1;
-                ascCategoryData = ascCategoryData.map(x => ({ ...x, Sorting: i++ }));
-                setCategoryTypeGridData(ascCategoryData);
-            }
-        }
-
-        if (key === 'organizationType') {
-            let ascChecklistData: OrganizationTypeMasterTable[] = [...organizationTypeData];
-
-            if (value === 'asc' || value === 'desc') {
-                ascChecklistData = _.orderBy(ascChecklistData, ["ORGTYPE"], [value]);
-
-                let i = 1;
-                ascChecklistData = ascChecklistData.map(x => ({ ...x, SORT_ORDER: i++ }));
-                setOrganizationTypeData(ascChecklistData);
-            }
-        }
-
-        if (key === 'supplierCategory') {
-            let ascChecklistData: SupplierCategoryMasterTable[] = [...supplierCategoryData];
-
-            if (value === 'asc' || value === 'desc') {
-                ascChecklistData = _.orderBy(ascChecklistData, ["DESCRIPTION"], [value]);
-
-                let i = 1;
-                ascChecklistData = ascChecklistData.map(x => ({ ...x, SORT_ORDER: i++ }));
-                setSupplierCategoryData(ascChecklistData);
-            }
-        }
-
-        if (key === 'supplierActivity') {
-            let ascErrorCodeData: SupplierActivityMasterTable[] = [...supplierActivityData];
-
-            if (value === 'asc' || value === 'desc') {
-                ascErrorCodeData = _.orderBy(ascErrorCodeData, ["ACTIVITYCATEGORY"], [value]);
-
-                let i = 1;
-                ascErrorCodeData = ascErrorCodeData.map(x => ({ ...x, SORT_ORDER: i++ }));
-                setSupplierActivityData(ascErrorCodeData);
-            }
-        }
-
-        setSortBy({ ...sortBy, [key]: value });
-        if (setScreenDirty) {
-            setDirtyFlag(true);
-        }
-    }
-
-    //Handle fetching Register Types Asynchronously
-    const fetchMasterDataTypes = async () => {
-        const result = await EasaListService.getAdminMasterData();
-        const data = result?.data ?? [];
-        setMasterDataOptions(data);
-
-        console.log(result, data, 'data');
-    };
-    const handleOrg = (event) => {
-        setSelectedOrgId(event.target.value);
-    }
-    useEffect(() => {
-        var storageService = new StorageService();
-        let isItarApp = storageService.getIsItarApp();
-        setIsItarAppFlag(isItarApp == "Y" ? true : false);
-        fetchOrganizationType();
-        fetchSupplierCategory();
-        fetchSupplierActivity();
-        fetchOrganization();
-        getAdminSortValues();
-    }, []);
-
-    useEffect(() => {
-        const storageService = new StorageService();
-        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, dirtyFlag);
-
-        return () => {
-            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
-        };
-    }, [dirtyFlag]);
-    useEffect(() => {
-        fetchMasterDataTypes();
-    }, []);
-    console.log(organizationTypeData, supplierCategoryData, supplierActivityData, 'organizationTypeData');
     return (
-        <div className="FPQDetails-Admin-table-maintenance">
-            <div className="FPQDetails-Admin-table-maintenance-topbar">
-                <div>Master Data</div>
-                <Select id="admin-table-page-selector" style={{ maxWidth: isItarAppFlag ? 280 : 210, minWidth: isItarAppFlag ? 280 : 210 }} value={selectedPage} onChange={handlePageChange} size="medium">
-                    {Options.map((item) => (
-                        <MenuItem
-                            key={item}
-                            value={item}
-                            className="text-normal"
-                        >
-                            {item}
-                        </MenuItem>
-                    ))}
-                </Select>
-                {selectedPage === "Organization" && (
-                    <div style={{ marginLeft: 16, display: "flex", gap: 8, justifyContent: "flex-start", alignItems: "center", fontSize: 14 }}>
-                        Organization Type
-                        <Select id="admin-table-page-selector" style={{ maxWidth: isItarAppFlag ? 280 : 210, minWidth: isItarAppFlag ? 280 : 210 }} value={selectedOrgId} onChange={handleOrg} size="medium">
-                            {organizationTypeData.map((item) => (
-                                <MenuItem
-                                    key={item.ORGID}
-                                    value={item.ORGID}
-                                    className="text-normal"
-                                >
-                                    {item.ORGTYPE}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </div>
-                )}
-            </div>
-
-            <div className="FPQDetails-Admin-table-maintenance-section">
-                {selectedPage === "Supplier Category" && (
-                    <>
-                        <SupplierCategoryTable
-                            key="kgrid-oss-admin-table-checklistType-comp"
-                            columnPropsBuilder={supplierCategoryColumnPropsBuilder}
-                            KEY={SUPPLIER_CATEGORY_DATA_ITEM_KEY}
-                            supplierCategoryData={supplierCategoryData}
-                            dataState={supplierCategoryDataState}
-                            dataStateChange={onSupplierCategoryDatastateChange}
-                            itemChange={supplierCategoryTypeItemChange}
-                            createSupplierCategory={CreateSupplierCategory}
-                            saveSupplierCategory={saveSupplierCategory}
-                            dragStart={supplierCategoryMasterTableDragStart}
-                            reorder={supplierCategoryMasterReorder}
-                            sortBy={sortBy.supplierCategory}
-                            handleSortByChange={handleSortByChange}
-                        />
-                    </>
-                )}
-
-                {
-                    selectedPage === "Organization" && (
-                        <OrganizationTable
-                            key="kgrid-oss-admin-table-errorCode-comp-1"
-                            KEY={ORGANIZATION_DATA_ITEM_KEY}
-                            columnPropsBuilder={OrganizationColumnPropsBuilder}
-                            organizationData={organizationData}
-                            dataState={organizationDataState}
-                            dataStateChange={onOrganizationDatastateChange}
-                            itemChange={organizationItemChange}
-                            createOrganization={CreateOrganization}
-                            saveOrganization={saveOrganization}
-                            dragStart={organizationDragStart}
-                            reorder={organizationMasteReorder}
-                            sortBy={sortBy.supplierActivity}
-                            handleSortByChange={handleSortByChange}
-                        />
-                    )
-                }
-
-                {selectedPage === "Organization Type" && (
-                    <OrganizationTypeTable
-                        key="kgrid-oss-admin-table-checklistType-comp"
-                        KEY={ORGANIZATION_TYPE_DATA_ITEM_KEY}
-                        columnPropsBuilder={organizationTypeColumnPropsBuilder}
-                        organizationTypeData={organizationTypeData}
-                        dataState={organizationTypeDataState}
-                        dataStateChange={onOrganizationTypeDatastateChange}
-                        itemChange={organizationTypeItemChange}
-                        createOrganizationType={CreateOrganizationType}
-                        saveOrganizationType={saveOrganizationType}
-                        dragStart={organizationtypeDragStart}
-                        reorder={organizationTypeReorder}
-                        sortBy={sortBy.organizationType}
-                        handleSortByChange={handleSortByChange}
-                    />
-                )}
-
-                {selectedPage === "Supplier Activity Authorized" && (
-                    <SupplierActivityTable
-                        key="kgrid-oss-admin-table-errorCode-comp-1"
-                        KEY={SUPPLIER_ACTIVITY_DATA_ITEM_KEY}
-                        columnPropsBuilder={supplierActivityColumnPropsBuilder}
-                        supplierActivityData={supplierActivityData}
-                        dataState={supplierActivityDataState}
-                        dataStateChange={onSupplierActivityDataStateChange}
-                        itemChange={supplierActivityItemChange}
-                        createSupplierActivity={CreateSupplierActivity}
-                        saveSupplierActivity={onSaveSupplierActivity}
-                        dragStart={supplierActivityMasterTableDragStart}
-                        reorder={supplierActivityMastereorder}
-                        sortBy={sortBy.supplierActivity}
-                        handleSortByChange={handleSortByChange}
-                    />
-                )}
-
-
-
-            </div>
-        </div>
+      <td title={cellProps.dataItem.ACTIVITYCATEGORY}>
+        <TextField
+          fullWidth
+          className="dc-fpqdetails-categoryname-input"
+          value={dataValue}
+          onChange={handleChange}
+        />
+      </td>
     );
-};
+  }, []);
 
-export default TableMaintenance;
+  const SupplierActivityDescCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
+    const { dataItem } = cellProps;
+    const field = cellProps.field || "";
+    const dataValue = dataItem[field] === null ? "" : dataItem[field];
 
-const modalStyle = {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    width: 500,
-    bgcolor: "background.paper",
-    boxShadow: 24,
-    borderRadius: "0.5rem",
-    padding: "24px",
-};
+    const handleChange: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (event) => {
+      if (cellProps.onChange) {
+        const updatedDataItem: SupplierActivityMasterTable = { ...cellProps.dataItem };
+        updatedDataItem.ACTIVITYDESCRIPTION = event.target.value;
+        cellProps.onChange({
+          dataIndex: cellProps.dataIndex,
+          dataItem: updatedDataItem,
+          field: cellProps.field,
+          syntheticEvent: event,
+          value: event.target.value,
+        });
+      }
+    };
+    return (
+      <td title={cellProps.dataItem.ACTIVITYDESCRIPTION}>
+        <TextField
+          fullWidth
+          className="dc-fpqdetails-categoryname-input"
+          value={dataValue}
+          onChange={handleChange}
+        // error={props.supplierActivityData.some((i) => i.ACTIVITYDESCRIPTION.trim().toLowerCase() === dataValue.trim().toLowerCase() && i.ERROR_CODE_ID !== cellProps.dataItem.ERROR_CODE_ID)}
+        />
 
-const objectsEqual = (o1: any, o2: any) => (typeof o1 === "object" && Object.keys(o1).length > 0 ? Object.keys(o1).length === Object.keys(o2).length && Object.keys(o1).every((p) => objectsEqual(o1[p], o2[p])) : o1 === o2);
+      </td>
+    );
+  }, []);
 
-const arraysEqual = (a1: Array<any>, a2: Array<any>) => a1.length === a2.length && a1.every((o, idx) => objectsEqual(o, a2[idx]));
+
+  const DragCell: React.ComponentType<GridCellProps> = (dragcellprops) => {
+    return (
+      <td
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          props.reorder(dragcellprops.dataItem);
+        }}
+      >
+        <span
+          className="k-icon k-i-reorder"
+          draggable={true}
+          style={{
+            cursor: "move",
+            color: "#737373",
+            display: "flex",
+            justifyContent: "center",
+          }}
+          onDragStart={(e) => {
+            props.dragStart(dragcellprops.dataItem);
+            e.dataTransfer.setData("dragging", "");
+          }}
+        >
+          <SortIcon />
+        </span>
+      </td>
+    );
+  };
+
+  const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
+    const dataItem: SupplierActivityMasterTable = cellProps.dataItem;
+    const handleActiveChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+      if (cellProps.onChange) {
+        const updatedDataItem: SupplierActivityMasterTable = { ...dataItem };
+        updatedDataItem.ISACTIVE = e.target.checked;
+        if (e.target.checked) {
+          cellProps.onChange({
+            dataIndex: cellProps.dataIndex,
+            dataItem: updatedDataItem,
+            field: cellProps.field,
+            syntheticEvent: {} as React.SyntheticEvent, // Faking the syntheticEvent since it's not triggered by focus
+            value: e.target.value,
+          });
+        }
+      }
+    };
+
+    return (
+      <td title={dataItem.ISACTIVE ? "True" : "False"}>
+        <div style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <input type="checkbox" style={{ marginLeft: "3px", cursor: "pointer" }} checked={dataItem.ISACTIVE} onChange={handleActiveChange} />
+        </div>
+      </td>
+    );
+  };
+
+  return (
+    <div style={{ height: "calc(100vh - 320px)" }}>
+      <Card style={{ borderLeft: "4px solid #0033A1", marginLeft: "22px", overflow: "hidden", maxHeight: "calc(100vh - 320px)" }}>
+        <AnyGrid
+          id="kgrid-oss-checklistType"
+          ref={gridRefBuilder}
+          data={process(props.supplierActivityData, props.dataState).data}
+          selectable={{ enabled: true, drag: false, cell: false, mode: "multiple" }}
+          editField={editField}
+          onItemChange={props.itemChange}
+          resizable
+          dataItemKey={props.KEY}
+          scrollable="scrollable"
+          sortable={false}
+          rowHeight={30}
+          {...props.dataState}
+          selectedField={SELECTED_FIELD}
+          onDataStateChange={props.dataStateChange}
+          columnMenuIcon={filterIcon}
+        // rowRender={detailRowRenderer}
+        >
+          <GridToolbar>
+            <div style={{ display: "flex" }}>
+              <div style={{ display: "flex", gap: 8, minWidth: 0, flexShrink: 1 }}>
+                <>
+                  <Button
+                    startIcon={<AddCircleOutlineIcon className="iconClass" style={{ width: 20, height: 20, color: "#737373" }} />}
+                    id="addFavBtn"
+                    onClick={props.createSupplierActivity}
+                    variant="outlined"
+                    size="small"
+                    color="inherit"
+                  >
+                    <Typography variant="button" sx={{ textTransform: "none" }}>
+                      <b style={{ fontWeight: "normal" }}>Create New</b>
+                    </Typography>
+                  </Button>
+                  <Button id="addFavBtn"
+                    // disabled={true}
+                    onClick={props.saveSupplierActivity}
+                    variant="outlined" size="small" color="inherit">
+                    <Typography variant="button" sx={{ textTransform: "none" }}>
+                      <b style={{ fontWeight: "normal" }}>Save</b>
+                    </Typography>
+                  </Button>
+                </>
+              </div>
+              <div style={{ display: "inline-flex", gap: 8, justifyContent: "center", alignItems: "center", marginLeft: "750px" }}>
+                <p style={{ margin: 0, padding: 0 }}>Sort Order : </p>
+                <Select
+                  value={props.sortBy || "custom"}
+                  style={{ width: "160px" }}
+                  onChange={(e) => props.handleSortByChange("supplierActivity", e.target.value as "custom" | "asc" | "desc")}
+                >
+                  <MenuItem value="custom"><SettingsIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Customize</MenuItem>
+                  <MenuItem disabled={props.sortBy === undefined} value="asc"><ArrowUpwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Supplier Activity: Ascending</MenuItem>
+                  <MenuItem disabled={props.sortBy === undefined} value="desc"><ArrowDownwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Supplier Activity: Descending</MenuItem>
+                </Select>
+              </div>
+            </div>
+          </GridToolbar>
+          <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
+          <GridColumn {...props.columnPropsBuilder("ACTIVITYCATEGORY")} title={"Activity Category"} cells={{ data: SupplierActivityCell }} width={'450px'} columnMenu={GridFilterMenuWithoutSort} />
+          <GridColumn {...props.columnPropsBuilder("ACTIVITYDESCRIPTION")} title={"Activity Description"} cells={{ data: SupplierActivityDescCell }} width={setPercentage(undefined, 0, 272)} columnMenu={GridFilterMenuWithoutSort} />
+          <GridColumn {...props.columnPropsBuilder("ISACTIVE")} title="Active" cells={{ data: activeCheckbox }} width={"165px"} columnMenu={GridFilterMenuWithoutSort} />
+        </AnyGrid>
+      </Card>
+    </div>
+  );
+});
+export default SupplierActivityTable;
