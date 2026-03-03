@@ -3,26 +3,21 @@ import {
     MenuItem, Select,
     SelectChangeEvent
 } from "@mui/material";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-    CategoryControlTableConfigList, CategoryTypeTable,
+    CategoryTypeTable,
     OrganizationTypeMasterTable,
-    SupplierActivityMasterTable, GetCategoryNameResponse, GetCategoryTypesResponse,
-    GetParentCategoriesResponse, GetAdminSortByResponse,
+    SupplierActivityMasterTable, GetAdminSortByResponse,
     SortByData,
-    SupplierCategoryMasterTable,
-    OrganizationMasterData,
-    OrganizationTableData,
-    OrganizationMasterTable
+    SupplierCategoryMasterTable, OrganizationTableData
 } from "./AdminModal";
 
 import EasaListService from "../EasaRegisterListService";
 import { useDispatch } from "react-redux";
-import { State, process, getter } from "@progress/kendo-data-query";
+import { State, getter } from "@progress/kendo-data-query";
 import {
     GridColumnMenuFilter, GridColumnMenuSort,
-    GridDataStateChangeEvent, GridHeaderSelectionChangeEvent,
-    GridItemChangeEvent,
+    GridDataStateChangeEvent, GridItemChangeEvent,
     isColumnMenuFilterActive,
     isColumnMenuSortActive
 } from "@progress/kendo-react-grid";
@@ -30,7 +25,6 @@ import * as _ from "lodash";
 import ConfigurationService from "./ConfigurationService";
 import EnvDetail from "../../../../../utils/EnvDetail";
 import { showSnackbar } from "../../../../core/snackbar/CustomSnackBarSlice";
-import { userDefinedConfirm } from "../../../../../utils/ConfirmDialog";
 import StorageService from "../../../../../utils/StorageService";
 import OrganizationTypeTable from "./OrganizationType/OrganizationTypeTable";
 import SupplierActivityTable from "./SupplierActivity/SupplierActivityTable";
@@ -63,6 +57,23 @@ const ColumnMenuBuilder = (props) => {
         </div>
     );
 };
+interface MasterDataItem {
+    Id: number;
+    OperationType: string;
+    Name: string;
+    Description: string;
+    Notes: string;
+    IsActive: "Y" | "N";
+    Address: string;
+    Department: string;
+    Phone: string;
+    Email: string;
+    Title: string;
+}
+interface MasterDataPayload {
+    MasterDataType: string;
+    Items: MasterDataItem[];
+}
 const Options = [
     "Organization Type",
     "Organization",
@@ -95,6 +106,9 @@ const TableMaintenance: React.FC = () => {
     const [selectedPage, setSelectedPage] = useState<TableMaintenancePage>("Organization Type");
     const [dirtyFlag, setDirtyFlag] = React.useState(false);
     const [isItarAppFlag, setIsItarAppFlag] = React.useState(false);
+    const [originalOrganizationTypeData, setOriginalOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
+    const [originalSupplierCategoryData, setOriginalSupplierCategoryData] = useState<SupplierCategoryMasterTable[]>([]);
+    const [originalSupplierActivityData, setOriginalSupplierActivityData] = useState<SupplierActivityMasterTable[]>([]);
 
     const handlePageChange = async (event: SelectChangeEvent<TableMaintenancePage>): Promise<void> => {
         var storageService = new StorageService();
@@ -115,14 +129,8 @@ const TableMaintenance: React.FC = () => {
     // category type grid page
     const [categoryTypeGridData, setCategoryTypeGridData] = useState<CategoryTypeTable[]>([]);
 
-    // add new category popup states
-    const [newCategoryData, setNewCategoryData] = useState<{ name: string; selectOptions: "One" | "Many"; userDefinedFlag: boolean; mandatoryFlag: boolean }>({ name: "", selectOptions: "One", mandatoryFlag: false, userDefinedFlag: false });
 
-    // category type states
-    const [categoryTypeDropdownOptions, setCategoryTypeDropdownOptions] = useState<CategoryTypeTable[]>([]);
-    const [selectedCategoryType, setSelectedCategoryType] = useState<CategoryTypeTable | null>(null);
-    const [selectedCategoryTypeInitial, setSelectedCategoryTypeInitial] = useState<CategoryTypeTable | null>(null);
-    const [organizationTableData, setOrganizationTableData] = useState<OrganizationTableData[]>([]);
+
     const getAdminSortValues = async () => {
         var storageService = new StorageService();
         let bu = storageService.getSelectedBusinessUnitId();
@@ -177,17 +185,7 @@ const TableMaintenance: React.FC = () => {
             }
         }
     }
-    useEffect(() => {
-        if (selectedCategoryType?.CategoryTypeAttributeId === selectedCategoryTypeInitial?.CategoryTypeAttributeId) {
-            if (selectedCategoryType && (selectedCategoryType.sortBy === "asc" || selectedCategoryType.sortBy === "desc")) {
-                let tempData = [...organizationTableData];
-                tempData = _.orderBy(tempData, ["CategoryName"], [selectedCategoryType.sortBy]);
-                let i = 1;
-                tempData = tempData.map(x => ({ ...x, Sorting: i++ }));
-                setOrganizationTableData(tempData);
-            }
-        }
-    }, [selectedCategoryType]);
+
     // checklistType states
     const [organizationTypeData, setOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
     const [disableChecklistTypePage, setDisableChecklistTypePage] = useState(false);
@@ -201,6 +199,7 @@ const TableMaintenance: React.FC = () => {
     const [organizationDataState, setOrganizationDataState] = useState<State>({});
     const [errorCodeDeleteData, setErrorCodeDeleteData] = useState<SupplierActivityMasterTable[]>([]);
     const [disableErrorCodePage, setDisableErrorCodePage] = useState(false);
+    const [selectedOrgId, setSelectedOrgId] = useState<OrganizationTypeMasterTable | null>(null);
     const [selectedSupplierActivityState, setSelectedSupplierActivityState] = useState<{
         [id: string]: boolean | number[];
     }>({});
@@ -211,19 +210,18 @@ const TableMaintenance: React.FC = () => {
 
     // Organization Type handlers
     const CreateOrganizationType = () => {
-        if (!disableChecklistTypePage) {
-            const newChecklistType: OrganizationTypeMasterTable = {
-                ORGID: new Date().getTime(),
-                ORGTYPE: "",
-                newFlag: true,
-                SORT_ORDER: organizationTypeData.length + 1,
-                USERDEFINED_FLAG: "Y",
-                ISACTIVE: true
-            };
+        const newOrganizatonType: OrganizationTypeMasterTable = {
+            ORGID: new Date().getTime(),
+            ORGTYPE: "",
+            newFlag: true,
+            SORT_ORDER: organizationTypeData.length + 1,
+            USERDEFINED_FLAG: "Y",
+            ISACTIVE: true
+        };
 
-            setOrganizationTypeData([newChecklistType, ...organizationTypeData]);
-            setDirtyFlag(true);
-        }
+        setOrganizationTypeData([newOrganizatonType, ...organizationTypeData]);
+        setDirtyFlag(true);
+
     };
     const organizationTypeColumnPropsBuilder = (field) => {
         return {
@@ -245,125 +243,143 @@ const TableMaintenance: React.FC = () => {
             setDirtyFlag(true);
         }
     };
-    const saveOrganizationType = async () => {
-        if (dirtyFlag) {
-            // null & duplicate check validation
-            const copy = [...organizationTypeData];
-            if (copy.some((i) => i.ORGTYPE.trim() === "")) {
-                dispatch(
-                    showSnackbar({
-                        snackbarOpen: true,
-                        snackbarType: "error",
-                        snackbarMessage: "Please Fill details.",
-                    })
-                );
-                return;
-            }
-            if (Array.from(new Set(copy.map((i) => i.ORGTYPE.trim().toLowerCase()))).length !== copy.length) {
-                dispatch(
-                    showSnackbar({
-                        snackbarOpen: true,
-                        snackbarType: "error",
-                        snackbarMessage: "Checklist Types must be unique.",
-                    })
-                );
-                return;
-            }
-
-            if (initialAdminSortBy?.OrganizationTypeSortBy !== sortBy.organizationType) {
-
-                const sortResponse = await ConfigurationService.updateAdminSortByValues({ ...initialAdminSortBy, OrganizationTypeSortBy: sortBy.organizationType });
-                if (sortResponse.data != 1) {
-                    dispatch(
-                        showSnackbar({
-                            snackbarOpen: true,
-                            snackbarType: "error",
-                            snackbarMessage: "Error Saving Sort By Order.",
-                        })
-                    );
-                }
-            }
-
-            //const checklistTypesToAdd: OrganizationTypeMasterTable[] = [];
-            // const checklistTypesToUpdate: OrganizationTypeMasterTable[] = [];
-            const checklistTypesToAdd: { ORGID: number, ORGTYPE: string, newFlag: boolean, SORT_ORDER: number, USERDEFINED_FLAG: string, ACTIVE_FLAG: string }[] = [];
-            const checklistTypesToUpdate: { ORGID: number, ORGTYPE: string, newFlag: boolean, SORT_ORDER: number, USERDEFINED_FLAG: string, ISACTIVE: string }[] = [];
-
-            var storageService = new StorageService();
-            let tempBusinessUnitId = storageService.getSelectedBusinessUnitId();
-            let tempDisciplineId = storageService.getSelectedDisciplineId();
+    type OperationType = "add" | "update" | "delete";
 
 
-            let chklstSortOrderUpdate = [...organizationTypeData];
-            if (sortBy.organizationType === "asc" || sortBy.organizationType == "desc") {
-                chklstSortOrderUpdate = _.orderBy(chklstSortOrderUpdate, ["ORGTYPE"], [sortBy.organizationType]);
-                let i = 1;
-                chklstSortOrderUpdate = chklstSortOrderUpdate.map(x => ({ ...x, SORT_ORDER: i++ }));
 
-            }
+   const saveOrganizationType = async () => {
+    if (!dirtyFlag) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No data to save.",
+        }));
+        return;
+    }
 
-            chklstSortOrderUpdate.forEach((chk, index) => {
-                if (chk.newFlag) {
-                    checklistTypesToAdd.push({ ORGID: 0, ORGTYPE: chk.ORGTYPE.trim(), newFlag: chk.newFlag, SORT_ORDER: index + 1, USERDEFINED_FLAG: chk.USERDEFINED_FLAG, ACTIVE_FLAG: chk.ISACTIVE ? "Y" : "N" });
-                } else {
-                    checklistTypesToUpdate.push({ ORGID: chk.ORGID, ORGTYPE: chk.ORGTYPE.trim(), newFlag: chk.newFlag, SORT_ORDER: index + 1, USERDEFINED_FLAG: chk.USERDEFINED_FLAG, ISACTIVE: chk.ISACTIVE ? "Y" : "N" });
-                }
+    const current = [...organizationTypeData];
+    const original = [...originalOrganizationTypeData];
+
+    // Validation
+    if (current.some((i) => !i.ORGTYPE || i.ORGTYPE.trim() === "")) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Please fill details.",
+        }));
+        return;
+    }
+
+    const uniqueCount = new Set(
+        current.map((i) => i.ORGTYPE.trim().toLowerCase())
+    ).size;
+
+    if (uniqueCount !== current.length) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Organization Types must be unique.",
+        }));
+        return;
+    }
+
+    // 🔥 Detect changed rows
+    const items: MasterDataItem[] = [];
+
+    current.forEach((row) => {
+        const originalRow = original.find(o => o.ORGID === row.ORGID);
+
+        // 🟢 NEW RECORD
+        if (!originalRow) {
+            items.push({
+                Id: 0,
+                OperationType: "add",
+                Name: row.ORGTYPE.trim(),
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Description: "",
+                Notes: "",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
             });
-
-            try {
-                if (checklistTypesToAdd.length) {
-                    await ConfigurationService.addChecklistType(checklistTypesToAdd, tempBusinessUnitId, tempDisciplineId);
-                }
-
-                if (checklistTypesToUpdate.length) {
-                    await ConfigurationService.updateChecklistType(checklistTypesToUpdate);
-                }
-                setOrganizationTypeData(chklstSortOrderUpdate);
-                setDirtyFlag(false);
-                fetchOrganizationType();
-                dispatch(
-                    showSnackbar({
-                        snackbarOpen: true,
-                        snackbarType: "success",
-                        snackbarMessage: "Checklist Type(s) saved successfully.",
-                    })
-                );
-            } catch (error) {
-                dispatch(
-                    showSnackbar({
-                        snackbarOpen: true,
-                        snackbarType: "error",
-                        snackbarMessage: "Error saving Checklist Types.",
-                    })
-                );
-            }
-        } else {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: `No data to save.`,
-                })
-            );
         }
-    };
-    const fetchOrganizationType = () => {
-        let masterdataType = 0;
-        EasaListService.getAdminMasterDetailsType(masterdataType)
-            .then((response) => {
-                let result: OrganizationTypeMasterTable[] = response?.data.map(x => ({
-                    ORGID: x.ORGID,
-                    ORGTYPE: x.ORGTYPE,
-                    newFlag: x.newFlag,
-                    SORT_ORDER: x.SORT_ORDER,
-                    USERDEFINED_FLAG: x.USERDEFINED_FLAG,
-                    ISACTIVE: x.ISACTIVE === "Y"
-                }));
+        // 🟡 MODIFIED RECORD
+        else if (
+            originalRow.ORGTYPE !== row.ORGTYPE ||
+            originalRow.ISACTIVE !== row.ISACTIVE ||
+            originalRow.SORT_ORDER !== row.SORT_ORDER
+        ) {
+            items.push({
+                Id: row.ORGID,
+                OperationType: "update",
+                Name: row.ORGTYPE.trim(),
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Description: "",
+                Notes: "",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
+            });
+        }
+    });
 
-                setOrganizationTypeData(result);
-            })
-            .catch((err) => console.error(err));
+    // 🚨 Nothing changed
+    if (items.length === 0) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No changes detected.",
+        }));
+        return;
+    }
+
+    const payload: MasterDataPayload = {
+        MasterDataType: "OrganizationType",
+        Items: items,
     };
+
+    console.log("Final Payload:", payload);
+
+    try {
+        await EasaListService.addMasterDataType(payload);
+
+        setDirtyFlag(false);
+        fetchOrganizationType();
+
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: "Organization Type saved successfully.",
+        }));
+    } catch (error) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Error saving Organization Type.",
+        }));
+    }
+};
+   const fetchOrganizationType = () => {
+    let masterdataType = 0;
+    EasaListService.getAdminMasterDetailsType(masterdataType)
+        .then((response) => {
+            let result: OrganizationTypeMasterTable[] = response?.data.map(x => ({
+                ORGID: x.ORGID,
+                ORGTYPE: x.ORGTYPE,
+                SORT_ORDER: x.SORT_ORDER,
+                USERDEFINED_FLAG: x.USERDEFINED_FLAG,
+                ISACTIVE: x.ISACTIVE === "Y"
+            }));
+
+            setOrganizationTypeData([...result].reverse());
+            setOriginalOrganizationTypeData([...result].reverse()); // 🔥 store original copy
+        })
+        .catch((err) => console.error(err));
+};
     const organizationtypeDragStart = (dataItem: OrganizationTypeMasterTable) => {
         setChecklistTypeActiveItem(dataItem);
     };
@@ -430,72 +446,98 @@ const TableMaintenance: React.FC = () => {
         setDirtyFlag(true);
 
     };
-    // const onSaveOrganization = async () => {
-    //     if (dirtyFlag) {
-    //         // null & duplicate check validation
-    //         const copy = [...organizationTypeData];
+    const saveOrganization = async () => {
+        if (!dirtyFlag) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "No data to save.",
+                })
+            );
+            return;
+        }
 
-    //         const checklistTypesToAdd: { ORGID: number, ORGTYPE: string, newFlag: boolean, SORT_ORDER: number, USERDEFINED_FLAG: string, ISACTIVE: string }[] = [];
-    //         const checklistTypesToUpdate: { ORGID: number, ORGTYPE: string, newFlag: boolean, SORT_ORDER: number, USERDEFINED_FLAG: string, ISACTIVE: string }[] = [];
+        const copy = [...organizationData];
 
-    //         var storageService = new StorageService();
-    //         let tempBusinessUnitId = storageService.getSelectedBusinessUnitId();
-    //         let tempDisciplineId = storageService.getSelectedDisciplineId();
+        if (copy.some((i) => i.ORGANIZATIONNAME.trim() === "")) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Please Fill details.",
+                })
+            );
+            return;
+        }
 
+        const uniqueCount = Array.from(
+            new Set(copy.map((i) => i.ORGANIZATIONNAME.trim().toLowerCase()))
+        ).length;
 
-    //         let chklstSortOrderUpdate = [...organizationTypeData];
-    //         if (sortBy.organizationType === "asc" || sortBy.organizationType === "desc") {
-    //             chklstSortOrderUpdate = _.orderBy(chklstSortOrderUpdate, ["ORGTYPE"], [sortBy.organizationType]);
-    //             let i = 1;
-    //             chklstSortOrderUpdate = chklstSortOrderUpdate.map(x => ({ ...x, SORT_ORDER: i++ }));
+        if (uniqueCount !== copy.length) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Organization Name must be unique.",
+                })
+            );
+            return;
+        }
 
-    //         }
+        let sorted = [...organizationData];
+        if (sortBy.organization === "asc" || sortBy.organization === "desc") {
+            sorted = _.orderBy(sorted, ["ORGANIZATIONNAME"], [sortBy.organization]);
+            let i = 1;
+            sorted = sorted.map((x) => ({ ...x, SORT_ORDER: i++ }));
+        }
 
-    //         chklstSortOrderUpdate.forEach((chk, index) => {
-    //             if (chk.newFlag) {
-    //                 checklistTypesToAdd.push({ ORGID: 0, ORGTYPE: chk.ORGTYPE.trim(), newFlag: chk.newFlag, SORT_ORDER: index + 1, USERDEFINED_FLAG: chk.USERDEFINED_FLAG, ISACTIVE: chk.ISACTIVE ? "Y" : "N" });
-    //             } else {
-    //                 checklistTypesToUpdate.push({ ORGID: chk.ORGID, ORGTYPE: chk.ORGTYPE.trim(), newFlag: chk.newFlag, SORT_ORDER: index + 1, USERDEFINED_FLAG: chk.USERDEFINED_FLAG, ISACTIVE: chk.ISACTIVE ? "Y" : "N" });
-    //             }
-    //         });
+        // 3) Build Items for the new MasterData payload
+        const items: MasterDataItem[] = sorted.map((row) => ({
+            Id: row.newFlag ? 0 : Number(row.ID ?? 0),
+            OperationType: row.newFlag ? "add" : "update",
+            Name: String(row.ORGANIZATIONNAME ?? "").trim(),
+            IsActive: row.ISACTIVE ? "Y" : "N",
+            Description: String(row.ORGANIZATIONDESCRIPTION ?? "").trim(),
+            Notes: String(row.NOTES ?? "").trim(),
+            Address: "",
+            Department: "",
+            Phone: "",
+            Email: "",
+            Title: "",
 
-    //         try {
-    //             if (checklistTypesToAdd.length) {
-    //                 await ConfigurationService.addChecklistType(checklistTypesToAdd, tempBusinessUnitId, tempDisciplineId);
-    //             }
+        }));
 
-    //             if (checklistTypesToUpdate.length) {
-    //                 await ConfigurationService.updateChecklistType(checklistTypesToUpdate);
-    //             }
-    //             setOrganizationTypeData(chklstSortOrderUpdate);
-    //             setDirtyFlag(false);
-    //             fetchSupplierCategory();
-    //             dispatch(
-    //                 showSnackbar({
-    //                     snackbarOpen: true,
-    //                     snackbarType: "success",
-    //                     snackbarMessage: "Checklist Type(s) saved successfully.",
-    //                 })
-    //             );
-    //         } catch (error) {
-    //             dispatch(
-    //                 showSnackbar({
-    //                     snackbarOpen: true,
-    //                     snackbarType: "error",
-    //                     snackbarMessage: "Error saving Checklist Types.",
-    //                 })
-    //             );
-    //         }
-    //     } else {
-    //         dispatch(
-    //             showSnackbar({
-    //                 snackbarOpen: true,
-    //                 snackbarType: "error",
-    //                 snackbarMessage: `No data to save.`,
-    //             })
-    //         );
-    //     }
-    // };
+        const payload: MasterDataPayload = {
+            MasterDataType: "Organization",
+            Items: items,
+        };
+
+        try {
+
+            await EasaListService.addMasterDataType(payload);
+            setOrganizationData(sorted);
+            setDirtyFlag(false);
+            fetchOrganization();
+
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "success",
+                    snackbarMessage: "Organization saved successfully.",
+                })
+            );
+        } catch (error) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error saving Organization",
+                })
+            );
+        }
+    };
     const fetchOrganization = () => {
         let masterdataType = 1;
         EasaListService.getAdminMasterDetailsType(masterdataType)
@@ -558,104 +600,103 @@ const TableMaintenance: React.FC = () => {
         }
     };
     const onSaveSupplierActivity = async () => {
-        if (dirtyFlag) {
-            // null & duplicate check validation
-            const copy = [...supplierActivityData];
-            if (copy.some((i) => i.ACTIVITYCATEGORY.trim() === "")) {
-                dispatch(
-                    showSnackbar({
-                        snackbarOpen: true,
-                        snackbarType: "error",
-                        snackbarMessage: "Please Fill details.",
-                    })
-                );
-                return;
-            }
-            if (Array.from(new Set(copy.map((i) => i.ACTIVITYCATEGORY.trim().toLowerCase()))).length !== copy.length) {
-                dispatch(
-                    showSnackbar({
-                        snackbarOpen: true,
-                        snackbarType: "error",
-                        snackbarMessage: `${EnvDetail.ErrorCodeName}${isItarAppFlag ? " - Rework Source" : "s"} must be unique.`,
-                    })
-                );
-                return;
-            }
-
-            if (initialAdminSortBy?.SupplierActivitySortBy !== sortBy.supplierActivity) {
-                const sortResponse = await ConfigurationService.updateAdminSortByValues({ ...initialAdminSortBy, SupplierActivitySortBy: sortBy.supplierActivity });
-                if (sortResponse.data != 1) {
-                    dispatch(
-                        showSnackbar({
-                            snackbarOpen: true,
-                            snackbarType: "error",
-                            snackbarMessage: "Error Saving Sort By Order.",
-                        })
-                    );
-                }
-            }
-
-            const errorCodesToAdd: { ID: number; ACTIVITYCATEGORY: string; ACTIVITYDESCRIPTION: string; SORT_ORDER: number; ACTIVE_FLAG: string, USERDEFINED_FLAG: string }[] = [];
-            const errorCodesToUpdate: { ID: number; ACTIVITYCATEGORY: string; ACTIVITYDESCRIPTION: string; SORT_ORDER: number; ACTIVE_FLAG: string, USERDEFINED_FLAG: string }[] = [];
-
-            var storageService = new StorageService();
-            let tempBusinessUnitId = storageService.getSelectedBusinessUnitId();
-            let tempDisciplineId = storageService.getSelectedDisciplineId();
-
-            let errorCodeSortOrderUpdate = [...supplierActivityData];
-            if (sortBy.supplierActivity === "asc" || sortBy.supplierActivity === "desc") {
-                errorCodeSortOrderUpdate = _.orderBy(errorCodeSortOrderUpdate, ["ACTIVITYCATEGORY"], [sortBy.supplierActivity]);
-            }
-
-            errorCodeSortOrderUpdate.forEach((err, index) => {
-                if (err.newFlag) {
-                    errorCodesToAdd.push({ ID: 0, ACTIVITYCATEGORY: err.ACTIVITYCATEGORY.trim(), ACTIVITYDESCRIPTION: err.ACTIVITYDESCRIPTION?.trim() || "", SORT_ORDER: index + 1, ACTIVE_FLAG: err.ISACTIVE ? "Y" : "N", USERDEFINED_FLAG: err.USERDEFINED_FLAG });
-                } else {
-                    errorCodesToUpdate.push({ ID: err.ID, ACTIVITYCATEGORY: err.ACTIVITYCATEGORY.trim(), ACTIVITYDESCRIPTION: err.ACTIVITYDESCRIPTION?.trim() || "", SORT_ORDER: index + 1, ACTIVE_FLAG: err.ISACTIVE ? "Y" : "N", USERDEFINED_FLAG: err.USERDEFINED_FLAG });
-                }
-            });
-
-            try {
-                if (errorCodesToAdd.length) {
-                    await ConfigurationService.addErrorCode(errorCodesToAdd, tempBusinessUnitId, tempDisciplineId);
-                }
-
-                if (errorCodesToUpdate.length) {
-                    await ConfigurationService.updateErrorCode(errorCodesToUpdate);
-                }
-
-                setDirtyFlag(false);
-                fetchSupplierActivity();
-                dispatch(
-                    showSnackbar({
-                        snackbarOpen: true,
-                        snackbarType: "success",
-                        snackbarMessage: `${EnvDetail.ErrorCodeName}${isItarAppFlag ? " - Rework Source" : ""}(s) saved successfully.`,
-                    })
-                );
-            } catch (error) {
-                dispatch(
-                    showSnackbar({
-                        snackbarOpen: true,
-                        snackbarType: "error",
-                        snackbarMessage: `Error saving ${EnvDetail.ErrorCodeName}${isItarAppFlag ? " - Rework Source" : ""}.`,
-                    })
-                );
-            }
-        } else {
+        if (!dirtyFlag) {
             dispatch(
                 showSnackbar({
                     snackbarOpen: true,
                     snackbarType: "error",
-                    snackbarMessage: `No data to save.`,
+                    snackbarMessage: "No data to save.",
+                })
+            );
+            return;
+        }
+
+        // 1) Basic validation: empty & duplicate check (case-insensitive)
+        const copy = [...supplierActivityData];
+
+        if (copy.some((i) => i.ACTIVITYCATEGORY.trim() === "")) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Please Fill details.",
+                })
+            );
+            return;
+        }
+
+        const uniqueCount = Array.from(
+            new Set(copy.map((i) => i.ACTIVITYCATEGORY.trim().toLowerCase()))
+        ).length;
+
+        if (uniqueCount !== copy.length) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Supplier Activity must be unique.",
+                })
+            );
+            return;
+        }
+
+        let sorted = [...supplierActivityData];
+        if (sortBy.supplierActivity === "asc" || sortBy.supplierActivity === "desc") {
+            sorted = _.orderBy(sorted, ["ACTIVITYCATEGORY"], [sortBy.supplierActivity]);
+            let i = 1;
+            sorted = sorted.map((x) => ({ ...x, SORT_ORDER: i++ }));
+        }
+
+        // 3) Build Items for the new MasterData payload
+        const items: MasterDataItem[] = sorted.map((row) => ({
+            Id: row.newFlag ? 0 : Number(row.ID ?? 0),
+            OperationType: row.newFlag ? "add" : "update",
+            Name: String(row.ACTIVITYCATEGORY ?? "").trim(),
+            IsActive: row.ISACTIVE ? "Y" : "N",
+            Description: String(row.ACTIVITYDESCRIPTION ?? "").trim(),
+            Notes: "",
+            Address: "",
+            Department: "",
+            Phone: "",
+            Email: "",
+            Title: "",
+
+        }));
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "SupplierActivity",
+            Items: items,
+        };
+
+        try {
+
+            await EasaListService.addMasterDataType(payload);
+            setSupplierActivityData(sorted);
+            setDirtyFlag(false);
+            fetchSupplierActivity();
+
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "success",
+                    snackbarMessage: "Supplier Activity saved successfully.",
+                })
+            );
+        } catch (error) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error saving Supplier Activity.",
                 })
             );
         }
     };
     const fetchSupplierActivity = () => {
-        let masterdataType = 2;
+        let masterdataType = 3;
         EasaListService.getAdminMasterDetailsType(masterdataType)
             .then((response) => {
+                console.log(response, 'fetchSupplierActivity');
                 let result: SupplierActivityMasterTable[] = response?.data.map(x => ({
                     ID: x.ORGID,
                     ACTIVITYCATEGORY: x.ACTIVITYCATEGORY,
@@ -663,7 +704,8 @@ const TableMaintenance: React.FC = () => {
                     ISACTIVE: x.ISACTIVE === "Y"
                 }));
 
-                setSupplierActivityData(result);
+                setSupplierActivityData([...result].reverse());
+                setOriginalSupplierActivityData([...result].reverse());
             })
             .catch((err) => console.error(err));
     };
@@ -734,82 +776,110 @@ const TableMaintenance: React.FC = () => {
         setDirtyFlag(true);
 
     };
-    const onSaveSupplierCategory = async () => {
-        if (dirtyFlag) {
-            // null & duplicate check validation
-            const copy = [...organizationTypeData];
-
-            const checklistTypesToAdd: { ORGID: number, ORGTYPE: string, newFlag: boolean, SORT_ORDER: number, USERDEFINED_FLAG: string, ISACTIVE: string }[] = [];
-            const checklistTypesToUpdate: { ORGID: number, ORGTYPE: string, newFlag: boolean, SORT_ORDER: number, USERDEFINED_FLAG: string, ISACTIVE: string }[] = [];
-
-            var storageService = new StorageService();
-            let tempBusinessUnitId = storageService.getSelectedBusinessUnitId();
-            let tempDisciplineId = storageService.getSelectedDisciplineId();
-
-
-            let chklstSortOrderUpdate = [...organizationTypeData];
-            if (sortBy.organizationType === "asc" || sortBy.organizationType === "desc") {
-                chklstSortOrderUpdate = _.orderBy(chklstSortOrderUpdate, ["ORGTYPE"], [sortBy.organizationType]);
-                let i = 1;
-                chklstSortOrderUpdate = chklstSortOrderUpdate.map(x => ({ ...x, SORT_ORDER: i++ }));
-
-            }
-
-            chklstSortOrderUpdate.forEach((chk, index) => {
-                if (chk.newFlag) {
-                    checklistTypesToAdd.push({ ORGID: 0, ORGTYPE: chk.ORGTYPE.trim(), newFlag: chk.newFlag, SORT_ORDER: index + 1, USERDEFINED_FLAG: chk.USERDEFINED_FLAG, ISACTIVE: chk.ISACTIVE ? "Y" : "N" });
-                } else {
-                    checklistTypesToUpdate.push({ ORGID: chk.ORGID, ORGTYPE: chk.ORGTYPE.trim(), newFlag: chk.newFlag, SORT_ORDER: index + 1, USERDEFINED_FLAG: chk.USERDEFINED_FLAG, ISACTIVE: chk.ISACTIVE ? "Y" : "N" });
-                }
-            });
-
-            try {
-                if (checklistTypesToAdd.length) {
-                    await ConfigurationService.addChecklistType(checklistTypesToAdd, tempBusinessUnitId, tempDisciplineId);
-                }
-
-                if (checklistTypesToUpdate.length) {
-                    await ConfigurationService.updateChecklistType(checklistTypesToUpdate);
-                }
-                setOrganizationTypeData(chklstSortOrderUpdate);
-                setDirtyFlag(false);
-                fetchSupplierCategory();
-                dispatch(
-                    showSnackbar({
-                        snackbarOpen: true,
-                        snackbarType: "success",
-                        snackbarMessage: "Checklist Type(s) saved successfully.",
-                    })
-                );
-            } catch (error) {
-                dispatch(
-                    showSnackbar({
-                        snackbarOpen: true,
-                        snackbarType: "error",
-                        snackbarMessage: "Error saving Checklist Types.",
-                    })
-                );
-            }
-        } else {
+    const saveSupplierCategory = async () => {
+        if (!dirtyFlag) {
             dispatch(
                 showSnackbar({
                     snackbarOpen: true,
                     snackbarType: "error",
-                    snackbarMessage: `No data to save.`,
+                    snackbarMessage: "No data to save.",
+                })
+            );
+            return;
+        }
+
+        // 1) Basic validation: empty & duplicate check (case-insensitive)
+        const copy = [...supplierCategoryData];
+
+        if (copy.some((i) => i.DESCRIPTION.trim() === "")) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Please Fill details.",
+                })
+            );
+            return;
+        }
+
+        const uniqueCount = Array.from(
+            new Set(copy.map((i) => i.DESCRIPTION.trim().toLowerCase()))
+        ).length;
+
+        if (uniqueCount !== copy.length) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Supplier Category must be unique.",
+                })
+            );
+            return;
+        }
+
+        let sorted = [...supplierCategoryData];
+        if (sortBy.supplierCategory === "asc" || sortBy.supplierCategory === "desc") {
+            sorted = _.orderBy(sorted, ["ORGTYPE"], [sortBy.supplierCategory]);
+            let i = 1;
+            sorted = sorted.map((x) => ({ ...x, SORT_ORDER: i++ }));
+        }
+
+        // 3) Build Items for the new MasterData payload
+        const items: MasterDataItem[] = sorted.map((row) => ({
+            Id: row.newFlag ? 0 : Number(row.ID ?? 0),
+            OperationType: row.newFlag ? "add" : "update",
+            Name: "",
+            IsActive: row.ISACTIVE ? "Y" : "N",
+            Description: String(row.DESCRIPTION ?? "").trim(),
+            Notes: "",
+            Address: "",
+            Department: "",
+            Phone: "",
+            Email: "",
+            Title: "",
+
+        }));
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "SupplierCategory",
+            Items: items,
+        };
+
+        try {
+
+            await EasaListService.addMasterDataType(payload);
+            setSupplierCategoryData(sorted);
+            setDirtyFlag(false);
+            fetchSupplierCategory();
+
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "success",
+                    snackbarMessage: "Supplier Category saved successfully.",
+                })
+            );
+        } catch (error) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error saving Supplier Category.",
                 })
             );
         }
     };
     const fetchSupplierCategory = () => {
-        let masterdataType = 3;
+        let masterdataType = 2;
         EasaListService.getAdminMasterDetailsType(masterdataType)
             .then((response) => {
                 let result: SupplierCategoryMasterTable[] = response?.data.map(category => ({
                     ID: category.ID,
                     DESCRIPTION: category.DESCRIPTION,
-                    ISACTIVE: category.ISACTIVE
+                    ISACTIVE: category.ISACTIVE,
                 }));
-                setSupplierCategoryData(result);
+                setSupplierCategoryData([...result].reverse());
+                setOriginalSupplierCategoryData([...result].reverse());
             })
             .catch((err) => console.error(err));
     };
@@ -887,9 +957,9 @@ const TableMaintenance: React.FC = () => {
 
         console.log(result, data, 'data');
     };
-    
-
-    
+    const handleOrg = (event) => {
+        setSelectedOrgId(event.target.value);
+    }
     useEffect(() => {
         var storageService = new StorageService();
         let isItarApp = storageService.getIsItarApp();
@@ -912,6 +982,7 @@ const TableMaintenance: React.FC = () => {
     useEffect(() => {
         fetchMasterDataTypes();
     }, []);
+    console.log(organizationTypeData, supplierCategoryData, supplierActivityData, 'organizationTypeData');
     return (
         <div className="FPQDetails-Admin-table-maintenance">
             <div className="FPQDetails-Admin-table-maintenance-topbar">
@@ -930,12 +1001,14 @@ const TableMaintenance: React.FC = () => {
                 {selectedPage === "Organization" && (
                     <div style={{ marginLeft: 16, display: "flex", gap: 8, justifyContent: "flex-start", alignItems: "center", fontSize: 14 }}>
                         Organization Type
-                        <Select id="admin-table-categorytype-selector" style={{ maxWidth: 180, minWidth: 180, backgroundColor: "#ffffff" }} value={selectedCategoryType ? selectedCategoryType.CategoryTypeId.toString() : ""} size="small"
-                           // onChange={(e) => handleOrganizationTypeChange(parseInt(e.target.value))}
-                        >
-                            {organizationTypeData.filter(opt => opt.ISACTIVE === true).map((opt, ind) => (
-                                <MenuItem key={ind} value={opt.ORGID}>
-                                    {opt.ORGTYPE}
+                        <Select id="admin-table-page-selector" style={{ maxWidth: isItarAppFlag ? 280 : 210, minWidth: isItarAppFlag ? 280 : 210 }} value={selectedOrgId} onChange={handleOrg} size="medium">
+                            {organizationTypeData.map((item) => (
+                                <MenuItem
+                                    key={item.ORGID}
+                                    value={item.ORGID}
+                                    className="text-normal"
+                                >
+                                    {item.ORGTYPE}
                                 </MenuItem>
                             ))}
                         </Select>
@@ -955,7 +1028,7 @@ const TableMaintenance: React.FC = () => {
                             dataStateChange={onSupplierCategoryDatastateChange}
                             itemChange={supplierCategoryTypeItemChange}
                             createSupplierCategory={CreateSupplierCategory}
-                            saveSupplierCategory={onSaveSupplierCategory}
+                            saveSupplierCategory={saveSupplierCategory}
                             dragStart={supplierCategoryMasterTableDragStart}
                             reorder={supplierCategoryMasterReorder}
                             sortBy={sortBy.supplierCategory}
@@ -975,7 +1048,7 @@ const TableMaintenance: React.FC = () => {
                             dataStateChange={onOrganizationDatastateChange}
                             itemChange={organizationItemChange}
                             createOrganization={CreateOrganization}
-                            saveOrganization={onSaveSupplierActivity}
+                            saveOrganization={saveOrganization}
                             dragStart={organizationDragStart}
                             reorder={organizationMasteReorder}
                             sortBy={sortBy.supplierActivity}
