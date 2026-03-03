@@ -1,156 +1,32 @@
-return (
-  <div style={{ paddingBottom: 20 }}>
-    <Card
-      style={{
-        borderLeft: "4px solid #0033A1",
-        marginLeft: "22px",
-      }}
-    >
-      <AnyGrid
-        id="kgrid-oss-admin-table-supplierActivity"
-        ref={gridRefBuilder}
-        style={{ height: "60vh", minHeight: 400 }}
-        scrollable="scrollable"
-        data={process(props.supplierActivityData, props.dataState).data}
-        editField={editField}
-        onItemChange={props.itemChange}
-        resizable
-        dataItemKey={props.KEY}
-        sortable={false}
-        rowHeight={30}
-        {...props.dataState}
-        onDataStateChange={props.dataStateChange}
-        columnMenuIcon={filterIcon}
-      >
-        {/* ================= TOOLBAR ================= */}
-        <GridToolbar>
-          <div
-            style={{
-              display: "flex",
-              width: "100%",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            {/* LEFT SIDE */}
-            <div style={{ display: "flex", gap: 8 }}>
-              <Button
-                startIcon={
-                  <AddCircleOutlineIcon
-                    style={{ width: 20, height: 20, color: "#737373" }}
-                  />
-                }
-                onClick={props.createSupplierActivity}
-                variant="outlined"
-                size="small"
-                color="inherit"
-              >
-                <Typography variant="button" sx={{ textTransform: "none" }}>
-                  Create New
-                </Typography>
-              </Button>
+const ChecklistTypeNameCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
+  const { dataItem, field = "" } = cellProps;
+  const dataValue = dataItem[field] ?? "";
 
-              <Button
-                onClick={props.saveSupplierActivity}
-                variant="outlined"
-                size="small"
-                color="inherit"
-              >
-                <Typography variant="button" sx={{ textTransform: "none" }}>
-                  Save
-                </Typography>
-              </Button>
-            </div>
+  const handleChange: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (event) => {
+    if (cellProps.onChange) {
+      const updatedDataItem: OrganizationTableData = {
+        ...dataItem,
+        [field]: event.target.value,   // ✅ dynamic field update
+      };
 
-            {/* RIGHT SIDE */}
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-              }}
-            >
-              <p style={{ margin: 0 }}>Sort Order :</p>
+      cellProps.onChange({
+        dataIndex: cellProps.dataIndex,
+        dataItem: updatedDataItem,
+        field: field,
+        syntheticEvent: event,
+        value: event.target.value,
+      });
+    }
+  };
 
-              <Select
-                value={props.sortBy || "custom"}
-                style={{ width: "180px" }}
-                onChange={(e) =>
-                  props.handleSortByChange(
-                    "supplierActivity",
-                    e.target.value as "custom" | "asc" | "desc"
-                  )
-                }
-              >
-                <MenuItem value="custom">
-                  <SettingsIcon
-                    style={{
-                      color: "#737373",
-                      height: 16,
-                      width: 16,
-                      marginRight: 8,
-                    }}
-                  />
-                  Customize
-                </MenuItem>
-
-                <MenuItem disabled={props.sortBy === undefined} value="asc">
-                  <ArrowUpwardIcon
-                    style={{
-                      color: "#737373",
-                      height: 16,
-                      width: 16,
-                      marginRight: 8,
-                    }}
-                  />
-                  Supplier Activity: Ascending
-                </MenuItem>
-
-                <MenuItem disabled={props.sortBy === undefined} value="desc">
-                  <ArrowDownwardIcon
-                    style={{
-                      color: "#737373",
-                      height: 16,
-                      width: 16,
-                      marginRight: 8,
-                    }}
-                  />
-                  Supplier Activity: Descending
-                </MenuItem>
-              </Select>
-            </div>
-          </div>
-        </GridToolbar>
-
-        {/* ================= DRAG COLUMN ================= */}
-        {props.sortBy === "custom" && (
-          <GridColumn title="" width="50px" cell={DragCell} />
-        )}
-
-        {/* ================= ACTIVITY CATEGORY ================= */}
-        <GridColumn
-          {...props.columnPropsBuilder("ACTIVITYCATEGORY")}
-          title="Activity Category"
-          cell={SupplierActivityCell}
-          width="450px"
-        />
-
-        {/* ================= ACTIVITY DESCRIPTION ================= */}
-        <GridColumn
-          {...props.columnPropsBuilder("ACTIVITYDESCRIPTION")}
-          title="Activity Description"
-          cell={SupplierActivityDescCell}
-          width="350px"
-        />
-
-        {/* ================= ACTIVE ================= */}
-        <GridColumn
-          {...props.columnPropsBuilder("ISACTIVE")}
-          title="Active"
-          cell={activeCheckbox}
-          width="165px"
-        />
-      </AnyGrid>
-    </Card>
-  </div>
-);
+  return (
+    <td title={dataValue}>
+      <TextField
+        fullWidth
+        value={dataValue}
+        onChange={handleChange}
+        size="small"
+      />
+    </td>
+  );
+}, []);
