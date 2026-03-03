@@ -1,72 +1,359 @@
-const SupplierActivityCell = (cellProps: GridCellProps) => {
-  const field = cellProps.field!;
-  const value = cellProps.dataItem[field] ?? "";
+import React, { memo, useCallback, useRef, useEffect, useState } from "react";
+import { ErrorCodeMasterTable, SortByData } from "../../../../../model/Model";
+import { getter, State, process } from "@progress/kendo-data-query";
+import { Grid as DataGrid, GridCellProps, GridColumn, GridDataStateChangeEvent, GridHeaderSelectionChangeEvent, GridItemChangeEvent, GridToolbar } from "@progress/kendo-react-grid";
+import { Button, Card, MenuItem, Select, TextField, Typography } from "@mui/material";
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import DeleteSharpIcon from "@mui/icons-material/DeleteSharp";
+import EnvDetail from "../../../../../utils/EnvDetail";
+import StorageService from "../../../../../utils/StorageService";
+import { SvgIcon } from "@progress/kendo-react-common";
+import { reorderIcon } from "@progress/kendo-svg-icons";
+import { GridFilterMenuWithoutSort } from "../../../../../utils/GridFilterMenuWithoutSort";
+import { userDefinedConfirm } from "../../../../../utils/confirm";
+import ConfigurationService from "../ConfigurationService";
+import SettingsIcon from '@mui/icons-material/Settings';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 
-  return (
-    <td>
-      <TextField
-        fullWidth
-        value={value}
-        onChange={(e) =>
-          cellProps.onChange?.({
-            dataIndex: cellProps.dataIndex,
-            dataItem: cellProps.dataItem,
-            field: field,
-            syntheticEvent: e,
-            value: e.target.value,
-          })
-        }
-      />
-    </td>
-  );
-};
+const editField = "inEdit";
+const SELECTED_FIELD: string = "selected";
 
+interface ErrorCodeTableProps {
+  KEY: string;
+  selectedState: {
+    [id: string]: boolean | number[];
+  };
+  columnPropsBuilder: (field: any) => {
+    field: any;
+    columnMenu: (props: any) => JSX.Element;
+    headerClassName: string;
+  };
 
-const SupplierActivityDescCell = (cellProps: GridCellProps) => {
-  const field = cellProps.field!;
-  const value = cellProps.dataItem[field] ?? "";
+  errorCodeData: ErrorCodeMasterTable[];
+  errorCodeDeleteData: ErrorCodeMasterTable[];
+  dataState: State;
+  dataStateChange: (event: GridDataStateChangeEvent) => void;
+  itemChange: (event: GridItemChangeEvent) => void;
+  headerDeleteCheckboxChange: (event: GridHeaderSelectionChangeEvent) => void;
+  deleteCheckboxChange: (e: any, dataItem: ErrorCodeMasterTable) => void;
+  createErrorCode: () => void;
+  deleteErrorCode: () => void;
+  saveErrorCode: () => void;
+  disablePage: boolean;
+  errorCodeCompType: 1 | 2 | 3;
+  dragStart: (dataItem: ErrorCodeMasterTable) => void;
+  reorder: (dataItem: ErrorCodeMasterTable) => void;
+  sortBy: "custom" | "asc" | "desc" | undefined
+  handleSortByChange: (key: keyof SortByData, value: "custom" | "asc" | "desc", setScreenDirty?: boolean) => void
+}
 
-  return (
-    <td>
-      <TextField
-        fullWidth
-        value={value}
-        onChange={(e) =>
-          cellProps.onChange?.({
-            dataIndex: cellProps.dataIndex,
-            dataItem: cellProps.dataItem,
-            field: field,
-            syntheticEvent: e,
-            value: e.target.value,
-          })
-        }
-      />
-    </td>
-  );
-};
+const ErrorCodeTable: React.FC<ErrorCodeTableProps> = memo((props) => {
+  const [isItarApp, setIsItarApp] = useState(false);
+  const idGetter = getter(props.KEY);
+  const gridRefBuilder = useRef<any>(null);
+  const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+  const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
 
-
-const activeCheckbox = (cellProps: GridCellProps) => {
-  const field = cellProps.field!;
-  const value = cellProps.dataItem[field] ?? false;
-
-  return (
-    <td>
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <input
-          type="checkbox"
-          checked={value}
-          onChange={(e) =>
-            cellProps.onChange?.({
-              dataIndex: cellProps.dataIndex,
-              dataItem: cellProps.dataItem,
-              field: field,
-              syntheticEvent: e,
-              value: e.target.checked,
-            })
+  useEffect(() => {
+    if (gridRefBuilder?.current) {
+      const headerCells = gridRefBuilder.current.element.querySelectorAll('.k-header');
+      let calculatedFixedColumnWidth = 0;
+      let dynamicWidth = 0;
+      headerCells.forEach((cell, index) => {
+        if (gridRefBuilder.current.columns[index].width != undefined) {
+          if (gridRefBuilder.current.columns[index].width.toString().indexOf('px') > -1) {
+            calculatedFixedColumnWidth = calculatedFixedColumnWidth + parseInt(gridRefBuilder.current.columns[index].width)
           }
-        />
-      </div>
-    </td>
+          else {
+            dynamicWidth = dynamicWidth + gridRefBuilder.current.columns[index].width;
+          }
+        };
+        const columnHeader = gridRefBuilder.current.columns[index].title;
+        cell.title = columnHeader;
+      });
+      setCalculatedDynamicColWidth(dynamicWidth);
+      setTotalColumnFixedWidth(calculatedFixedColumnWidth)
+    }
+  }, [gridRefBuilder])
+
+  const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
+    let k_grid_width = document.querySelector(isItarApp && props.errorCodeCompType === 1 ? `kgrid-oss-admin-table-errorCode${props.errorCodeCompType}-itar` : `kgrid-oss-admin-table-errorCode${props.errorCodeCompType}`)?.clientWidth;
+    let fixedWidth = totalColumnFixedWidth;
+    let dynamicWidth = 0;
+    let minScreenWidth = 1250;
+    if (k_grid_width) {
+      if (k_grid_width <= minScreenWidth) {
+        return minWidth;
+      }
+      else {
+        dynamicWidth = k_grid_width - fixedWidth;
+        if (width == 0 && dynamicWidth > 0 && percentage > 0) {
+          const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
+          return Math.max(minWidth, dynamicColumnWidth);
+        }
+        else {
+          return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
+        }
+      }
+    }
+  }
+
+  const ErrorCodeNameCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
+    const { dataItem } = cellProps;
+    const field = cellProps.field || "";
+    const dataValue = dataItem[field] === null ? "" : dataItem[field];
+
+    const handleChange: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (event) => {
+      if (cellProps.onChange) {
+        const updatedDataItem: ErrorCodeMasterTable = { ...cellProps.dataItem };
+        updatedDataItem.ERROR_CODE = event.target.value;
+
+        cellProps.onChange({
+          dataIndex: cellProps.dataIndex,
+          dataItem: updatedDataItem,
+          field: cellProps.field,
+          syntheticEvent: event,
+          value: event.target.value,
+        });
+      }
+    };
+
+    return (
+      <td title={cellProps.dataItem.ERROR_CODE}>
+        {cellProps.dataItem.USERDEFINED_FLAG === "Y" ? (
+          <TextField
+            fullWidth
+            className="dc-fpqdetails-categoryname-input"
+            value={dataValue}
+            onChange={handleChange}
+            // error={dataValue.trim() === "" || props.errorCodeData.some((i) => i.ERROR_CODE.trim().toLowerCase() === dataValue.trim().toLowerCase() && i.ERROR_CODE_ID !== cellProps.dataItem.ERROR_CODE_ID)}
+          />
+        ) : (
+          <div style={{ paddingLeft: "16px" }}>{dataValue}</div>
+        )}
+      </td>
+    );
+  }, []);
+
+  const ErrorCodeDescCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
+    const { dataItem } = cellProps;
+    const field = cellProps.field || "";
+    const dataValue = dataItem[field] === null ? "" : dataItem[field];
+
+    const handleChange: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (event) => {
+      if (cellProps.onChange) {
+        const updatedDataItem: ErrorCodeMasterTable = { ...cellProps.dataItem };
+        updatedDataItem.ERROR_CODE_DESCRIPTION = event.target.value;
+
+        cellProps.onChange({
+          dataIndex: cellProps.dataIndex,
+          dataItem: updatedDataItem,
+          field: cellProps.field,
+          syntheticEvent: event,
+          value: event.target.value,
+        });
+      }
+    };
+
+    return (
+      <td title={cellProps.dataItem.ERROR_CODE_DESCRIPTION}>
+        {cellProps.dataItem.USERDEFINED_FLAG === "Y" ? (
+          <TextField
+            fullWidth
+            className="dc-fpqdetails-categoryname-input"
+            value={dataValue}
+            onChange={handleChange}
+            // error={props.errorCodeData.some((i) => i.ERROR_CODE_DESCRIPTION.trim().toLowerCase() === dataValue.trim().toLowerCase() && i.ERROR_CODE_ID !== cellProps.dataItem.ERROR_CODE_ID)}
+          />
+        ) : (
+          <div style={{ paddingLeft: "16px" }}>{dataValue}</div>
+        )}
+      </td>
+    );
+  }, []);
+
+  useEffect(() => {
+    var storageService = new StorageService();
+    let itarAppFlag = storageService.getIsItarApp();
+    setIsItarApp(itarAppFlag == "Y");
+  }, []);
+
+  const DragCell: React.ComponentType<GridCellProps> = (dragcellprops) => {
+    return (
+      <td
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          props.reorder(dragcellprops.dataItem);
+        }}
+      >
+        <span
+          className="k-icon k-i-reorder"
+          draggable={true}
+          style={{
+            cursor: "move",
+            color: "#737373",
+            display: "flex",
+            justifyContent: "center",
+          }}
+          onDragStart={(e) => {
+            props.dragStart(dragcellprops.dataItem);
+            e.dataTransfer.setData("dragging", "");
+          }}
+        >
+          <SvgIcon icon={reorderIcon} />
+        </span>
+      </td>
+    );
+  };
+
+  const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
+    const dataItem: ErrorCodeMasterTable = cellProps.dataItem;
+    const handleActiveChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+      if (cellProps.onChange) {
+        const updatedDataItem: ErrorCodeMasterTable = { ...dataItem };
+        //updatedDataItem.ACTIVE_FLAG = e.target.checked ? "Y" : "N";
+        updatedDataItem.ACTIVE_FLAG = e.target.checked;
+        if (e.target.checked) {
+          cellProps.onChange({
+            dataIndex: cellProps.dataIndex,
+            dataItem: updatedDataItem,
+            field: cellProps.field,
+            syntheticEvent: {} as React.SyntheticEvent, // Faking the syntheticEvent since it's not triggered by focus
+            value: e.target.value,
+          });
+        } else {
+          userDefinedConfirm({
+            message: `The ${EnvDetail.ErrorCodeName}${props.errorCodeCompType == 2 ? " - Product Break Down" : props.errorCodeCompType == 3 ? " - Cause Code Break Down" : ""} will be removed from associated Checklist Templates. Are you sure you want to inactivate this?`,
+            OkBtnText: "Yes",
+            title: "Confirm",
+          })
+            .then(({ button, input }) => {
+              if (cellProps.onChange) {
+                ConfigurationService.deleteErrorCodeFromBuilderWhenInactivated(updatedDataItem.ERROR_CODE_ID, props.errorCodeCompType).then((response) => {});
+                cellProps.onChange({
+                  dataIndex: cellProps.dataIndex,
+                  dataItem: updatedDataItem,
+                  field: cellProps.field,
+                  syntheticEvent: {} as React.SyntheticEvent, // Faking the syntheticEvent since it's not triggered by focus
+                  value: e.target.value,
+                });
+              }
+            })
+            .catch(() => {});
+        }
+      }
+    };
+
+    return (
+      <td title={dataItem.ACTIVE_FLAG ? "True" : "False"}>
+        <div style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <input type="checkbox" style={{ marginLeft: "3px", cursor: "pointer" }} checked={dataItem.ACTIVE_FLAG} onChange={handleActiveChange} disabled={cellProps.dataItem.USERDEFINED_FLAG !== "Y" || cellProps.dataItem.newFlag} />
+        </div>
+      </td>
+    );
+  };
+
+  return (
+    <div style={{ height: "calc(100vh - 320px)" }}>
+      <Card
+        style={{
+          borderLeft: "4px solid #0033A1",
+          marginLeft: "22px",
+          overflow: "hidden",
+          maxHeight: "calc(100vh - 320px)",
+        }}
+      >
+        <DataGrid
+          id={isItarApp && props.errorCodeCompType === 1 ? `kgrid-oss-admin-table-errorCode${props.errorCodeCompType}-itar` : `kgrid-oss-admin-table-errorCode${props.errorCodeCompType}`}
+          data={process(props.errorCodeData, props.dataState).data}
+          selectable={{
+            enabled: true,
+            drag: false,
+            cell: false,
+            mode: "multiple",
+          }}
+          ref={gridRefBuilder}
+          editField={editField}
+          onItemChange={props.itemChange}
+          resizable
+          dataItemKey={props.KEY}
+          scrollable="scrollable"
+          sortable={false}
+          rowHeight={30}
+          {...props.dataState}
+          selectedField={SELECTED_FIELD}
+          onHeaderSelectionChange={props.headerDeleteCheckboxChange}
+          onDataStateChange={props.dataStateChange}
+        >
+          <GridToolbar>
+            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {!props.disablePage && (
+                  <>
+                    <Button startIcon={<AddCircleOutlineIcon className="iconClass" style={{ width: 20, height: 20, color: "#737373" }} />} id="addFavBtn" onClick={props.createErrorCode} variant={"outlined"} size={"small"} color={"inherit"}>
+                      <Typography variant={"button"} sx={{ textTransform: "none" }}>
+                        <b style={{ fontWeight: "normal" }}>Create New</b>
+                      </Typography>
+                    </Button>
+
+                    <Button startIcon={<DeleteSharpIcon className="iconClass" style={{ width: 20, height: 20, color: "#737373" }} />} disabled={props.errorCodeDeleteData.length <= 0 ? true : false} id="addFavBtn" onClick={props.deleteErrorCode} variant={"outlined"} size={"small"} color={"inherit"}>
+                      <Typography variant={"button"} sx={{ textTransform: "none" }}>
+                        <b style={{ fontWeight: "normal" }}>Delete</b>
+                      </Typography>
+                    </Button>
+                  </>
+                )}
+
+                <Button variant="outlined" onClick={props.saveErrorCode} style={{ textTransform: "capitalize" }}>
+                  Save
+                </Button>
+              </div>
+              <div style={{ display: 'inline-flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
+                <p style={{ margin: 0, padding: 0 }}>Sort Order : </p>
+                <Select value={props.sortBy || 'custom'} onChange={(e) => props.handleSortByChange(getSortByChangeKey(props.errorCodeCompType), e.target.value as "custom" | "asc" | "desc")}>
+                  <MenuItem value={'custom'}><SettingsIcon style={{ color: '#737373', height: 16, width: 16, marginRight: 8 }} />Customize</MenuItem>
+                  <MenuItem disabled={props.sortBy === undefined} value={'asc'}><ArrowUpwardIcon style={{ color: '#737373', height: 16, width: 16, marginRight: 8 }} />{EnvDetail.ErrorCodeName}: Ascending</MenuItem>
+                  <MenuItem disabled={props.sortBy === undefined} value={'desc'}><ArrowDownwardIcon style={{ color: '#737373', height: 16, width: 16, marginRight: 8 }} />{EnvDetail.ErrorCodeName}: Descending</MenuItem>
+                </Select>
+              </div>
+            </div>
+          </GridToolbar>
+          {!props.disablePage && (
+            <GridColumn
+              field={SELECTED_FIELD}
+              filterable={false}
+              width="45px"
+              headerSelectionValue={props.errorCodeData.length != 0 && props.errorCodeData.findIndex((item) => !props.selectedState[idGetter(item)]) === -1}
+              cell={(cellProps) => {  
+                const isChecked = props.selectedState[idGetter(cellProps.dataItem)];
+                return (
+                  <td className="checkbox-background">
+                    <input type="checkbox" className="k-checkbox" style={{ marginLeft: "3px" }} checked={!!isChecked} onChange={(e) => props.deleteCheckboxChange(e, cellProps.dataItem)} />
+                  </td>
+                );
+              }}
+            />
+          )}
+          {
+            !props.disablePage && props.sortBy === "custom" &&
+            <GridColumn title="" width={"50px"} cell={DragCell} />
+          }
+          {!props.disablePage && <GridColumn {...props.columnPropsBuilder("ERROR_CODE")} title={isItarApp ? `${EnvDetail.ErrorCodeName} - Rework Source` : EnvDetail.ErrorCodeName} cell={ErrorCodeNameCell} width={'450px'} columnMenu={GridFilterMenuWithoutSort} />}
+          {!props.disablePage && <GridColumn {...props.columnPropsBuilder("ERROR_CODE_DESCRIPTION")} title={isItarApp ? `${EnvDetail.ErrorCodeName} - Rework Source Description` : EnvDetail.ErrorCodeName + " " + "Description"} cell={ErrorCodeDescCell} width={setPercentage(undefined, 0, 272)} columnMenu={GridFilterMenuWithoutSort} />}
+          {!props.disablePage && <GridColumn {...props.columnPropsBuilder("ACTIVE_FLAG")} title="Active" cell={activeCheckbox} width={"165px"} columnMenu={GridFilterMenuWithoutSort} />}
+        </DataGrid>
+      </Card>
+    </div >
   );
-};
+});
+
+const getSortByChangeKey = (errorCodeCompType: 1 | 2 | 3): keyof SortByData => {
+  if (errorCodeCompType === 2) return 'errorCode2'
+  if (errorCodeCompType === 3) return 'errorCode3'
+
+  return 'errorCode'
+}
+
+export default ErrorCodeTable;
