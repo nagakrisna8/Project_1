@@ -1,21 +1,39 @@
-  if (current.some((i) => !i.ACTIVITYCATEGORY || i.ACTIVITYCATEGORY.trim() === "")) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Please fill details.",
-            }));
-            return;
-        }
+// 1️⃣ Empty validation (both fields)
+if (
+  current.some(
+    (i) =>
+      !i.ACTIVITYCATEGORY ||
+      i.ACTIVITYCATEGORY.trim() === "" ||
+      !i.ACTIVITYDESCRIPTION ||
+      i.ACTIVITYDESCRIPTION.trim() === ""
+  )
+) {
+  dispatch(
+    showSnackbar({
+      snackbarOpen: true,
+      snackbarType: "error",
+      snackbarMessage: "Please fill details.",
+    })
+  );
+  return;
+}
 
-        const uniqueCount = new Set(
-            current.map((i) => i.ACTIVITYCATEGORY.trim().toLowerCase())
-        ).size;
+// 2️⃣ Combined duplicate validation
+const uniqueCombinationCount = new Set(
+  current.map(
+    (i) =>
+      `${i.ACTIVITYCATEGORY.trim().toLowerCase()}__${i.ACTIVITYDESCRIPTION.trim().toLowerCase()}`
+  )
+).size;
 
-        if (uniqueCount !== current.length) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Supplier Activity must be unique.",
-            }));
-            return;
-        }
+if (uniqueCombinationCount !== current.length) {
+  dispatch(
+    showSnackbar({
+      snackbarOpen: true,
+      snackbarType: "error",
+      snackbarMessage:
+        "Activity Category + Description combination must be unique.",
+    })
+  );
+  return;
+}
