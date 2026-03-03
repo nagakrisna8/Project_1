@@ -1,136 +1,111 @@
-const [originalOrganizationTypeData, setOriginalOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
-const fetchOrganizationType = () => {
-    let masterdataType = 0;
-    EasaListService.getAdminMasterDetailsType(masterdataType)
-        .then((response) => {
-            let result: OrganizationTypeMasterTable[] = response?.data.map(x => ({
-                ORGID: x.ORGID,
-                ORGTYPE: x.ORGTYPE,
-                SORT_ORDER: x.SORT_ORDER,
-                USERDEFINED_FLAG: x.USERDEFINED_FLAG,
-                ISACTIVE: x.ISACTIVE === "Y"
-            }));
+return (
+  <div style={{ paddingBottom: 20 }}>
+    <Card
+      style={{
+        borderLeft: "4px solid #0033A1",
+        marginLeft: "22px",
+      }}
+    >
+      <AnyGrid
+        id="kgrid-oss-checklistType"
+        ref={gridRefBuilder}
+        style={{ height: "60vh", minHeight: 400 }}   // 🔥 Inner Grid Scroll
+        scrollable="scrollable"
+        data={process(props.organizationTypeData, props.dataState).data}
+        selectable={{ enabled: true, drag: false, cell: false, mode: "multiple" }}
+        editField={editField}
+        onItemChange={props.itemChange}
+        resizable
+        dataItemKey={props.KEY}
+        sortable={false}
+        rowHeight={30}
+        {...props.dataState}
+        selectedField={SELECTED_FIELD}
+        onDataStateChange={props.dataStateChange}
+        columnMenuIcon={filterIcon}
+      >
+        <GridToolbar>
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+            
+            {/* LEFT SIDE BUTTONS */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button
+                startIcon={
+                  <AddCircleOutlineIcon
+                    style={{ width: 20, height: 20, color: "#737373" }}
+                  />
+                }
+                onClick={props.createOrganizationType}
+                variant="outlined"
+                size="small"
+                color="inherit"
+              >
+                <Typography variant="button" sx={{ textTransform: "none" }}>
+                  Create New
+                </Typography>
+              </Button>
 
-            setOrganizationTypeData(result);
-            setOriginalOrganizationTypeData(result); // 🔥 store original copy
-        })
-        .catch((err) => console.error(err));
-};
+              <Button
+                onClick={props.saveOrganizationType}
+                variant="outlined"
+                size="small"
+                color="inherit"
+              >
+                <Typography variant="button" sx={{ textTransform: "none" }}>
+                  Save
+                </Typography>
+              </Button>
+            </div>
 
+            {/* RIGHT SIDE SORT DROPDOWN */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Typography variant="body2">Sort Order :</Typography>
 
-const saveOrganizationType = async () => {
-    if (!dirtyFlag) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "No data to save.",
-        }));
-        return;
-    }
+              <Select
+                value={props.sortBy || "custom"}
+                style={{ width: 200 }}
+                onChange={(e) =>
+                  props.handleSortByChange(
+                    "organizationType",
+                    e.target.value as "custom" | "asc" | "desc"
+                  )
+                }
+              >
+                <MenuItem value="custom">
+                  <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                  Customize
+                </MenuItem>
+                <MenuItem value="asc">
+                  <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                  Organization Type: Ascending
+                </MenuItem>
+                <MenuItem value="desc">
+                  <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                  Organization Type: Descending
+                </MenuItem>
+              </Select>
+            </div>
+          </div>
+        </GridToolbar>
 
-    const current = [...organizationTypeData];
-    const original = [...originalOrganizationTypeData];
+        <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
 
-    // Validation
-    if (current.some((i) => !i.ORGTYPE || i.ORGTYPE.trim() === "")) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "Please fill details.",
-        }));
-        return;
-    }
+        <GridColumn
+          {...props.columnPropsBuilder("ORGTYPE")}
+          title="Organization Type"
+          cells={{ data: OrganizationTypeNameCell }}
+          width={setPercentage(undefined, 0, 272)}
+          columnMenu={GridFilterMenuWithoutSort}
+        />
 
-    const uniqueCount = new Set(
-        current.map((i) => i.ORGTYPE.trim().toLowerCase())
-    ).size;
-
-    if (uniqueCount !== current.length) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "Organization Types must be unique.",
-        }));
-        return;
-    }
-
-    // 🔥 Detect changed rows
-    const items: MasterDataItem[] = [];
-
-    current.forEach((row) => {
-        const originalRow = original.find(o => o.ORGID === row.ORGID);
-
-        // 🟢 NEW RECORD
-        if (!originalRow) {
-            items.push({
-                Id: 0,
-                OperationType: "add",
-                Name: row.ORGTYPE.trim(),
-                IsActive: row.ISACTIVE ? "Y" : "N",
-                Description: "",
-                Notes: "",
-                Address: "",
-                Department: "",
-                Phone: "",
-                Email: "",
-                Title: "",
-            });
-        }
-        // 🟡 MODIFIED RECORD
-        else if (
-            originalRow.ORGTYPE !== row.ORGTYPE ||
-            originalRow.ISACTIVE !== row.ISACTIVE ||
-            originalRow.SORT_ORDER !== row.SORT_ORDER
-        ) {
-            items.push({
-                Id: row.ORGID,
-                OperationType: "update",
-                Name: row.ORGTYPE.trim(),
-                IsActive: row.ISACTIVE ? "Y" : "N",
-                Description: "",
-                Notes: "",
-                Address: "",
-                Department: "",
-                Phone: "",
-                Email: "",
-                Title: "",
-            });
-        }
-    });
-
-    // 🚨 Nothing changed
-    if (items.length === 0) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "No changes detected.",
-        }));
-        return;
-    }
-
-    const payload: MasterDataPayload = {
-        MasterDataType: "OrganizationType",
-        Items: items,
-    };
-
-    console.log("Final Payload:", payload);
-
-    try {
-        await EasaListService.addMasterDataType(payload);
-
-        setDirtyFlag(false);
-        fetchOrganizationType();
-
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "success",
-            snackbarMessage: "Organization Type saved successfully.",
-        }));
-    } catch (error) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "Error saving Organization Type.",
-        }));
-    }
-};
+        <GridColumn
+          {...props.columnPropsBuilder("ISACTIVE")}
+          title="Active"
+          cells={{ data: activeCheckbox }}
+          width="165px"
+          columnMenu={GridFilterMenuWithoutSort}
+        />
+      </AnyGrid>
+    </Card>
+  </div>
+);
