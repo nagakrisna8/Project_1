@@ -1,99 +1,136 @@
+const [originalOrganizationTypeData, setOriginalOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
+const fetchOrganizationType = () => {
+    let masterdataType = 0;
+    EasaListService.getAdminMasterDetailsType(masterdataType)
+        .then((response) => {
+            let result: OrganizationTypeMasterTable[] = response?.data.map(x => ({
+                ORGID: x.ORGID,
+                ORGTYPE: x.ORGTYPE,
+                SORT_ORDER: x.SORT_ORDER,
+                USERDEFINED_FLAG: x.USERDEFINED_FLAG,
+                ISACTIVE: x.ISACTIVE === "Y"
+            }));
+
+            setOrganizationTypeData(result);
+            setOriginalOrganizationTypeData(result); // 🔥 store original copy
+        })
+        .catch((err) => console.error(err));
+};
+
+
 const saveOrganizationType = async () => {
     if (!dirtyFlag) {
-        dispatch(
-            showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "No data to save.",
-            })
-        );
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No data to save.",
+        }));
         return;
     }
 
-    const copy = [...organizationTypeData];
+    const current = [...organizationTypeData];
+    const original = [...originalOrganizationTypeData];
 
-    // 1️⃣ Empty validation
-    if (copy.some((i) => !i.ORGTYPE || i.ORGTYPE.trim() === "")) {
-        dispatch(
-            showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Please fill all Organization Type names.",
-            })
-        );
+    // Validation
+    if (current.some((i) => !i.ORGTYPE || i.ORGTYPE.trim() === "")) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Please fill details.",
+        }));
         return;
     }
 
-    // 2️⃣ Duplicate validation (case-insensitive)
     const uniqueCount = new Set(
-        copy.map((i) => i.ORGTYPE.trim().toLowerCase())
+        current.map((i) => i.ORGTYPE.trim().toLowerCase())
     ).size;
 
-    if (uniqueCount !== copy.length) {
-        dispatch(
-            showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Organization Types must be unique.",
-            })
-        );
+    if (uniqueCount !== current.length) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Organization Types must be unique.",
+        }));
         return;
     }
 
-    // 3️⃣ Apply sorting if selected
-    let sorted = [...organizationTypeData];
+    // 🔥 Detect changed rows
+    const items: MasterDataItem[] = [];
 
-    if (sortBy.organizationType === "asc" || sortBy.organizationType === "desc") {
-        sorted = _.orderBy(sorted, ["ORGTYPE"], [sortBy.organizationType]);
+    current.forEach((row) => {
+        const originalRow = original.find(o => o.ORGID === row.ORGID);
 
-        let order = 1;
-        sorted = sorted.map((x) => ({
-            ...x,
-            SORT_ORDER: order++,
+        // 🟢 NEW RECORD
+        if (!originalRow) {
+            items.push({
+                Id: 0,
+                OperationType: "add",
+                Name: row.ORGTYPE.trim(),
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Description: "",
+                Notes: "",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
+            });
+        }
+        // 🟡 MODIFIED RECORD
+        else if (
+            originalRow.ORGTYPE !== row.ORGTYPE ||
+            originalRow.ISACTIVE !== row.ISACTIVE ||
+            originalRow.SORT_ORDER !== row.SORT_ORDER
+        ) {
+            items.push({
+                Id: row.ORGID,
+                OperationType: "update",
+                Name: row.ORGTYPE.trim(),
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Description: "",
+                Notes: "",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
+            });
+        }
+    });
+
+    // 🚨 Nothing changed
+    if (items.length === 0) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No changes detected.",
         }));
+        return;
     }
-
-    // 4️⃣ Build payload (add + update support)
-    const items: MasterDataItem[] = sorted.map((row) => ({
-        Id: row.newFlag ? 0 : Number(row.ORGID ?? 0),
-        OperationType: row.newFlag ? "add" : "update",
-        Name: row.ORGTYPE.trim(),
-        IsActive: row.ISACTIVE ? "Y" : "N",
-        Description: "",
-        Notes: "",
-        Address: "",
-        Department: "",
-        Phone: "",
-        Email: "",
-        Title: "",
-    }));
 
     const payload: MasterDataPayload = {
         MasterDataType: "OrganizationType",
         Items: items,
     };
 
+    console.log("Final Payload:", payload);
+
     try {
         await EasaListService.addMasterDataType(payload);
 
-        setOrganizationTypeData(sorted);
         setDirtyFlag(false);
         fetchOrganizationType();
 
-        dispatch(
-            showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "success",
-                snackbarMessage: "Organization Type(s) saved successfully.",
-            })
-        );
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: "Organization Type saved successfully.",
+        }));
     } catch (error) {
-        dispatch(
-            showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Error saving Organization Types.",
-            })
-        );
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Error saving Organization Type.",
+        }));
     }
 };
