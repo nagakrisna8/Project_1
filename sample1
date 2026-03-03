@@ -1,4 +1,4 @@
-const SupplierActivityDescCell: React.ComponentType<GridCellProps> = (cellProps) => {
+const SupplierActivityCell: React.ComponentType<GridCellProps> = (cellProps) => {
   const field = cellProps.field || "";
   const dataValue = cellProps.dataItem[field] ?? "";
 
