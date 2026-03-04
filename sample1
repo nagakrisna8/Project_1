@@ -1,17 +1,84 @@
-const handleChange: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (event) => {
-  if (cellProps.onChange && cellProps.field) {
+const OrganizationNameCell: React.ComponentType<GridCellProps> = (cellProps) => {
+  const value = cellProps.dataItem.ORGANIZATIONNAME ?? "";
 
-    const updatedDataItem: OrganizationTableData = {
-      ...cellProps.dataItem,
-      [cellProps.field]: event.target.value
-    };
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (cellProps.onChange) {
+      const updatedItem = {
+        ...cellProps.dataItem,
+        ORGANIZATIONNAME: event.target.value,
+      };
 
-    cellProps.onChange({
-      dataIndex: cellProps.dataIndex,
-      dataItem: updatedDataItem,
-      field: cellProps.field,
-      syntheticEvent: event,
-      value: event.target.value,
-    });
-  }
+      cellProps.onChange({
+        dataIndex: cellProps.dataIndex,
+        dataItem: updatedItem,
+        field: "ORGANIZATIONNAME",
+        syntheticEvent: event,
+        value: event.target.value,
+      });
+    }
+  };
+
+  return (
+    <td>
+      <TextField fullWidth size="small" value={value} onChange={handleChange} />
+    </td>
+  );
+};
+
+
+
+
+const OrganizationDescriptionCell: React.ComponentType<GridCellProps> = (cellProps) => {
+  const value = cellProps.dataItem.ORGANIZATIONDESCRIPTION ?? "";
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (cellProps.onChange) {
+      const updatedItem = {
+        ...cellProps.dataItem,
+        ORGANIZATIONDESCRIPTION: event.target.value,
+      };
+
+      cellProps.onChange({
+        dataIndex: cellProps.dataIndex,
+        dataItem: updatedItem,
+        field: "ORGANIZATIONDESCRIPTION",
+        syntheticEvent: event,
+        value: event.target.value,
+      });
+    }
+  };
+
+  return (
+    <td>
+      <TextField fullWidth size="small" value={value} onChange={handleChange} />
+    </td>
+  );
+};
+
+
+const NotesCell: React.ComponentType<GridCellProps> = (cellProps) => {
+  const value = cellProps.dataItem.NOTES ?? "";
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (cellProps.onChange) {
+      const updatedItem = {
+        ...cellProps.dataItem,
+        NOTES: event.target.value,
+      };
+
+      cellProps.onChange({
+        dataIndex: cellProps.dataIndex,
+        dataItem: updatedItem,
+        field: "NOTES",
+        syntheticEvent: event,
+        value: event.target.value,
+      });
+    }
+  };
+
+  return (
+    <td>
+      <TextField fullWidth size="small" value={value} onChange={handleChange} />
+    </td>
+  );
 };
