@@ -1,18 +1,137 @@
-const organizationItemChange = (event: GridItemChangeEvent) => {
+const saveOrganization = async () => {
 
-    const newData = organizationData.map(item => {
+    if (!dirtyFlag) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No data to save.",
+        }));
+        return;
+    }
 
-        if (item.ORGANIZATIONID === event.dataItem.ORGANIZATIONID) {
+    const current = [...organizationData];
+    const original = [...originalOrganizationData];
 
-            return {
-                ...item,
-                [event.field as string]: event.value
-            };
+    // validation
+    if (
+        current.some(
+            (i) =>
+                !i.ORGANIZATIONNAME ||
+                i.ORGANIZATIONNAME.trim() === ""
+        )
+    ) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Please fill details.",
+        }));
+        return;
+    }
+
+    // unique validation
+    const uniqueCombinationCount = new Set(
+        current.map(
+            (i) =>
+                `${i.ORGANIZATIONNAME.trim().toLowerCase()}__${i.ORGANIZATIONDESCRIPTION?.trim().toLowerCase()}`
+        )
+    ).size;
+
+    if (uniqueCombinationCount !== current.length) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage:
+                "Organization Name + MOA Number must be unique.",
+        }));
+        return;
+    }
+
+    const items: MasterDataItem[] = [];
+
+    current.forEach((row) => {
+
+        const originalRow = original.find(o => o.ORGANIZATIONID === row.ORGANIZATIONID);
+
+        // ADD
+        if (!originalRow) {
+
+            items.push({
+                Id: 0,
+                OperationType: "add",
+                Name: row.ORGANIZATIONNAME.trim(),
+                Description: row.ORGANIZATIONDESCRIPTION?.trim() || "",
+                Notes: row.NOTES?.trim() || "",
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
+                orgTypeId: selectedOrgId
+            });
         }
 
-        return item;
+        // UPDATE
+        else if (
+            originalRow.ORGANIZATIONNAME !== row.ORGANIZATIONNAME ||
+            originalRow.ORGANIZATIONDESCRIPTION !== row.ORGANIZATIONDESCRIPTION ||
+            originalRow.NOTES !== row.NOTES ||
+            originalRow.ISACTIVE !== row.ISACTIVE ||
+            originalRow.SORT_ORDER !== row.SORT_ORDER
+        ) {
+
+            items.push({
+                Id: row.ORGANIZATIONID,
+                OperationType: "update",
+                Name: row.ORGANIZATIONNAME.trim(),
+                Description: row.ORGANIZATIONDESCRIPTION?.trim() || "",
+                Notes: row.NOTES?.trim() || "",
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
+                orgTypeId: selectedOrgId
+            });
+        }
+
     });
 
-    setOrganizationData(newData);
-    setDirtyFlag(true);
+    if (items.length === 0) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No changes detected.",
+        }));
+        return;
+    }
+
+    const payload: MasterDataPayload = {
+        MasterDataType: "Organization",
+        Items: items,
+    };
+
+    try {
+
+        await EasaListService.addMasterDataType(payload);
+
+        setDirtyFlag(false);
+
+        fetchOrganization(selectedOrgId);
+
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: "Organization saved successfully.",
+        }));
+
+    } catch (error) {
+
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Error saving Organization.",
+        }));
+    }
 };
