@@ -1,16 +1,12 @@
 const organizationItemChange = (event: GridItemChangeEvent) => {
 
-    const field = event.field as keyof OrganizationTableData;
-
     const newData = organizationData.map(item => {
 
-        const id = item.ID ?? item.ORGANIZATIONID;
-        const eventId = event.dataItem.ID ?? event.dataItem.ORGANIZATIONID;
+        if (item.ORGANIZATIONID === event.dataItem.ORGANIZATIONID) {
 
-        if (id === eventId) {
             return {
                 ...item,
-                [field]: event.value
+                [event.field as string]: event.value
             };
         }
 
