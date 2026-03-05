@@ -1,57 +1,181 @@
-import React, { memo, useCallback, useRef } from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { OrganizationTableData, SortByData } from "../AdminModal";
-import { State, process } from "@progress/kendo-data-query";
-import {
-  Grid as DataGrid,
-  GridCellProps,
-  GridColumn,
-  GridColumnMenuFilter,
-  GridColumnMenuProps,
-  GridDataStateChangeEvent,
-  GridItemChangeEvent,
-  GridToolbar
-} from "@progress/kendo-react-grid";
-
-import {
-  Button,
-  Card,
-  MenuItem,
-  Select,
-  TextField,
-  Typography
-} from "@mui/material";
-
+import { getter, State, process } from "@progress/kendo-data-query";
+import { Grid as DataGrid, GridCellProps, GridColumn, GridColumnMenuFilter, GridColumnMenuProps, GridDataStateChangeEvent, GridItemChangeEvent, GridToolbar } from "@progress/kendo-react-grid";
+import { Button, Card, MenuItem, Select, TextField, Typography, Tabs, Tab, Box } from "@mui/material";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
-import SettingsIcon from "@mui/icons-material/Settings";
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
-import SortIcon from "@mui/icons-material/Sort";
-import GroupIcon from "@mui/icons-material/Group";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
-
 import { filterIcon } from "@progress/kendo-svg-icons";
-import FocalList from "./FocalList";
+import { useDispatch } from "react-redux";
+import SettingsIcon from '@mui/icons-material/Settings';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import SortIcon from '@mui/icons-material/Sort';
+import GroupIcon from '@mui/icons-material/Group';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 
 const editField = "inEdit";
-const SELECTED_FIELD = "selected";
-const EXPAND_FIELD = "expanded";
-
+const SELECTED_FIELD: string = "selected";
 const AnyGrid = DataGrid as any;
 
-const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
-  <div>
-    <GridColumnMenuFilter {...props} expanded />
-  </div>
-);
+const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => {
+  return (
+    <div>
+      <GridColumnMenuFilter {...props} expanded={true} />
+    </div>
+  );
+};
+
+/* ---------------- Focal Panel ---------------- */
+
+interface FocalFormData {
+  focalName: string;
+  phoneNo: string;
+  address: string;
+  email: string;
+  position: string;
+  title: string;
+}
+
+interface FocalPanelProps {
+  dataItem: OrganizationTableData;
+  organizationName: string;
+  onClose: () => void;
+}
+
+const FocalPanel: React.FC<FocalPanelProps> = ({ dataItem, organizationName, onClose }) => {
+
+  const [activeTab, setActiveTab] = useState(0);
+
+  const [formData, setFormData] = useState<FocalFormData>({
+    focalName: "",
+    phoneNo: "",
+    address: "",
+    email: "",
+    position: "",
+    title: "",
+  });
+
+  const handleChange = (field: keyof FocalFormData) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleSave = () => {
+
+    console.log("Organization Name:", organizationName);
+    console.log("Focal Data:", formData);
+
+    onClose();
+  };
+
+  const handleCancel = () => {
+    setFormData({
+      focalName: "",
+      phoneNo: "",
+      address: "",
+      email: "",
+      position: "",
+      title: ""
+    });
+
+    onClose();
+  };
+
+  return (
+
+    <div
+      style={{
+        border: "1px solid #e0e0e0",
+        borderRadius: "4px",
+        backgroundColor: "#fff",
+        margin: "4px 8px 8px 8px",
+        padding: "0 12px 12px 12px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
+      }}
+    >
+
+      <Typography style={{ fontWeight: 600, marginBottom: "10px" }}>
+        Organization : {organizationName}
+      </Typography>
+
+      <Tabs
+        value={activeTab}
+        onChange={(_, val) => setActiveTab(val)}
+        sx={{ borderBottom: "1px solid #e0e0e0", minHeight: 36 }}
+      >
+        <Tab label="Add New Focal" />
+        <Tab label="Lists of Focals" />
+      </Tabs>
+
+      {activeTab === 0 && (
+
+        <Box sx={{ pt: 2 }}>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
+
+            <TextField label="Focal Name" size="small"
+              value={formData.focalName}
+              onChange={handleChange("focalName")}
+            />
+
+            <TextField label="Phone" size="small"
+              value={formData.phoneNo}
+              onChange={handleChange("phoneNo")}
+            />
+
+            <TextField label="Address" size="small"
+              value={formData.address}
+              onChange={handleChange("address")}
+            />
+
+            <TextField label="Email" size="small"
+              value={formData.email}
+              onChange={handleChange("email")}
+            />
+
+            <TextField label="Position" size="small"
+              value={formData.position}
+              onChange={handleChange("position")}
+            />
+
+            <TextField label="Title" size="small"
+              value={formData.title}
+              onChange={handleChange("title")}
+            />
+
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+
+            <Button variant="outlined" size="small" onClick={handleCancel}>
+              Cancel
+            </Button>
+
+            <Button variant="contained" size="small" onClick={handleSave}>
+              Save
+            </Button>
+
+          </div>
+
+        </Box>
+
+      )}
+
+      {activeTab === 1 && (
+        <Box sx={{ pt: 2 }}>
+          <Typography>No focals added yet.</Typography>
+        </Box>
+      )}
+
+    </div>
+  );
+};
+
+/* ---------------- Main Grid ---------------- */
 
 interface OrganizationTypeTableProps {
   KEY: string;
-  columnPropsBuilder: (field: any) => {
-    field: any;
-    columnMenu: (props: any) => JSX.Element;
-    headerClassName: string;
-  };
+  columnPropsBuilder: (field: any) => { field: any; columnMenu: (props: any) => JSX.Element; headerClassName: string };
   organizationData: OrganizationTableData[];
   dataState: State;
   dataStateChange: (event: GridDataStateChangeEvent) => void;
@@ -61,246 +185,112 @@ interface OrganizationTypeTableProps {
   dragStart: (dataItem: OrganizationTableData) => void;
   reorder: (dataItem: OrganizationTableData) => void;
   sortBy: "custom" | "asc" | "desc" | undefined;
-  handleSortByChange: (
-    key: keyof SortByData,
-    value: "custom" | "asc" | "desc"
-  ) => void;
+  handleSortByChange: (key: keyof SortByData, value: "custom" | "asc" | "desc", setScreenDirty?: boolean) => void;
 }
 
 const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => {
 
   const gridRefBuilder = useRef<any>(null);
 
-  const expandChange = (event: any) => {
-    const dataItem = event.dataItem;
+  const [expandedFocalRowKey, setExpandedFocalRowKey] = useState<string | number | null>(null);
 
-    const newData = props.organizationData.map((item) =>
-      item[props.KEY] === dataItem[props.KEY]
-        ? { ...item, expanded: !dataItem.expanded }
-        : item
-    );
+  const ContactFocals: React.ComponentType<GridCellProps> = (cellprops) => {
 
-    props.dataStateChange({ data: newData } as any);
-  };
+    const rowKey = cellprops.dataItem[props.KEY];
+    const isOpen = expandedFocalRowKey === rowKey;
 
-  const OrganizationCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
-    const field = cellProps.field || "";
-    const value = cellProps.dataItem[field] ?? "";
-
-    const handleChange = (e: any) => {
-      const updated = { ...cellProps.dataItem };
-      updated[field] = e.target.value;
-
-      cellProps.onChange?.({
-        dataIndex: cellProps.dataIndex,
-        dataItem: updated,
-        field,
-        syntheticEvent: e,
-        value: e.target.value
-      });
+    const handleToggle = () => {
+      setExpandedFocalRowKey(isOpen ? null : rowKey);
     };
 
     return (
+
       <td>
-        <TextField fullWidth value={value} onChange={handleChange} />
-      </td>
-    );
-  }, []);
 
-  const DragCell: React.ComponentType<GridCellProps> = (dragcellprops) => (
-    <td
-      onDragOver={(e) => {
-        e.preventDefault();
-        props.reorder(dragcellprops.dataItem);
-      }}
-    >
-      <span
-        draggable
-        style={{ cursor: "move", display: "flex", justifyContent: "center" }}
-        onDragStart={() => props.dragStart(dragcellprops.dataItem)}
-      >
-        <SortIcon />
-      </span>
-    </td>
-  );
-
-  const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
-    const expanded = cellProps.dataItem.expanded;
-
-    const toggle = () => {
-      expandChange({ dataItem: cellProps.dataItem });
-    };
-
-    return (
-      <td>
         <span
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 10,
-            marginLeft: 20,
+            gap: "10px",
+            marginLeft: "20px",
             cursor: "pointer"
           }}
-          onClick={toggle}
+          onClick={handleToggle}
         >
+
           <GroupIcon />
 
-          {expanded ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
+          {isOpen ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
+
         </span>
+
       </td>
+
     );
   };
 
-  const DetailComponent = (detailProps: any) => {
-    const orgId = detailProps.dataItem[props.KEY];
+  const detailRowRenderer = (trElement: React.ReactElement<HTMLTableRowElement>, dataItem: OrganizationTableData) => {
+
+    const rowKey = dataItem[props.KEY];
+
+    if (expandedFocalRowKey !== rowKey) return trElement;
+
+    const colSpan = React.Children.count(trElement.props.children) || 6;
 
     return (
-      <div style={{ padding: 15 }}>
-        <FocalList organizationId={orgId} />
-      </div>
-    );
-  };
+      <>
+        {trElement}
 
-  const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
-    const dataItem = cellProps.dataItem;
+        <tr>
 
-    const handleChange = (e: any) => {
-      const updated = { ...dataItem, ISACTIVE: e.target.checked };
+          <td colSpan={colSpan} style={{ padding: 0, border: "none" }}>
 
-      cellProps.onChange?.({
-        dataIndex: cellProps.dataIndex,
-        dataItem: updated,
-        field: cellProps.field,
-        syntheticEvent: {} as React.SyntheticEvent,
-        value: e.target.value
-      });
-    };
+            <FocalPanel
+              dataItem={dataItem}
+              organizationName={dataItem.ORGANIZATIONNAME}
+              onClose={() => setExpandedFocalRowKey(null)}
+            />
 
-    return (
-      <td>
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <input
-            type="checkbox"
-            checked={dataItem.ISACTIVE}
-            onChange={handleChange}
-          />
-        </div>
-      </td>
+          </td>
+
+        </tr>
+
+      </>
     );
   };
 
   return (
+
     <div style={{ paddingBottom: 20 }}>
-      <Card style={{ borderLeft: "4px solid #0033A1", marginLeft: 22 }}>
+
+      <Card style={{ borderLeft: "4px solid #0033A1", marginLeft: "22px" }}>
 
         <AnyGrid
+          id="kgrid-oss-checklistType"
           ref={gridRefBuilder}
-          style={{ height: "60vh" }}
+          style={{ height: "60vh", minHeight: 400 }}
           data={process(props.organizationData, props.dataState).data}
           dataItemKey={props.KEY}
-          resizable
-          editField={editField}
           {...props.dataState}
-          selectedField={SELECTED_FIELD}
-          onDataStateChange={props.dataStateChange}
-          onItemChange={props.itemChange}
-          columnMenuIcon={filterIcon}
-
-          detail={DetailComponent}
-          expandField={EXPAND_FIELD}
-          onExpandChange={expandChange}
-
-          hierarchyCell={() => null}   // ✅ removes + button
+          rowRender={detailRowRenderer}
         >
 
           <GridToolbar>
 
-            <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-
-              <div style={{ display: "flex", gap: 8 }}>
-
-                <Button
-                  startIcon={<AddCircleOutlineIcon />}
-                  onClick={props.createOrganization}
-                  variant="outlined"
-                  size="small"
-                >
-                  Create New
-                </Button>
-
-                <Button
-                  onClick={props.saveOrganization}
-                  variant="outlined"
-                  size="small"
-                >
-                  Save
-                </Button>
-
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-
-                Sort Order :
-
-                <Select
-                  value={props.sortBy || "custom"}
-                  style={{ width: 160 }}
-                  onChange={(e) =>
-                    props.handleSortByChange(
-                      "organization",
-                      e.target.value as any
-                    )
-                  }
-                >
-                  <MenuItem value="custom">
-                    <SettingsIcon /> Customize
-                  </MenuItem>
-
-                  <MenuItem value="asc">
-                    <ArrowUpwardIcon /> Ascending
-                  </MenuItem>
-
-                  <MenuItem value="desc">
-                    <ArrowDownwardIcon /> Descending
-                  </MenuItem>
-
-                </Select>
-
-              </div>
-
-            </div>
+            <Button
+              startIcon={<AddCircleOutlineIcon />}
+              onClick={props.createOrganization}
+              variant="outlined"
+              size="small"
+            >
+              Create New
+            </Button>
 
           </GridToolbar>
 
-          <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
-
-          <GridColumn
-            {...props.columnPropsBuilder("ORGANIZATIONNAME")}
+          <GridColumn {...props.columnPropsBuilder("ORGANIZATIONNAME")}
             title="Organization Name"
-            cells={{ data: OrganizationCell }}
             width="300px"
-            columnMenu={GridFilterMenuWithoutSort}
-          />
-
-          <GridColumn
-            {...props.columnPropsBuilder("ORGANIZATIONDESCRIPTION")}
-            title="MOA Number"
-            cells={{ data: OrganizationCell }}
-            width="240px"
-          />
-
-          <GridColumn
-            {...props.columnPropsBuilder("ISACTIVE")}
-            title="Active"
-            cells={{ data: activeCheckbox }}
-            width="165px"
-          />
-
-          <GridColumn
-            {...props.columnPropsBuilder("NOTES")}
-            title="Notes"
-            cells={{ data: OrganizationCell }}
-            width="360px"
           />
 
           <GridColumn
@@ -312,6 +302,7 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
         </AnyGrid>
 
       </Card>
+
     </div>
   );
 });
