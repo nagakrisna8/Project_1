@@ -17,8 +17,8 @@ import FocalList from "./FocalList";
 
 const editField = "inEdit";
 const SELECTED_FIELD: string = "selected";
-const EXPAND_FIELD = "expanded"
 const AnyGrid = DataGrid as any;
+const EXPAND_FIELD = "expanded"
 
 const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => {
   return (
@@ -27,184 +27,6 @@ const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => {
     </div>
   );
 };
-
-// ─── Focal Form (Add New Focal Tab) ────────────────────────────────────────────
-interface FocalFormData {
-  focalName: string;
-  phoneNo: string;
-  address: string;
-  email: string;
-  position: string;
-  title: string;
-}
-
-interface FocalPanelProps {
-  dataItem: OrganizationTableData;
-  onClose: () => void;
-}
-
-const FocalPanel: React.FC<FocalPanelProps> = ({ dataItem, onClose }) => {
-  const [activeTab, setActiveTab] = useState(0);
-  const [formData, setFormData] = useState<FocalFormData>({
-    focalName: "",
-    phoneNo: "",
-    address: "",
-    email: "",
-    position: "",
-    title: "",
-  });
-
-  const handleChange = (field: keyof FocalFormData) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
-  };
-
-  const handleSave = () => {
-    console.log("Saving focal for", dataItem, formData);
-    onClose();
-  };
-
-  const handleCancel = () => {
-    setFormData({ focalName: "", phoneNo: "", address: "", email: "", position: "", title: "" });
-    onClose();
-  };
-
-  return (
-    <div
-      style={{
-        border: "1px solid #e0e0e0",
-        borderRadius: "4px",
-        backgroundColor: "#fff",
-        margin: "4px 8px 8px 8px",
-        padding: "0 12px 12px 12px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-      }}
-    >
-      {/* Tabs */}
-      <Tabs
-        value={activeTab}
-        onChange={(_, val) => setActiveTab(val)}
-        sx={{ borderBottom: "1px solid #e0e0e0", minHeight: 36 }}
-        TabIndicatorProps={{ style: { backgroundColor: "#0033A1", height: 2 } }}
-      >
-        <Tab
-          label="Add New Focal"
-          sx={{
-            textTransform: "none",
-            fontWeight: activeTab === 0 ? 600 : 400,
-            color: activeTab === 0 ? "#0033A1" : "#555",
-            minHeight: 36,
-            fontSize: 13,
-          }}
-        />
-        <Tab
-          label="Lists of Focals"
-          sx={{
-            textTransform: "none",
-            fontWeight: activeTab === 1 ? 600 : 400,
-            color: activeTab === 1 ? "#0033A1" : "#555",
-            minHeight: 36,
-            fontSize: 13,
-          }}
-        />
-      </Tabs>
-
-      {/* Add New Focal Tab */}
-      {activeTab === 0 && (
-        <Box sx={{ pt: 2 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
-            {/* Row 1 */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ minWidth: 100, fontSize: 13, color: "#333", textAlign: "right" }}>Focal Name :</label>
-              <TextField
-                size="small"
-                fullWidth
-                value={formData.focalName}
-                onChange={handleChange("focalName")}
-                inputProps={{ style: { fontSize: 13 } }}
-              />
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ minWidth: 80, fontSize: 13, color: "#333", textAlign: "right" }}>Phone No:</label>
-              <TextField
-                size="small"
-                fullWidth
-                value={formData.phoneNo}
-                onChange={handleChange("phoneNo")}
-                placeholder="+1 (425 )1234567"
-                inputProps={{ style: { fontSize: 13 } }}
-              />
-            </div>
-            {/* Row 2 */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ minWidth: 100, fontSize: 13, color: "#333", textAlign: "right" }}>Address:</label>
-              <TextField
-                size="small"
-                fullWidth
-                value={formData.address}
-                onChange={handleChange("address")}
-                inputProps={{ style: { fontSize: 13 } }}
-              />
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ minWidth: 80, fontSize: 13, color: "#333", textAlign: "right" }}>Email:</label>
-              <TextField
-                size="small"
-                fullWidth
-                value={formData.email}
-                onChange={handleChange("email")}
-                inputProps={{ style: { fontSize: 13 } }}
-              />
-            </div>
-            {/* Row 3 */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ minWidth: 100, fontSize: 13, color: "#333", textAlign: "right" }}>Position:</label>
-              <TextField
-                size="small"
-                fullWidth
-                value={formData.position}
-                onChange={handleChange("position")}
-                placeholder="Engineering Manager"
-                inputProps={{ style: { fontSize: 13 } }}
-              />
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ minWidth: 80, fontSize: 13, color: "#333", textAlign: "right" }}>Title:</label>
-              <TextField
-                size="small"
-                fullWidth
-                value={formData.title}
-                onChange={handleChange("title")}
-                inputProps={{ style: { fontSize: 13 } }}
-              />
-            </div>
-          </div>
-
-          {/* Buttons */}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-            <Button variant="outlined" size="small" color="inherit" onClick={handleCancel}
-              sx={{ textTransform: "none", fontSize: 13 }}>
-              Cancel
-            </Button>
-            <Button variant="contained" size="small" onClick={handleSave}
-              sx={{ textTransform: "none", fontSize: 13, backgroundColor: "#0033A1", "&:hover": { backgroundColor: "#002280" } }}>
-              Save
-            </Button>
-          </div>
-        </Box>
-      )}
-
-      {/* Lists of Focals Tab */}
-      {activeTab === 1 && (
-        <Box sx={{ pt: 2 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", mt: 2 }}>
-            No focals added yet.
-          </Typography>
-        </Box>
-      )}
-    </div>
-  );
-};
-
 
 interface OrganizationTypeTableProps {
   KEY: string;
@@ -220,7 +42,6 @@ interface OrganizationTypeTableProps {
   sortBy: "custom" | "asc" | "desc" | undefined;
   handleSortByChange: (key: keyof SortByData, value: "custom" | "asc" | "desc", setScreenDirty?: boolean) => void;
 }
-
 const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => {
   const idGetter = getter(props.KEY);
   const dispatch = useDispatch();
@@ -228,6 +49,17 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
   const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
   const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
   const [expandedFocalRowKey, setExpandedFocalRowKey] = useState<string | number | null>(null);
+  const expandChange = (event: any) => {
+    const dataItem = event.dataItem;
+
+    const newData = props?.organizationData?.map((item) =>
+      item[props.KEY] === dataItem[props.KEY]
+        ? { ...item, expanded: !dataItem.expanded }
+        : item
+    );
+
+    props?.dataStateChange({ data: newData } as any);
+  };
 
   const OrganizationCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
     const { dataItem } = cellProps;
@@ -276,26 +108,12 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
       </span>
     </td>
   );
-  const expandChange = (event: any) => {
-    const dataItem = event.dataItem;
-
-    const newData = props.organizationData.map((item) =>
-      item[props.KEY] === dataItem[props.KEY]
-        ? { ...item, expanded: !dataItem.expanded }
-        : item
-    );
-
-    props.dataStateChange({ data: newData } as any);
-  };
-
-
-  // ContactFocals cell with toggle logic
   const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
 
-    const expanded = cellProps.dataItem.expanded;
+    const expanded = cellProps?.dataItem?.expanded;
 
     const toggle = () => {
-      expandChange({ dataItem: cellProps.dataItem });
+      expandChange({ dataItem: cellProps?.dataItem });
     };
 
     return (
@@ -311,7 +129,6 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
           onClick={toggle}
         >
           <GroupIcon />
-
           {expanded ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
 
         </span>
@@ -319,21 +136,6 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
     );
 
   };
-
-const DetailComponent = (detailProps: any) => {
-
-    const organizationName = detailProps.dataItem.ORGANIZATIONNAME;
-
-    return (
-      <div style={{ padding: 15 }}>
-        <FocalList />
-      </div>
-    )
-
-  };
-
-
-
 
   useEffect(() => {
     if (gridRefBuilder?.current) {
@@ -385,6 +187,14 @@ const DetailComponent = (detailProps: any) => {
       </td>
     );
   };
+  const DetailComponent = (detailProps: any) => {
+  //  const organizationName = detailProps.dataItem.ORGANIZATIONNAME;
+    return (
+      <div style={{ padding: 15 }}>
+        <FocalList />
+      </div>
+    );
+  };
 
   return (
     <div style={{ paddingBottom: 20 }}>
@@ -412,7 +222,6 @@ const DetailComponent = (detailProps: any) => {
           detail={DetailComponent}
           expandField={EXPAND_FIELD}
           onExpandChange={expandChange}
-          hierarchyCell={() => null}
         >
           <GridToolbar>
             <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
