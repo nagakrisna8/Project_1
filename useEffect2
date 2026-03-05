@@ -1,18 +1,45 @@
-const DetailComponent = (detailProps: any) => {
+const expandChange = (dataItem: any) => {
 
-  const orgName = detailProps.dataItem.ORGANIZATIONNAME;
-  const isExpanded = detailProps.dataItem.expanded;
+  const newData = props.organizationData.map((item) =>
+    item[props.KEY] === dataItem[props.KEY]
+      ? { ...item, expanded: !item.expanded }
+      : item
+  );
 
-  if (!isExpanded) return null;
+  props.organizationData.splice(0, props.organizationData.length, ...newData);
+};
+
+const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
+
+  const expanded = cellProps.dataItem.expanded;
+
+  const toggleExpand = () => {
+    expandChange(cellProps.dataItem);
+  };
 
   return (
-    <div style={{ padding: 15 }}>
-      <FocalList orgName={orgName} />
-    </div>
+    <td>
+      <span
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginLeft: 20,
+          cursor: "pointer"
+        }}
+        onClick={toggleExpand}
+      >
+        <GroupIcon />
+
+        {expanded ? (
+          <ArrowDropUpIcon />
+        ) : (
+          <ArrowDropDownIcon />
+        )}
+      </span>
+    </td>
   );
 };
 
-useEffect(() => {
-   if (!orgName) return;
-   getFocalList(orgName);
-}, [orgName]);
+
+hierarchyCell={() => null}
