@@ -1,45 +1,32 @@
-const expandChange = (dataItem: any) => {
+const [expandedState, setExpandedState] = React.useState<any>({});
+const gridData = process(
+  props.organizationData.map((item) => ({
+    ...item,
+    expanded: expandedState[item[props.KEY]]
+  })),
+  props.dataState
+).data;
 
-  const newData = props.organizationData.map((item) =>
-    item[props.KEY] === dataItem[props.KEY]
-      ? { ...item, expanded: !item.expanded }
-      : item
-  );
+const expandChange = (event: any) => {
+  const dataItem = event.dataItem;
 
-  props.organizationData.splice(0, props.organizationData.length, ...newData);
+  setExpandedState((prev: any) => ({
+    ...prev,
+    [dataItem[props.KEY]]: !prev[dataItem[props.KEY]]
+  }));
 };
-
 const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
 
   const expanded = cellProps.dataItem.expanded;
 
-  const toggleExpand = () => {
-    expandChange(cellProps.dataItem);
+  const toggle = () => {
+    expandChange({ dataItem: cellProps.dataItem });
   };
 
   return (
-    <td>
-      <span
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          marginLeft: 20,
-          cursor: "pointer"
-        }}
-        onClick={toggleExpand}
-      >
-        <GroupIcon />
-
-        {expanded ? (
-          <ArrowDropUpIcon />
-        ) : (
-          <ArrowDropDownIcon />
-        )}
-      </span>
+    <td onClick={toggle} style={{ cursor: "pointer" }}>
+      <GroupIcon />
+      {expanded ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
     </td>
   );
 };
-
-
-hierarchyCell={() => null}
