@@ -1,83 +1,13 @@
-import React, { memo, useEffect, useState } from "react";
-import { Grid as DataGrid, GridColumn } from "@progress/kendo-react-grid";
-import { State, process } from "@progress/kendo-data-query";
-import { Card } from "@mui/material";
+const DetailComponent = (detailProps: any) => {
 
-const AnyGrid = DataGrid as any;
+  const orgName = detailProps.dataItem.ORGANIZATIONNAME;
+  const isExpanded = detailProps.dataItem.expanded;
 
-interface FocalData {
-  ID: number;
-  FOCALNAME: string;
-  EMAIL: string;
-  ORGANIZATION: string;
-  ISACTIVE: boolean;
-}
-
-interface FocalListProps {
-  orgName: string;
-}
-
-const FocalList: React.FC<FocalListProps> = memo((props) => {
-
-  const { orgName } = props;
-
-  const [focalListData, setFocalListData] = useState<FocalData[]>([]);
-  const [dataState, setDataState] = useState<State>({
-    skip: 0,
-    take: 10
-  });
-
-  // API Call
-  useEffect(() => {
-    if (orgName) {
-      fetchFocalList(orgName);
-    }
-  }, [orgName]);
-
-  const fetchFocalList = async (organization: string) => {
-    try {
-
-      const response = await fetch(
-        `/api/focallist?organization=${organization}`
-      );
-
-      const data = await response.json();
-
-      setFocalListData(data);
-
-    } catch (error) {
-      console.error("Error fetching focal list:", error);
-    }
-  };
+  if (!isExpanded) return null;
 
   return (
-    <div style={{ paddingBottom: 20 }}>
-      <Card
-        style={{
-          borderLeft: "4px solid #0033A1",
-          marginLeft: "22px",
-        }}
-      >
-        <h3 style={{ marginLeft: 20 }}>{orgName} - Focal List</h3>
-
-        <AnyGrid
-          style={{ height: "400px" }}
-          data={process(focalListData, dataState)}
-          {...dataState}
-          pageable
-          sortable
-          filterable
-          onDataStateChange={(e) => setDataState(e.dataState)}
-        >
-          <GridColumn field="FOCALNAME" title="Focal Name" width="250px" />
-          <GridColumn field="EMAIL" title="Email" width="300px" />
-          <GridColumn field="ORGANIZATION" title="Organization" width="200px" />
-          <GridColumn field="ISACTIVE" title="Active" width="120px" />
-        </AnyGrid>
-
-      </Card>
+    <div style={{ padding: 15 }}>
+      <FocalList orgName={orgName} />
     </div>
   );
-});
-
-export default FocalList;
+};
