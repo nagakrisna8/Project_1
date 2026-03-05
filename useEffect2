@@ -1,137 +1,39 @@
-const saveOrganization = async () => {
+const ContactFocals: React.ComponentType<GridCellProps> = (cellprops) => {
 
-    if (!dirtyFlag) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "No data to save.",
-        }));
-        return;
-    }
+  const handleToggle = () => {
+    const dataItem = cellprops.dataItem;
 
-    const current = [...organizationData];
-    const original = [...originalOrganizationData];
+    dataItem[EXPAND_FIELD] = !dataItem[EXPAND_FIELD];
 
-    // validation
-    if (
-        current.some(
-            (i) =>
-                !i.ORGANIZATIONNAME ||
-                i.ORGANIZATIONNAME.trim() === ""
-        )
-    ) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "Please fill details.",
-        }));
-        return;
-    }
-
-    // unique validation
-    const uniqueCombinationCount = new Set(
-        current.map(
-            (i) =>
-                `${i.ORGANIZATIONNAME.trim().toLowerCase()}__${i.ORGANIZATIONDESCRIPTION?.trim().toLowerCase()}`
-        )
-    ).size;
-
-    if (uniqueCombinationCount !== current.length) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage:
-                "Organization Name + MOA Number must be unique.",
-        }));
-        return;
-    }
-
-    const items: MasterDataItem[] = [];
-
-    current.forEach((row) => {
-
-        const originalRow = original.find(o => o.ORGANIZATIONID === row.ORGANIZATIONID);
-
-        // ADD
-        if (!originalRow) {
-
-            items.push({
-                Id: 0,
-                OperationType: "add",
-                Name: row.ORGANIZATIONNAME.trim(),
-                Description: row.ORGANIZATIONDESCRIPTION?.trim() || "",
-                Notes: row.NOTES?.trim() || "",
-                IsActive: row.ISACTIVE ? "Y" : "N",
-                Address: "",
-                Department: "",
-                Phone: "",
-                Email: "",
-                Title: "",
-                orgTypeId: selectedOrgId
-            });
-        }
-
-        // UPDATE
-        else if (
-            originalRow.ORGANIZATIONNAME !== row.ORGANIZATIONNAME ||
-            originalRow.ORGANIZATIONDESCRIPTION !== row.ORGANIZATIONDESCRIPTION ||
-            originalRow.NOTES !== row.NOTES ||
-            originalRow.ISACTIVE !== row.ISACTIVE ||
-            originalRow.SORT_ORDER !== row.SORT_ORDER
-        ) {
-
-            items.push({
-                Id: row.ORGANIZATIONID,
-                OperationType: "update",
-                Name: row.ORGANIZATIONNAME.trim(),
-                Description: row.ORGANIZATIONDESCRIPTION?.trim() || "",
-                Notes: row.NOTES?.trim() || "",
-                IsActive: row.ISACTIVE ? "Y" : "N",
-                Address: "",
-                Department: "",
-                Phone: "",
-                Email: "",
-                Title: "",
-                orgTypeId: selectedOrgId
-            });
-        }
-
+    props.itemChange({
+      dataItem: dataItem,
+      field: EXPAND_FIELD,
+      syntheticEvent: {} as any,
+      value: dataItem[EXPAND_FIELD],
+      dataIndex: cellprops.dataIndex,
     });
+  };
 
-    if (items.length === 0) {
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "No changes detected.",
-        }));
-        return;
-    }
+  return (
+    <td>
+      <span
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          marginLeft: "20px",
+          cursor: "pointer"
+        }}
+        onClick={handleToggle}
+      >
+        <GroupIcon style={{ color: "#555" }} />
 
-    const payload: MasterDataPayload = {
-        MasterDataType: "Organization",
-        Items: items,
-    };
-
-    try {
-
-        await EasaListService.addMasterDataType(payload);
-
-        setDirtyFlag(false);
-
-        fetchOrganization(selectedOrgId);
-
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "success",
-            snackbarMessage: "Organization saved successfully.",
-        }));
-
-    } catch (error) {
-
-        dispatch(showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "error",
-            snackbarMessage: "Error saving Organization.",
-        }));
-    }
+        {cellprops.dataItem[EXPAND_FIELD] ?
+          <ArrowDropUpIcon style={{ color: "#555" }} />
+          :
+          <ArrowDropDownIcon style={{ color: "#555" }} />
+        }
+      </span>
+    </td>
+  );
 };
