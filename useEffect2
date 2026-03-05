@@ -171,7 +171,7 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
   const DetailComponent = (detailProps: any) => {
     const orgName = detailProps.dataItem.ORGANIZATIONNAME;
     return (
-      <div style={{ padding: 15 }}>
+      <div>
         <FocalList orgName={orgName} />
       </div>
     );
@@ -223,11 +223,10 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
           onDataStateChange={props.dataStateChange}
           onItemChange={props.itemChange}
           columnMenuIcon={filterIcon}
-          detail={DetailComponent}
-          expandField={EXPAND_FIELD}
-          onExpandChange={expandChange}
-          // ✅ Hides the default "+" expand button column
-          hierarchyCell={() => null}
+          //detail={DetailComponent}
+          //expandField={EXPAND_FIELD}
+          //onExpandChange={expandChange}
+          //hierarchyCell={() => null}
         >
           <GridToolbar>
             <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
