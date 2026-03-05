@@ -11,3 +11,8 @@ const DetailComponent = (detailProps: any) => {
     </div>
   );
 };
+
+useEffect(() => {
+   if (!orgName) return;
+   getFocalList(orgName);
+}, [orgName]);
