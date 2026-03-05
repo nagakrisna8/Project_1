@@ -1,17 +1,20 @@
 const ContactFocals: React.ComponentType<GridCellProps> = (cellprops) => {
 
-  const handleToggle = () => {
-    const dataItem = cellprops.dataItem;
+  const handleToggle = (event: React.MouseEvent<HTMLSpanElement>) => {
 
-    dataItem[EXPAND_FIELD] = !dataItem[EXPAND_FIELD];
+    if (cellprops.onChange) {
 
-    props.itemChange({
-      dataItem: dataItem,
-      field: EXPAND_FIELD,
-      syntheticEvent: {} as any,
-      value: dataItem[EXPAND_FIELD],
-      dataIndex: cellprops.dataIndex,
-    });
+      cellprops.onChange({
+        dataItem: {
+          ...cellprops.dataItem,
+          expanded: !cellprops.dataItem.expanded
+        },
+        field: "expanded",
+        syntheticEvent: event,
+        value: !cellprops.dataItem.expanded
+      });
+
+    }
   };
 
   return (
@@ -28,11 +31,12 @@ const ContactFocals: React.ComponentType<GridCellProps> = (cellprops) => {
       >
         <GroupIcon style={{ color: "#555" }} />
 
-        {cellprops.dataItem[EXPAND_FIELD] ?
+        {cellprops.dataItem.expanded ?
           <ArrowDropUpIcon style={{ color: "#555" }} />
           :
           <ArrowDropDownIcon style={{ color: "#555" }} />
         }
+
       </span>
     </td>
   );
