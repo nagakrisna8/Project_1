@@ -1,4 +1,4 @@
-.organization-grid > .k-grid td,
-.organization-grid > .k-grid .k-table-td {
+.organization-grid.k-grid .k-grid-md td,
+.organization-grid.k-grid .k-grid-md .k-table-td {
   padding-block: 4px;
 }
