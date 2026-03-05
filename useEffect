@@ -1,26 +1,24 @@
 import React, { memo, useEffect, useState } from "react";
 import { Grid as DataGrid, GridColumn } from "@progress/kendo-react-grid";
 import { State, process } from "@progress/kendo-data-query";
-import { Card } from "@mui/material";
+import { Button } from "@mui/material";
 import EasaListService from "../../EasaRegisterListService";
 
 const AnyGrid = DataGrid as any;
 
 interface FocalData {
-  NAME: string,
-  ADDRESS: string,
-  PHONE: number,
-  DEPARTMENT: string,
-  EMAIL: string
+  NAME: string;
+  ADDRESS: string;
+  PHONE: number;
+  DEPARTMENT: string;
+  EMAIL: string;
 }
 
 interface FocalListProps {
   orgName: string;
 }
 
-const FocalList: React.FC<FocalListProps> = memo((props) => {
-
-  const { orgName } = props;
+const FocalList: React.FC<FocalListProps> = memo(({ orgName }) => {
 
   const [focalListData, setFocalListData] = useState<FocalData[]>([]);
   const [dataState, setDataState] = useState<State>({
@@ -28,50 +26,111 @@ const FocalList: React.FC<FocalListProps> = memo((props) => {
     take: 10
   });
 
-  // API Call
   useEffect(() => {
     if (orgName) {
       fetchFocalList(orgName);
     }
   }, [orgName]);
-  useEffect(() => {
-   if (!orgName) return;
-   fetchFocalList(orgName);
-}, [orgName]);
 
   const fetchFocalList = async (organization: string) => {
     const masterdataType = 4;
-    EasaListService.getAdminMasterDetailsTypeFocalsList(masterdataType, organization)
+
+    EasaListService
+      .getAdminMasterDetailsTypeFocalsList(masterdataType, organization)
       .then((response) => {
-        let result: FocalData[] = response?.data.map(x => ({
+
+        const result: FocalData[] = response?.data.map((x: any) => ({
           NAME: x.NAME,
           ADDRESS: x.ADDRESS,
           PHONE: x.PHONE,
           DEPARTMENT: x.DEPARTMENT,
           EMAIL: x.EMAIL
         }));
+
         setFocalListData(result);
+
       })
       .catch((err) => console.error(err));
   };
 
   return (
-    <div style={{ paddingBottom: 20 }}>
+    <div style={{ padding: 20, background: "#f8f8f8" }}>
 
+      {/* Header */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        marginBottom: 10
+      }}>
+        <div>
+          <span style={{ marginRight: 20, fontWeight: 500 }}>
+            Add New Focal
+          </span>
+
+          <span style={{
+            borderBottom: "3px solid #1976d2",
+            paddingBottom: 4,
+            fontWeight: 600
+          }}>
+            Lists of Focals
+          </span>
+        </div>
+
+        <Button variant="outlined" size="small">
+          Edit
+        </Button>
+      </div>
+
+      {/* Grid */}
       <AnyGrid
-        style={{ height: "200px" }}
+        style={{ height: "220px", background: "white" }}
         data={process(focalListData, dataState)}
         {...dataState}
-        onDataStateChange={(e) => setDataState(e.dataState)}
+        pageable
+        onDataStateChange={(e:any) => setDataState(e.dataState)}
       >
-        <GridColumn field="NAME" title="Focal Name" width="250px" />
+
+        {/* Checkbox Column */}
+        <GridColumn
+          field="selected"
+          width="50px"
+          cell={(props:any) => (
+            <td>
+              <input type="checkbox" />
+            </td>
+          )}
+        />
+
+        <GridColumn field="NAME" title="Focal Names" width="200px" />
         <GridColumn field="ADDRESS" title="Focal Information" width="300px" />
-        <GridColumn field="PHONE" title={'\u00A0'} width="200px" />
-        <GridColumn field="DEPARTMENT" title={'\u00A0'} width="120px" />
-        <GridColumn field="EMAIL" title={'\u00A0'} width="300px" />
+        <GridColumn field="PHONE" title="" width="160px" />
+        <GridColumn field="DEPARTMENT" title="" width="180px" />
+        <GridColumn field="EMAIL" title="" width="250px" />
 
       </AnyGrid>
 
+      {/* Footer Buttons */}
+      <div style={{
+        display: "flex",
+        justifyContent: "flex-end",
+        marginTop: 10
+      }}>
+        <Button
+          variant="outlined"
+          size="small"
+          style={{ marginRight: 10 }}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          variant="contained"
+          size="small"
+          color="primary"
+        >
+          Save
+        </Button>
+      </div>
 
     </div>
   );
