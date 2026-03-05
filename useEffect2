@@ -1,4 +1,5 @@
-.organization-grid.k-grid .k-grid-md td,
-.organization-grid.k-grid .k-grid-md .k-table-td {
-  padding-block: 4px;
+.organization-grid > .k-grid-content table td,
+.organization-grid > .k-grid-content table .k-table-td {
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
 }
