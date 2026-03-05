@@ -1,6 +1,4 @@
-.k-grid .k-grid-md td, .k-grid .k-grid-md .k-table-td, .k-grid-md td, .k-grid-md .k-table-td
-Specificity: (0,2,0)
- {
-    /* padding-block: var(--kendo-spacing-2, .5rem); */
-    /* padding-inline: var(--kendo-spacing-3, .75rem); */
+.organization-grid > .k-grid td,
+.organization-grid > .k-grid .k-table-td {
+  padding-block: 4px;
 }
