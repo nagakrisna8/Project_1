@@ -1,90 +1,66 @@
-<GridToolbar className="organization-toolbar">
-  <div className="toolbar-left">
-    <Button
-      startIcon={<AddCircleOutlineIcon />}
-      onClick={props.createOrganization}
-      variant="outlined"
-      size="small"
-      color="inherit"
+<GridToolbar style={{ width: "100%" }}>
+  <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+
+    {/* Left buttons */}
+    <div style={{ display: "flex", gap: 8 }}>
+      <Button
+        startIcon={<AddCircleOutlineIcon />}
+        onClick={props.createOrganization}
+        variant="outlined"
+        size="small"
+        color="inherit"
+      >
+        Create New
+      </Button>
+
+      <Button
+        onClick={props.saveOrganization}
+        variant="outlined"
+        size="small"
+        color="inherit"
+      >
+        Save
+      </Button>
+    </div>
+
+    {/* Right sort order */}
+    <div
+      style={{
+        marginLeft: "auto",
+        display: "flex",
+        gap: 8,
+        alignItems: "center"
+      }}
     >
-      Create New
-    </Button>
+      <p style={{ margin: 0 }}>Sort Order :</p>
 
-    <Button
-      onClick={props.saveOrganization}
-      variant="outlined"
-      size="small"
-      color="inherit"
-    >
-      Save
-    </Button>
-  </div>
+      <Select
+        value={props.sortBy || "custom"}
+        style={{ width: 160 }}
+        size="small"
+        onChange={(e) =>
+          props.handleSortByChange(
+            "organization",
+            e.target.value as "custom" | "asc" | "desc"
+          )
+        }
+      >
+        <MenuItem value="custom">
+          <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+          Customize
+        </MenuItem>
 
-  <div className="toolbar-right">
-    <span className="sort-label">Sort Order :</span>
+        <MenuItem value="asc">
+          <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+          Ascending
+        </MenuItem>
 
-    <Select
-      value={props.sortBy || "custom"}
-      className="sort-dropdown"
-      onChange={(e) =>
-        props.handleSortByChange(
-          "organization",
-          e.target.value as "custom" | "asc" | "desc"
-        )
-      }
-      size="small"
-    >
-      <MenuItem value="custom">
-        <SettingsIcon className="menu-icon" />
-        Customize
-      </MenuItem>
+        <MenuItem value="desc">
+          <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+          Descending
+        </MenuItem>
+      </Select>
+    </div>
 
-      <MenuItem value="asc">
-        <ArrowUpwardIcon className="menu-icon" />
-        Ascending
-      </MenuItem>
-
-      <MenuItem value="desc">
-        <ArrowDownwardIcon className="menu-icon" />
-        Descending
-      </MenuItem>
-    </Select>
   </div>
 </GridToolbar>
-
-
-
-
-
-.organization-toolbar {
-  display: flex;
-  align-items: center;
-  width: 100%;
-}
-
-.toolbar-left {
-  display: flex;
-  gap: 8px;
-}
-
-.toolbar-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sort-label {
-  margin: 0;
-  font-size: 14px;
-}
-
-.sort-dropdown {
-  width: 160px;
-}
-
-.menu-icon {
-  height: 16px;
-  width: 16px;
-  margin-right: 8px;
-}
