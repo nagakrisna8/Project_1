@@ -1,21 +1,55 @@
-.focal-container {
-  margin-left: 83px;
-}
+const expandChange = (event: any) => {
+  const key = event.dataItem[props.KEY];
 
-.focal-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
+  setExpandedState((prev: any) => ({
+    ...prev,
+    [key]: !prev[key]
+  }));
+};
 
-.focal-title {
-  border-bottom: 3px solid #000000;
-  padding-bottom: 4px;
-  font-weight: 600;
-  font-size: 16px;
-}
 
-.focal-grid {
-  height: 120px;
-  background: white;
-}
+const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
+
+  const expanded = cellProps.dataItem.expanded;
+
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation(); // very important
+
+    const key = cellProps.dataItem[props.KEY];
+
+    setExpandedState((prev: any) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  return (
+    <td>
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <GroupIcon />
+
+        <span
+          onClick={toggle}
+          style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+        >
+          {expanded ? (
+            <ArrowDropUpIcon style={{ fontSize: 22 }} />
+          ) : (
+            <ArrowDropDownIcon style={{ fontSize: 22 }} />
+          )}
+        </span>
+      </div>
+    </td>
+  );
+};
+
+const gridData = process(
+  props.organizationData.map((item) => ({
+    ...item,
+    expanded: expandedState[item[props.KEY]] || false
+  })),
+  props.dataState
+).data;
+
+
+
