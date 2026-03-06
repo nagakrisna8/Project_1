@@ -1,36 +1,31 @@
-const focalCache: { [key: string]: FocalData[] } = {};
+const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
 
-const fetchFocalList = async (organization: string) => {
+  const expanded = cellProps.dataItem.expanded;
 
-  if (focalCache[organization]) {
-    setFocalListData(focalCache[organization]);
-    return;
-  }
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
 
-  const masterdataType = 4;
+    expandChange({
+      dataItem: cellProps.dataItem
+    });
+  };
 
-  try {
+  return (
+    <td>
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <GroupIcon />
 
-    const response =
-      await EasaListService.getAdminMasterDetailsTypeFocalsList(
-        masterdataType,
-        organization
-      );
-
-    const result: FocalData[] = response?.data.map((x: any) => ({
-      NAME: x.NAME,
-      ADDRESS: x.ADDRESS,
-      PHONE: x.PHONE,
-      DEPARTMENT: x.DEPARTMENT,
-      EMAIL: x.EMAIL
-    }));
-
-    // store in global cache
-    focalCache[organization] = result;
-
-    setFocalListData(result);
-
-  } catch (error) {
-    console.error("Error fetching focal list:", error);
-  }
+        <span
+          onClick={toggle}
+          style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+        >
+          {expanded ? (
+            <ArrowDropUpIcon style={{ fontSize: 22 }} />
+          ) : (
+            <ArrowDropDownIcon style={{ fontSize: 22 }} />
+          )}
+        </span>
+      </div>
+    </td>
+  );
 };
