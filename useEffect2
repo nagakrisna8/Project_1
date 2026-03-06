@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from "react";
+import React, { memo, useEffect, useState, useRef } from "react";
 import { Grid as DataGrid, GridColumn } from "@progress/kendo-react-grid";
 import { State, process } from "@progress/kendo-data-query";
 import EasaListService from "../../EasaRegisterListService";
@@ -23,41 +23,59 @@ const FocalList: React.FC<FocalListProps> = memo(({ orgName }) => {
   const [focalListData, setFocalListData] = useState<FocalData[]>([]);
   const [dataState, setDataState] = useState<State>({});
 
+  // 🔹 Cache to store API results by organization
+  const cacheRef = useRef<{ [key: string]: FocalData[] }>({});
+
   const fetchFocalList = async (organization: string) => {
+
+    // 🔹 If data already exists in cache, use it
+    if (cacheRef.current[organization]) {
+      setFocalListData(cacheRef.current[organization]);
+      return;
+    }
+
     const masterdataType = 4;
 
-    EasaListService
-      .getAdminMasterDetailsTypeFocalsList(masterdataType, organization)
-      .then((response) => {
+    try {
+      const response =
+        await EasaListService.getAdminMasterDetailsTypeFocalsList(
+          masterdataType,
+          organization
+        );
 
-        const result: FocalData[] = response?.data.map((x: any) => ({
-          NAME: x.NAME,
-          ADDRESS: x.ADDRESS,
-          PHONE: x.PHONE,
-          DEPARTMENT: x.DEPARTMENT,
-          EMAIL: x.EMAIL
-        }));
+      const result: FocalData[] = response?.data.map((x: any) => ({
+        NAME: x.NAME,
+        ADDRESS: x.ADDRESS,
+        PHONE: x.PHONE,
+        DEPARTMENT: x.DEPARTMENT,
+        EMAIL: x.EMAIL
+      }));
 
-        setFocalListData(result);
+      // 🔹 Save to cache
+      cacheRef.current[organization] = result;
 
-      })
-      .catch((err) => console.error(err));
+      setFocalListData(result);
+
+    } catch (error) {
+      console.error("Error fetching focal list:", error);
+    }
   };
 
   useEffect(() => {
+
     if (!orgName) return;
+
     fetchFocalList(orgName);
+
   }, [orgName]);
 
   return (
     <div className="focal-container">
 
       <div className="focal-header">
-        <div>
-          <span className="focal-title">
-            Lists of Focals
-          </span>
-        </div>
+        <span className="focal-title">
+          Lists of Focals
+        </span>
       </div>
 
       <AnyGrid
