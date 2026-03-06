@@ -1,4 +1,4 @@
-```tsx
+import "../AdminTable.scss"
 import React, { memo, useCallback, useRef } from "react";
 import { OrganizationTableData, SortByData } from "../AdminModal";
 import { State, process } from "@progress/kendo-data-query";
@@ -18,7 +18,8 @@ import {
   Card,
   MenuItem,
   Select,
-  TextField
+  TextField,
+  Typography
 } from "@mui/material";
 
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
@@ -74,22 +75,29 @@ interface OrganizationTypeTableProps {
 const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => {
 
   const gridRefBuilder = useRef<any>(null);
+  const [expandedState, setExpandedState] = React.useState<any>({});
 
-  const expandChange = (event: any) => {
-    const dataItem = event.dataItem;
+  const expandChange = (dataItem: any) => {
+    if(!dataItem) return;
+    const key = dataItem[props.KEY];
 
-    const newData = props.organizationData.map((item) =>
-      item[props.KEY] === dataItem[props.KEY]
-        ? { ...item, expanded: !dataItem.expanded }
-        : item
-    );
-
-    props.dataStateChange({ data: newData } as any);
+    setExpandedState((prev: any) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
   };
+
+
+  const gridData = process(
+    props.organizationData.map((item) => ({
+      ...item,
+      expanded: expandedState[item[props.KEY]] || false
+    })),
+    props.dataState
+  ).data;
 
   const OrganizationCell: React.ComponentType<GridCellProps> = useCallback(
     (cellProps) => {
-
       const field = cellProps.field || "";
       const value = cellProps.dataItem[field] ?? "";
 
@@ -135,47 +143,45 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
       </span>
     </td>
   );
-
   const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
 
     const expanded = cellProps.dataItem.expanded;
 
-    const toggle = () => {
-      expandChange({ dataItem: cellProps.dataItem });
+    const toggle = (e: React.MouseEvent) => {
+      e.stopPropagation(); // very important
+      expandChange(cellProps?.dataItem)
     };
 
     return (
       <td>
-        <span
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            marginLeft: 20,
-            cursor: "pointer"
-          }}
-          onClick={toggle}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <GroupIcon />
-          {expanded ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
-        </span>
+
+          <span
+            onClick={toggle}
+            style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+          >
+            {expanded ? (
+              <ArrowDropUpIcon style={{ fontSize: 22 }} />
+            ) : (
+              <ArrowDropDownIcon style={{ fontSize: 22 }} />
+            )}
+          </span>
+        </div>
       </td>
     );
   };
 
   const DetailComponent = (detailProps: any) => {
-
-    const orgId = detailProps.dataItem[props.KEY];
-
+    const orgName = detailProps.dataItem.ORGANIZATIONNAME;
     return (
-      <div style={{ padding: 15 }}>
-        <FocalList />
+      <div>
+        <FocalList orgName={orgName} />
       </div>
     );
   };
 
   const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
-
     const dataItem = cellProps.dataItem;
 
     const handleChange = (e: any) => {
@@ -205,16 +211,41 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
       </td>
     );
   };
+  const CustomHierarchyCell = (props: any) => {
+  const expanded = props.dataItem.expanded;
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    props.onChange({
+      dataItem: props.dataItem,
+      syntheticEvent: e
+    });
+  };
+
+  return (
+    <td className="k-hierarchy-cell">
+      <span
+        onClick={handleClick}
+        style={{ cursor: "pointer", display: "flex", justifyContent: "center" }}
+      >
+        {expanded ? (
+          <ArrowDropUpIcon style={{ fontSize: 22 }} />
+        ) : (
+          <ArrowDropDownIcon style={{ fontSize: 22 }} />
+        )}
+      </span>
+    </td>
+  );
+};
 
   return (
     <div style={{ paddingBottom: 20 }}>
-
       <Card style={{ borderLeft: "4px solid #0033A1", marginLeft: 22 }}>
-
         <AnyGrid
           ref={gridRefBuilder}
-          style={{ height: "60vh" }}
-          data={process(props.organizationData, props.dataState).data}
+          className="org-grid-compact"
+          style={{ height: "80vh" }}
+          data={gridData}
           dataItemKey={props.KEY}
           resizable
           editField={editField}
@@ -225,73 +256,49 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
           columnMenuIcon={filterIcon}
           detail={DetailComponent}
           expandField={EXPAND_FIELD}
-          onExpandChange={expandChange}
-          hierarchyCell={() => null}
+           onExpandChange={expandChange}
+          hierarchyCell={CustomHierarchyCell}
         >
-
           <GridToolbar>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                width: "100%"
-              }}
-            >
-
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
               <div style={{ display: "flex", gap: 8 }}>
-
                 <Button
-                  startIcon={<AddCircleOutlineIcon />}
+                  startIcon={<AddCircleOutlineIcon className="iconClass" style={{ width: 20, height: 20, color: "#737373" }} />}
+                  id="addFavBtn"
                   onClick={props.createOrganization}
                   variant="outlined"
                   size="small"
+                  color="inherit"
                 >
-                  Create New
+                  <Typography variant="button" sx={{ textTransform: "none" }}>
+                    <b style={{ fontWeight: "normal" }}>Create New</b>
+                  </Typography>
                 </Button>
-
                 <Button
+                  id="addFavBtn"
                   onClick={props.saveOrganization}
                   variant="outlined"
                   size="small"
+                  color="inherit"
                 >
-                  Save
+                  <Typography variant="button" sx={{ textTransform: "none" }}>
+                    <b style={{ fontWeight: "normal" }}>Save</b>
+                  </Typography>
                 </Button>
-
               </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-
-                Sort Order :
-
+              <div style={{ display: "inline-flex", gap: 8, justifyContent: "center", alignItems: "center", marginLeft: "750px" }}>
+                <p style={{ margin: 0, padding: 0 }}>Sort Order : </p>
                 <Select
                   value={props.sortBy || "custom"}
-                  style={{ width: 160 }}
-                  onChange={(e) =>
-                    props.handleSortByChange(
-                      "organization",
-                      e.target.value as any
-                    )
-                  }
+                  style={{ width: "160px" }}
+                  onChange={(e) => props.handleSortByChange("organization", e.target.value as "custom" | "asc" | "desc")}
                 >
-                  <MenuItem value="custom">
-                    <SettingsIcon /> Customize
-                  </MenuItem>
-
-                  <MenuItem value="asc">
-                    <ArrowUpwardIcon /> Ascending
-                  </MenuItem>
-
-                  <MenuItem value="desc">
-                    <ArrowDownwardIcon /> Descending
-                  </MenuItem>
-
+                  <MenuItem value="custom"><SettingsIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Customize</MenuItem>
+                  <MenuItem disabled={props.sortBy === undefined} value="asc"><ArrowUpwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Checklist Type: Ascending</MenuItem>
+                  <MenuItem disabled={props.sortBy === undefined} value="desc"><ArrowDownwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Checklist Type: Descending</MenuItem>
                 </Select>
-
               </div>
-
             </div>
-
           </GridToolbar>
 
           <GridColumn
@@ -336,12 +343,9 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
           />
 
         </AnyGrid>
-
       </Card>
-
     </div>
   );
 });
 
 export default OrganizationTable;
-```
