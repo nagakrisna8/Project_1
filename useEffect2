@@ -18,8 +18,7 @@ import {
   Card,
   MenuItem,
   Select,
-  TextField,
-  Typography
+  TextField
 } from "@mui/material";
 
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
@@ -36,7 +35,6 @@ import FocalList from "./FocalList";
 
 const editField = "inEdit";
 const SELECTED_FIELD = "selected";
-const EXPAND_FIELD = "expanded";
 const AnyGrid = DataGrid as any;
 
 const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
@@ -75,22 +73,9 @@ interface OrganizationTypeTableProps {
 const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => {
 
   const gridRefBuilder = useRef<any>(null);
-  const [expandedState, setExpandedState] = React.useState<any>({});
-
-  const expandChange = (dataItem: any) => {
-    const key = dataItem.dataItem.ORGANIZATIONID;
-console.log('event', dataItem, key);
-    setExpandedState((prev: any) => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
 
   const gridData = process(
-    props.organizationData.map((item) => ({
-      ...item,
-      expanded: expandedState[item.ORGANIZATIONID] || false
-    })),
+    props.organizationData,
     props.dataState
   ).data;
 
@@ -151,10 +136,17 @@ console.log('event', dataItem, key);
     const toggle = (e: React.MouseEvent) => {
 
       e.stopPropagation();
-console.log("Arrow clicked", cellProps.dataItem)
-      expandChange({
-        dataItem: cellProps.dataItem,
-      });
+
+      const row = (e.currentTarget as HTMLElement).closest("tr");
+
+      if (!row) return;
+
+      const expandCell = row.querySelector(".k-hierarchy-cell");
+
+      if (expandCell) {
+        (expandCell as HTMLElement).click();
+      }
+
     };
 
     return (
@@ -228,10 +220,10 @@ console.log("Arrow clicked", cellProps.dataItem)
   return (
     <div style={{ paddingBottom: 20 }}>
 
-      {/* Inline CSS to hide + expand column */}
+      {/* Hide the default + icon */}
       <style>
         {`
-        .org-grid-compact .k-hierarchy-cell  .k-icon{
+        .org-grid-compact .k-hierarchy-cell .k-icon {
           display: none !important;
         }
         `}
@@ -253,11 +245,10 @@ console.log("Arrow clicked", cellProps.dataItem)
           onItemChange={props.itemChange}
           columnMenuIcon={filterIcon}
           detail={DetailComponent}
-          expandField={EXPAND_FIELD}
-         // onExpandChange={expandChange}
         >
 
           <GridToolbar>
+
             <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
 
               <div style={{ display: "flex", gap: 8 }}>
@@ -311,7 +302,9 @@ console.log("Arrow clicked", cellProps.dataItem)
 
                 </Select>
               </div>
+
             </div>
+
           </GridToolbar>
 
           <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
@@ -357,4 +350,4 @@ console.log("Arrow clicked", cellProps.dataItem)
   );
 });
 
-export default OrganizationTable
+export default OrganizationTable;
