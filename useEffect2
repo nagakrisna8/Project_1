@@ -1,43 +1,126 @@
 import "../AdminTable.scss";
-import React, { memo, useState } from "react";
-import { Grid as DataGrid, GridColumn, GridCellProps } from "@progress/kendo-react-grid";
-import { process } from "@progress/kendo-data-query";
-import { Card } from "@mui/material";
+import React, { memo, useCallback, useRef } from "react";
+import { OrganizationTableData, SortByData } from "../AdminModal";
+import { State, process } from "@progress/kendo-data-query";
+import {
+  Grid as DataGrid,
+  GridCellProps,
+  GridColumn,
+  GridColumnMenuFilter,
+  GridColumnMenuProps,
+  GridDataStateChangeEvent,
+  GridItemChangeEvent,
+  GridToolbar
+} from "@progress/kendo-react-grid";
+
+import {
+  Button,
+  Card,
+  MenuItem,
+  Select,
+  TextField
+} from "@mui/material";
+
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import SettingsIcon from "@mui/icons-material/Settings";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import SortIcon from "@mui/icons-material/Sort";
 import GroupIcon from "@mui/icons-material/Group";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 
+import { filterIcon } from "@progress/kendo-svg-icons";
 import FocalList from "./FocalList";
 
+const editField = "inEdit";
+const SELECTED_FIELD = "selected";
 const AnyGrid = DataGrid as any;
 
-const OrganizationTable = memo((props: any) => {
+const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
+  <div>
+    <GridColumnMenuFilter {...props} expanded />
+  </div>
+);
 
-  const [expandedRows, setExpandedRows] = useState<{[key:number]:boolean}>({});
+const OrganizationTable: React.FC<any> = memo((props) => {
 
-  const toggleExpand = (dataItem:any) => {
+  const gridRefBuilder = useRef<any>(null);
+
+  // expansion state
+  const [detailExpand, setDetailExpand] = React.useState<{[key:number]:boolean}>({});
+
+  const expandChange = (dataItem:any) => {
 
     const key = dataItem.ORGANIZATIONID;
 
-    setExpandedRows(prev => ({
+    setDetailExpand(prev => ({
       ...prev,
       [key]: !prev[key]
     }));
   };
 
-  const gridData = props.organizationData.map((item:any)=>({
-    ...item,
-    expanded: expandedRows[item.ORGANIZATIONID] || false
-  }));
+  const gridData = process(props.organizationData, props.dataState).data;
 
+  const OrganizationCell: React.ComponentType<GridCellProps> = useCallback(
+    (cellProps) => {
 
-  const ContactFocals = (cellProps:GridCellProps)=>{
+      const field = cellProps.field || "";
+      const value = cellProps.dataItem[field] ?? "";
 
-    const expanded = cellProps.dataItem.expanded;
+      const handleChange = (e:any) => {
 
-    const handleClick = ()=>{
-      toggleExpand(cellProps.dataItem);
-    }
+        const updated = { ...cellProps.dataItem };
+        updated[field] = e.target.value;
+
+        cellProps.onChange?.({
+          dataIndex: cellProps.dataIndex,
+          dataItem: updated,
+          field,
+          syntheticEvent: e,
+          value: e.target.value
+        });
+      };
+
+      return (
+        <td>
+          <TextField fullWidth value={value} onChange={handleChange} />
+        </td>
+      );
+    },
+    []
+  );
+
+  const DragCell: React.ComponentType<GridCellProps> = (dragcellprops) => (
+    <td
+      onDragOver={(e) => {
+        e.preventDefault();
+        props.reorder(dragcellprops.dataItem);
+      }}
+    >
+      <span
+        draggable
+        style={{
+          cursor: "move",
+          display: "flex",
+          justifyContent: "center"
+        }}
+        onDragStart={() => props.dragStart(dragcellprops.dataItem)}
+      >
+        <SortIcon />
+      </span>
+    </td>
+  );
+
+  // Custom arrow column
+  const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
+
+    const expanded = detailExpand[cellProps.dataItem.ORGANIZATIONID];
+
+    const toggle = (e:React.MouseEvent)=>{
+      e.stopPropagation();
+      expandChange(cellProps.dataItem);
+    };
 
     return (
       <td>
@@ -45,72 +128,141 @@ const OrganizationTable = memo((props: any) => {
           <GroupIcon/>
 
           <span
-            onClick={handleClick}
+            onClick={toggle}
             style={{cursor:"pointer",display:"flex"}}
           >
             {expanded ? <ArrowDropUpIcon/> : <ArrowDropDownIcon/>}
           </span>
         </div>
       </td>
-    )
-  }
+    );
+  };
 
+  const DetailComponent = (detailProps:any) => {
 
-  const DetailRow = (props:any)=>{
-
-    const expanded = expandedRows[props.dataItem.ORGANIZATIONID];
-
-    if(!expanded) return null;
+    const orgName = detailProps.dataItem.ORGANIZATIONNAME;
 
     return (
-      <tr>
-        <td colSpan={6}>
-          <FocalList orgName={props.dataItem.ORGANIZATIONNAME}/>
-        </td>
-      </tr>
-    )
-  }
+      <div style={{padding:"15px"}}>
+        <FocalList orgName={orgName}/>
+      </div>
+    );
+  };
 
   return (
-    <Card style={{borderLeft:"4px solid #0033A1",marginLeft:22}}>
+    <div style={{paddingBottom:20}}>
 
-      <AnyGrid
-        style={{height:"80vh"}}
-        data={process(gridData, props.dataState).data}
-      >
+      <Card style={{borderLeft:"4px solid #0033A1",marginLeft:22}}>
 
-        <GridColumn
-          field="ORGANIZATIONNAME"
-          title="Organization Name"
-          width="300px"
-        />
+        <AnyGrid
+          ref={gridRefBuilder}
+          className="org-grid-compact"
+          style={{height:"80vh"}}
+          data={gridData}
+          dataItemKey="ORGANIZATIONID"
+          resizable
+          editField={editField}
+          {...props.dataState}
+          selectedField={SELECTED_FIELD}
+          onDataStateChange={props.dataStateChange}
+          onItemChange={props.itemChange}
+          columnMenuIcon={filterIcon}
+          detail={DetailComponent}
+          detailExpand={detailExpand}
+        >
 
-        <GridColumn
-          field="ORGANIZATIONDESCRIPTION"
-          title="MOA Number"
-          width="240px"
-        />
+          <GridToolbar>
+            <div style={{display:"flex",justifyContent:"space-between",width:"100%"}}>
 
-        <GridColumn
-          field="NOTES"
-          title="Notes"
-          width="360px"
-        />
+              <div style={{display:"flex",gap:8}}>
+                <Button
+                  startIcon={<AddCircleOutlineIcon/>}
+                  onClick={props.createOrganization}
+                  variant="outlined"
+                  size="small"
+                  color="inherit"
+                >
+                  Create New
+                </Button>
 
-        <GridColumn
-          title="Contact Focals"
-          cells={{data:ContactFocals}}
-          width="200px"
-        />
+                <Button
+                  onClick={props.saveOrganization}
+                  variant="outlined"
+                  size="small"
+                  color="inherit"
+                >
+                  Save
+                </Button>
+              </div>
 
-      </AnyGrid>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <p style={{margin:0}}>Sort Order :</p>
 
-      {gridData.map((item:any)=>(
-        <DetailRow key={item.ORGANIZATIONID} dataItem={item}/>
-      ))}
+                <Select
+                  value={props.sortBy || "custom"}
+                  style={{width:"160px"}}
+                  onChange={(e)=>
+                    props.handleSortByChange(
+                      "organization",
+                      e.target.value as "custom" | "asc" | "desc"
+                    )
+                  }
+                >
+                  <MenuItem value="custom">
+                    <SettingsIcon style={{height:16,width:16,marginRight:8}}/>
+                    Customize
+                  </MenuItem>
 
-    </Card>
-  )
-})
+                  <MenuItem value="asc">
+                    <ArrowUpwardIcon style={{height:16,width:16,marginRight:8}}/>
+                    Ascending
+                  </MenuItem>
 
-export default OrganizationTable
+                  <MenuItem value="desc">
+                    <ArrowDownwardIcon style={{height:16,width:16,marginRight:8}}/>
+                    Descending
+                  </MenuItem>
+
+                </Select>
+              </div>
+
+            </div>
+          </GridToolbar>
+
+          <GridColumn title="Sort" cells={{data:DragCell}} width="90px"/>
+
+          <GridColumn
+            {...props.columnPropsBuilder("ORGANIZATIONNAME")}
+            title="Organization Name"
+            cells={{data:OrganizationCell}}
+            width="300px"
+          />
+
+          <GridColumn
+            {...props.columnPropsBuilder("ORGANIZATIONDESCRIPTION")}
+            title="MOA Number"
+            cells={{data:OrganizationCell}}
+            width="240px"
+          />
+
+          <GridColumn
+            {...props.columnPropsBuilder("NOTES")}
+            title="Notes"
+            cells={{data:OrganizationCell}}
+            width="360px"
+          />
+
+          <GridColumn
+            title="Contact Focals"
+            cells={{data:ContactFocals}}
+            width="200px"
+          />
+
+        </AnyGrid>
+
+      </Card>
+    </div>
+  );
+});
+
+export default OrganizationTable;
