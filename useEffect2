@@ -77,11 +77,9 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
   const gridRefBuilder = useRef<any>(null);
   const [expandedState, setExpandedState] = React.useState<any>({});
 
-  const expandChange = (event: any) => {
-
-    const dataItem = event.dataItem || event;
-    const key = dataItem[props.KEY];
-
+  const expandChange = (dataItem: any) => {
+    const key = dataItem.dataItem.ORGANIZATIONID;
+console.log('event', dataItem, key);
     setExpandedState((prev: any) => ({
       ...prev,
       [key]: !prev[key]
@@ -91,7 +89,7 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
   const gridData = process(
     props.organizationData.map((item) => ({
       ...item,
-      expanded: expandedState[item[props.KEY]] || false
+      expanded: expandedState[item.ORGANIZATIONID] || false
     })),
     props.dataState
   ).data;
@@ -153,9 +151,9 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
     const toggle = (e: React.MouseEvent) => {
 
       e.stopPropagation();
-
+console.log("Arrow clicked", cellProps.dataItem)
       expandChange({
-        dataItem: cellProps.dataItem
+        dataItem: cellProps.dataItem,
       });
     };
 
@@ -233,8 +231,7 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
       {/* Inline CSS to hide + expand column */}
       <style>
         {`
-        .org-grid-compact .k-hierarchy-col,
-        .org-grid-compact .k-hierarchy-cell {
+        .org-grid-compact .k-hierarchy-cell  .k-icon{
           display: none !important;
         }
         `}
@@ -247,7 +244,7 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
           className="org-grid-compact"
           style={{ height: "80vh" }}
           data={gridData}
-          dataItemKey={props.KEY}
+          dataItemKey="ORGANIZATIONID"
           resizable
           editField={editField}
           {...props.dataState}
@@ -257,7 +254,7 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
           columnMenuIcon={filterIcon}
           detail={DetailComponent}
           expandField={EXPAND_FIELD}
-          onExpandChange={expandChange}
+         // onExpandChange={expandChange}
         >
 
           <GridToolbar>
@@ -360,4 +357,4 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
   );
 });
 
-export default OrganizationTable;
+export default OrganizationTable
