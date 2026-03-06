@@ -75,20 +75,20 @@ interface OrganizationTypeTableProps {
 const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => {
 
   const gridRefBuilder = useRef<any>(null);
-
-  // ✅ Only one expanded row
-  const [expandedKey, setExpandedKey] = React.useState<string | null>(null);
+  const [expandedState, setExpandedState] = React.useState<any>({});
 
   const expandChange = (event: any) => {
-    const key = event.dataItem[props.KEY];
-
-    setExpandedKey((prev) => (prev === key ? null : key));
+    const dataItem = event.dataItem;
+    const key = dataItem[props.KEY];
+    setExpandedState((prev: any) => ({
+      [key]: !expandedState[key]
+    }));
   };
 
   const gridData = process(
     props.organizationData.map((item) => ({
       ...item,
-      expanded: item[props.KEY] === expandedKey
+      expanded: expandedState[item[props.KEY]]
     })),
     props.dataState
   ).data;
@@ -145,15 +145,16 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
     const expanded = cellProps.dataItem.expanded;
 
     const toggle = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      expandChange({ dataItem: cellProps.dataItem });
+      const key = cellProps.dataItem[props.KEY];
+      setExpandedState({
+        [key]: !expanded
+      })
     };
 
     return (
       <td>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <GroupIcon />
-
           <span
             onClick={toggle}
             style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
@@ -230,13 +231,53 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
           onExpandChange={expandChange}
           hierarchyCell={() => null}
         >
-
           <GridToolbar>
-            <Button onClick={props.createOrganization}>Create New</Button>
-            <Button onClick={props.saveOrganization}>Save</Button>
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Button
+                  startIcon={<AddCircleOutlineIcon className="iconClass" style={{ width: 20, height: 20, color: "#737373" }} />}
+                  id="addFavBtn"
+                  onClick={props.createOrganization}
+                  variant="outlined"
+                  size="small"
+                  color="inherit"
+                >
+                  <Typography variant="button" sx={{ textTransform: "none" }}>
+                    <b style={{ fontWeight: "normal" }}>Create New</b>
+                  </Typography>
+                </Button>
+                <Button
+                  id="addFavBtn"
+                  onClick={props.saveOrganization}
+                  variant="outlined"
+                  size="small"
+                  color="inherit"
+                >
+                  <Typography variant="button" sx={{ textTransform: "none" }}>
+                    <b style={{ fontWeight: "normal" }}>Save</b>
+                  </Typography>
+                </Button>
+              </div>
+              <div style={{ display: "inline-flex", gap: 8, justifyContent: "center", alignItems: "center", marginLeft: "750px" }}>
+                <p style={{ margin: 0, padding: 0 }}>Sort Order : </p>
+                <Select
+                  value={props.sortBy || "custom"}
+                  style={{ width: "160px" }}
+                  onChange={(e) => props.handleSortByChange("organization", e.target.value as "custom" | "asc" | "desc")}
+                >
+                  <MenuItem value="custom"><SettingsIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Customize</MenuItem>
+                  <MenuItem disabled={props.sortBy === undefined} value="asc"><ArrowUpwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Checklist Type: Ascending</MenuItem>
+                  <MenuItem disabled={props.sortBy === undefined} value="desc"><ArrowDownwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Checklist Type: Descending</MenuItem>
+                </Select>
+              </div>
+            </div>
           </GridToolbar>
 
-          <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
+          <GridColumn
+            title="Sort"
+            cells={{ data: DragCell }}
+            width="90px"
+          />
 
           <GridColumn
             {...props.columnPropsBuilder("ORGANIZATIONNAME")}
