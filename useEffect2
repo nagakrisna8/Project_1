@@ -35,6 +35,7 @@ import FocalList from "./FocalList";
 
 const editField = "inEdit";
 const SELECTED_FIELD = "selected";
+const EXPAND_FIELD = "expanded";
 const AnyGrid = DataGrid as any;
 
 const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
@@ -43,39 +44,26 @@ const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
   </div>
 );
 
-interface OrganizationTypeTableProps {
-  KEY: string;
-  columnPropsBuilder: (field: any) => {
-    field: any;
-    columnMenu: (props: any) => JSX.Element;
-    headerClassName: string;
-  };
-
-  organizationData: OrganizationTableData[];
-  dataState: State;
-  dataStateChange: (event: GridDataStateChangeEvent) => void;
-  itemChange: (event: GridItemChangeEvent) => void;
-
-  createOrganization: () => void;
-  saveOrganization: () => void;
-
-  dragStart: (dataItem: OrganizationTableData) => void;
-  reorder: (dataItem: OrganizationTableData) => void;
-
-  sortBy: "custom" | "asc" | "desc" | undefined;
-
-  handleSortByChange: (
-    key: keyof SortByData,
-    value: "custom" | "asc" | "desc"
-  ) => void;
-}
-
-const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => {
+const OrganizationTable = memo((props: any) => {
 
   const gridRefBuilder = useRef<any>(null);
+  const [expandedState, setExpandedState] = React.useState<any>({});
+
+  const expandChange = (event: any) => {
+    const dataItem = event.dataItem;
+    const key = dataItem.ORGANIZATIONID;
+
+    setExpandedState((prev: any) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
 
   const gridData = process(
-    props.organizationData,
+    props.organizationData.map((item: any) => ({
+      ...item,
+      expanded: expandedState[item.ORGANIZATIONID] || false
+    })),
     props.dataState
   ).data;
 
@@ -134,19 +122,11 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
     const expanded = cellProps.dataItem.expanded;
 
     const toggle = (e: React.MouseEvent) => {
-
       e.stopPropagation();
 
-      const row = (e.currentTarget as HTMLElement).closest("tr");
-
-      if (!row) return;
-
-      const expandCell = row.querySelector(".k-hierarchy-cell");
-
-      if (expandCell) {
-        (expandCell as HTMLElement).click();
-      }
-
+      expandChange({
+        dataItem: cellProps.dataItem
+      });
     };
 
     return (
@@ -220,11 +200,11 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
   return (
     <div style={{ paddingBottom: 20 }}>
 
-      {/* Hide the default + icon */}
+      {/* hide + icon */}
       <style>
         {`
-        .org-grid-compact .k-hierarchy-cell .k-icon {
-          display: none !important;
+        .org-grid-compact .k-hierarchy-cell .k-icon{
+          display:none !important;
         }
         `}
       </style>
@@ -245,10 +225,11 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
           onItemChange={props.itemChange}
           columnMenuIcon={filterIcon}
           detail={DetailComponent}
+          expandField={EXPAND_FIELD}
+          onExpandChange={expandChange}
         >
 
           <GridToolbar>
-
             <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
 
               <div style={{ display: "flex", gap: 8 }}>
@@ -304,7 +285,6 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
               </div>
 
             </div>
-
           </GridToolbar>
 
           <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
