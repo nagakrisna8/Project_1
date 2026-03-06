@@ -75,20 +75,20 @@ interface OrganizationTypeTableProps {
 const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => {
 
   const gridRefBuilder = useRef<any>(null);
-  const [expandedState, setExpandedState] = React.useState<any>({});
+
+  // ✅ Only one expanded row
+  const [expandedKey, setExpandedKey] = React.useState<string | null>(null);
 
   const expandChange = (event: any) => {
-    const dataItem = event.dataItem;
-    setExpandedState((prev: any) => ({
-      ...prev,
-      [dataItem[props.KEY]]: !prev[dataItem[props.KEY]]
-    }));
+    const key = event.dataItem[props.KEY];
+
+    setExpandedKey((prev) => (prev === key ? null : key));
   };
 
   const gridData = process(
     props.organizationData.map((item) => ({
       ...item,
-      expanded: expandedState[item[props.KEY]]
+      expanded: item[props.KEY] === expandedKey
     })),
     props.dataState
   ).data;
@@ -141,7 +141,6 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
     </td>
   );
 
-  // ✅ Arrow icon triggers row expand/collapse; default "+" button is hidden via hierarchyCell
   const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
     const expanded = cellProps.dataItem.expanded;
 
@@ -154,6 +153,7 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
       <td>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <GroupIcon />
+
           <span
             onClick={toggle}
             style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
@@ -230,53 +230,13 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
           onExpandChange={expandChange}
           hierarchyCell={() => null}
         >
+
           <GridToolbar>
-            <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-              <div style={{ display: "flex", gap: 8 }}>
-                <Button
-                  startIcon={<AddCircleOutlineIcon className="iconClass" style={{ width: 20, height: 20, color: "#737373" }} />}
-                  id="addFavBtn"
-                  onClick={props.createOrganization}
-                  variant="outlined"
-                  size="small"
-                  color="inherit"
-                >
-                  <Typography variant="button" sx={{ textTransform: "none" }}>
-                    <b style={{ fontWeight: "normal" }}>Create New</b>
-                  </Typography>
-                </Button>
-                <Button
-                  id="addFavBtn"
-                  onClick={props.saveOrganization}
-                  variant="outlined"
-                  size="small"
-                  color="inherit"
-                >
-                  <Typography variant="button" sx={{ textTransform: "none" }}>
-                    <b style={{ fontWeight: "normal" }}>Save</b>
-                  </Typography>
-                </Button>
-              </div>
-              <div style={{ display: "inline-flex", gap: 8, justifyContent: "center", alignItems: "center", marginLeft: "750px" }}>
-                <p style={{ margin: 0, padding: 0 }}>Sort Order : </p>
-                <Select
-                  value={props.sortBy || "custom"}
-                  style={{ width: "160px" }}
-                  onChange={(e) => props.handleSortByChange("organization", e.target.value as "custom" | "asc" | "desc")}
-                >
-                  <MenuItem value="custom"><SettingsIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Customize</MenuItem>
-                  <MenuItem disabled={props.sortBy === undefined} value="asc"><ArrowUpwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Checklist Type: Ascending</MenuItem>
-                  <MenuItem disabled={props.sortBy === undefined} value="desc"><ArrowDownwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Checklist Type: Descending</MenuItem>
-                </Select>
-              </div>
-            </div>
+            <Button onClick={props.createOrganization}>Create New</Button>
+            <Button onClick={props.saveOrganization}>Save</Button>
           </GridToolbar>
 
-          <GridColumn
-            title="Sort"
-            cells={{ data: DragCell }}
-            width="90px"
-          />
+          <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
 
           <GridColumn
             {...props.columnPropsBuilder("ORGANIZATIONNAME")}
