@@ -13,7 +13,122 @@ import {
   GridToolbar
 } from "@progress/kendo-react-grid";
 
-import {
+import {import "../AdminTable.scss";
+import React, { memo, useState } from "react";
+import { Grid as DataGrid, GridColumn, GridCellProps } from "@progress/kendo-react-grid";
+import { process } from "@progress/kendo-data-query";
+import { Card } from "@mui/material";
+import GroupIcon from "@mui/icons-material/Group";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
+
+import FocalList from "./FocalList";
+
+const AnyGrid = DataGrid as any;
+
+const OrganizationTable = memo((props: any) => {
+
+  const [expandedRows, setExpandedRows] = useState<{[key:number]:boolean}>({});
+
+  const toggleExpand = (dataItem:any) => {
+
+    const key = dataItem.ORGANIZATIONID;
+
+    setExpandedRows(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const gridData = props.organizationData.map((item:any)=>({
+    ...item,
+    expanded: expandedRows[item.ORGANIZATIONID] || false
+  }));
+
+
+  const ContactFocals = (cellProps:GridCellProps)=>{
+
+    const expanded = cellProps.dataItem.expanded;
+
+    const handleClick = ()=>{
+      toggleExpand(cellProps.dataItem);
+    }
+
+    return (
+      <td>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <GroupIcon/>
+
+          <span
+            onClick={handleClick}
+            style={{cursor:"pointer",display:"flex"}}
+          >
+            {expanded ? <ArrowDropUpIcon/> : <ArrowDropDownIcon/>}
+          </span>
+        </div>
+      </td>
+    )
+  }
+
+
+  const DetailRow = (props:any)=>{
+
+    const expanded = expandedRows[props.dataItem.ORGANIZATIONID];
+
+    if(!expanded) return null;
+
+    return (
+      <tr>
+        <td colSpan={6}>
+          <FocalList orgName={props.dataItem.ORGANIZATIONNAME}/>
+        </td>
+      </tr>
+    )
+  }
+
+  return (
+    <Card style={{borderLeft:"4px solid #0033A1",marginLeft:22}}>
+
+      <AnyGrid
+        style={{height:"80vh"}}
+        data={process(gridData, props.dataState).data}
+      >
+
+        <GridColumn
+          field="ORGANIZATIONNAME"
+          title="Organization Name"
+          width="300px"
+        />
+
+        <GridColumn
+          field="ORGANIZATIONDESCRIPTION"
+          title="MOA Number"
+          width="240px"
+        />
+
+        <GridColumn
+          field="NOTES"
+          title="Notes"
+          width="360px"
+        />
+
+        <GridColumn
+          title="Contact Focals"
+          cells={{data:ContactFocals}}
+          width="200px"
+        />
+
+      </AnyGrid>
+
+      {gridData.map((item:any)=>(
+        <DetailRow key={item.ORGANIZATIONID} dataItem={item}/>
+      ))}
+
+    </Card>
+  )
+})
+
+export default OrganizationTable
   Button,
   Card,
   MenuItem,
