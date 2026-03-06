@@ -1,26 +1,36 @@
-const CustomHierarchyCell = (props: any) => {
-  const expanded = props.dataItem.expanded;
+const focalCache: { [key: string]: FocalData[] } = {};
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    props.onChange({
-      dataItem: props.dataItem,
-      syntheticEvent: e
-    });
-  };
+const fetchFocalList = async (organization: string) => {
 
-  return (
-    <td className="k-hierarchy-cell">
-      <span
-        onClick={handleClick}
-        style={{ cursor: "pointer", display: "flex", justifyContent: "center" }}
-      >
-        {expanded ? (
-          <ArrowDropUpIcon style={{ fontSize: 22 }} />
-        ) : (
-          <ArrowDropDownIcon style={{ fontSize: 22 }} />
-        )}
-      </span>
-    </td>
-  );
+  if (focalCache[organization]) {
+    setFocalListData(focalCache[organization]);
+    return;
+  }
+
+  const masterdataType = 4;
+
+  try {
+
+    const response =
+      await EasaListService.getAdminMasterDetailsTypeFocalsList(
+        masterdataType,
+        organization
+      );
+
+    const result: FocalData[] = response?.data.map((x: any) => ({
+      NAME: x.NAME,
+      ADDRESS: x.ADDRESS,
+      PHONE: x.PHONE,
+      DEPARTMENT: x.DEPARTMENT,
+      EMAIL: x.EMAIL
+    }));
+
+    // store in global cache
+    focalCache[organization] = result;
+
+    setFocalListData(result);
+
+  } catch (error) {
+    console.error("Error fetching focal list:", error);
+  }
 };
