@@ -1,3 +1,23 @@
+
+
+.org-grid-compact.k-grid > .k-grid-aria-root .k-table-tbody > tr.k-master-row > td,
+.org-grid-compact.k-grid > .k-grid-container .k-table-tbody > tr.k-master-row > td,
+.org-grid-compact.k-grid > .k-grid-content .k-table-tbody > tr.k-master-row > td {
+  padding-block: 1px !important;  
+  padding-inline: 6px !important;
+  line-height: 1.2;
+}
+
+.focal-grid td,
+.focal-grid .k-table-td {
+  padding-block: var(--kendo-spacing-2, .5rem) !important;
+  padding-inline: var(--kendo-spacing-3, .75rem) !important;
+  line-height: 1.4;
+}
+.org-grid-compact .k-hierarchy-cell .k-icon,
+.org-grid-compact .k-hierarchy-cell .k-svg-icon {
+  display: none !important;
+}
 .org-grid-compact .k-hierarchy-col,
 .org-grid-compact .k-hierarchy-cell {
   width: 0 !important;
