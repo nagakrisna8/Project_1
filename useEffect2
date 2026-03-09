@@ -1,66 +1,18 @@
-<GridToolbar style={{ width: "100%" }}>
-  <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+const FocalInformationCell: React.ComponentType<GridCellProps> = (cellProps) => {
 
-    {/* Left buttons */}
-    <div style={{ display: "flex", gap: 8 }}>
-      <Button
-        startIcon={<AddCircleOutlineIcon />}
-        onClick={props.createOrganization}
-        variant="outlined"
-        size="small"
-        color="inherit"
-      >
-        Create New
-      </Button>
+    const dataItem = cellProps.dataItem;
 
-      <Button
-        onClick={props.saveOrganization}
-        variant="outlined"
-        size="small"
-        color="inherit"
-      >
-        Save
-      </Button>
-    </div>
+    const focalInfo = [
+        dataItem.POSITION,
+        dataItem.EMAIL,
+        dataItem.PHONENUMBER
+    ]
+        .filter(Boolean)
+        .join(" ");
 
-    {/* Right sort order */}
-    <div
-      style={{
-        marginLeft: "auto",
-        display: "flex",
-        gap: 8,
-        alignItems: "center"
-      }}
-    >
-      <p style={{ margin: 0 }}>Sort Order :</p>
-
-      <Select
-        value={props.sortBy || "custom"}
-        style={{ width: 160 }}
-        size="small"
-        onChange={(e) =>
-          props.handleSortByChange(
-            "organization",
-            e.target.value as "custom" | "asc" | "desc"
-          )
-        }
-      >
-        <MenuItem value="custom">
-          <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-          Customize
-        </MenuItem>
-
-        <MenuItem value="asc">
-          <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-          Ascending
-        </MenuItem>
-
-        <MenuItem value="desc">
-          <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-          Descending
-        </MenuItem>
-      </Select>
-    </div>
-
-  </div>
-</GridToolbar>
+    return (
+        <td>
+            {focalInfo}
+        </td>
+    );
+};
