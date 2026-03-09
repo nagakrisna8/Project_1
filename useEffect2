@@ -1,22 +1,157 @@
-const FocalInformationCell: React.ComponentType<GridCellProps> = (cellProps) => {
+import React, { memo, useEffect, useState } from "react";
+import { Button, TextField } from "@mui/material";
+import "./FocalForm.scss";
 
-    const dataItem = cellProps.dataItem;
+interface FocalListProps {
+  focalData?: any;
+}
 
-    return (
-        <td>
-            <div style={{ display: "flex", gap: "12px" }}>
-                <span style={{ minWidth: "60px" }}>
-                    {dataItem.POSITION || ""}
-                </span>
+const FocalForm: React.FC<FocalListProps> = memo((props) => {
 
-                <span style={{ minWidth: "180px" }}>
-                    {dataItem.EMAIL || ""}
-                </span>
+  const [formData, setFormData] = useState({
+    name: "",
+    address: "",
+    phone: "",
+    email: "",
+    position: "",
+    title: ""
+  });
 
-                <span style={{ minWidth: "120px" }}>
-                    {dataItem.PHONENUMBER || ""}
-                </span>
-            </div>
-        </td>
-    );
-};
+  // Populate default values from selected row
+  useEffect(() => {
+
+    if (props.focalData) {
+      setFormData({
+        name: props.focalData.NAME || "",
+        address: props.focalData.ADDRESS || "",
+        phone: props.focalData.PHONENO || "",
+        email: props.focalData.EMAIL || "",
+        position: props.focalData.POSITION || "",
+        title: props.focalData.TITLE || ""
+      });
+    }
+
+  }, [props.focalData]);
+
+  const handleChange = (e: any) => {
+
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+
+  };
+
+  const handleSave = () => {
+
+    console.log("Saved Focal:", formData);
+
+    // call API here if needed
+
+  };
+
+  const handleCancel = () => {
+
+    setFormData({
+      name: "",
+      address: "",
+      phone: "",
+      email: "",
+      position: "",
+      title: ""
+    });
+
+  };
+
+  return (
+    <div className="focal-container">
+
+      <div className="focal-form">
+
+        <div className="form-header">
+          Add Focal
+        </div>
+
+        <div className="form-grid">
+
+          <TextField
+            label="Focal Name"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            size="small"
+            fullWidth
+          />
+
+          <TextField
+            label="Phone No"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            size="small"
+            fullWidth
+          />
+
+          <TextField
+            label="Address"
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            size="small"
+            fullWidth
+          />
+
+          <TextField
+            label="Email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            size="small"
+            fullWidth
+          />
+
+          <TextField
+            label="Position"
+            name="position"
+            value={formData.position}
+            onChange={handleChange}
+            size="small"
+            fullWidth
+          />
+
+          <TextField
+            label="Title"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            size="small"
+            fullWidth
+          />
+
+        </div>
+
+        <div className="form-actions">
+
+          <Button
+            variant="contained"
+            onClick={handleSave}
+          >
+            Save
+          </Button>
+
+          <Button
+            variant="outlined"
+            onClick={handleCancel}
+          >
+            Cancel
+          </Button>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+});
+
+export default FocalForm;
