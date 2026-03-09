@@ -2,17 +2,21 @@ const FocalInformationCell: React.ComponentType<GridCellProps> = (cellProps) => 
 
     const dataItem = cellProps.dataItem;
 
-    const focalInfo = [
-        dataItem.POSITION,
-        dataItem.EMAIL,
-        dataItem.PHONENUMBER
-    ]
-        .filter(Boolean)
-        .join(" ");
-
     return (
         <td>
-            {focalInfo}
+            <div style={{ display: "flex", gap: "12px" }}>
+                <span style={{ minWidth: "60px" }}>
+                    {dataItem.POSITION || ""}
+                </span>
+
+                <span style={{ minWidth: "180px" }}>
+                    {dataItem.EMAIL || ""}
+                </span>
+
+                <span style={{ minWidth: "120px" }}>
+                    {dataItem.PHONENUMBER || ""}
+                </span>
+            </div>
         </td>
     );
 };
