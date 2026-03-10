@@ -1,43 +1,17 @@
-.focal-container {
-  padding: 16px;
-}
+React.useEffect(() => {
 
-.focal-form {
-  background: #fff;
-  padding: 20px;
-}
+    if (props.focalData && props.focalData.length > 0) {
 
-.form-header {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 20px;
-}
+        const lastItem = props.focalData[props.focalData.length - 1];
 
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
-}
+        if (lastItem?.inEdit) {
 
-.form-column {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+            setDetailExpand(prev => ({
+                ...prev,
+                [lastItem.ORGANIZATIONID]: true
+            }));
 
-.form-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+        }
+    }
 
-.form-row label {
-  font-weight: 500;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
-}
+}, [props.focalData]);
