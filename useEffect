@@ -1,28 +1,33 @@
 import React, { memo, useState, useEffect } from "react";
-import { Button, TextField } from "@mui/material";
+import { Grid as DataGrid } from "@progress/kendo-react-grid";
+import { State } from "@progress/kendo-data-query";
 import EasaListService from "../../EasaRegisterListService";
+import { Button, TextField } from "@mui/material";
 import "./FocalForm.scss";
 
+const AnyGrid = DataGrid as any;
+
 interface FocalData {
-    ID?: number;
     NAME: string;
     ADDRESS: string;
-    PHONENO: number;
+    PHONE: number;
+    DEPARTMENT: string;
     EMAIL: string;
-    POSITION: string;
     TITLE?: string;
-    ISACTIVE?: boolean;
 }
 
-interface FocalFormProps {
-    focalData?: FocalData;     // edit mode data
-    fetchFocal?: () => void;   // reload grid after save
+interface FocalListProps {
+    focalData?: any;
 }
 
-const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, fetchFocal }) => {
+const focalCache: { [key: string]: FocalData[] } = {};
+
+const FocalForm: React.FC<FocalListProps> = memo(({ focalData }) => {
+
+    const [focalListData, setFocalListData] = useState<FocalData[]>([]);
+    const [dataState, setDataState] = useState<State>({});
 
     const [formData, setFormData] = useState({
-        id: 0,
         name: "",
         address: "",
         phone: "",
@@ -31,20 +36,51 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, fetchFocal }) => 
         title: ""
     });
 
-    // Populate form when edit mode
+    // Populate form when focalData changes
     useEffect(() => {
         if (focalData) {
             setFormData({
-                id: focalData.ID ?? 0,
-                name: focalData.NAME ?? "",
-                address: focalData.ADDRESS ?? "",
-                phone: String(focalData.PHONENO ?? ""),
-                email: focalData.EMAIL ?? "",
-                position: focalData.POSITION ?? "",
-                title: focalData.TITLE ?? ""
+                name: focalData.NAME || "",
+                address: focalData.ADDRESS || "",
+                phone: String(focalData.PHONE || ""),
+                email: focalData.EMAIL || "",
+                position: focalData.DEPARTMENT || "",
+                title: focalData.TITLE || ""
             });
         }
     }, [focalData]);
+
+    const fetchFocalList = async (organization: string) => {
+
+        if (focalCache[organization]) {
+            setFocalListData(focalCache[organization]);
+            return;
+        }
+
+        const masterdataType = 4;
+
+        try {
+            const response =
+                await EasaListService.getAdminMasterDetailsTypeFocalsList(
+                    masterdataType,
+                    organization
+                );
+
+            const result: FocalData[] = response?.data.map((x: any) => ({
+                NAME: x.NAME,
+                ADDRESS: x.ADDRESS,
+                PHONE: x.PHONE,
+                DEPARTMENT: x.DEPARTMENT,
+                EMAIL: x.EMAIL
+            }));
+
+            focalCache[organization] = result;
+            setFocalListData(result);
+
+        } catch (error) {
+            console.error("Error fetching focal list:", error);
+        }
+    };
 
     const handleChange = (e: any) => {
         setFormData({
@@ -53,9 +89,12 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, fetchFocal }) => 
         });
     };
 
+    const handleSave = () => {
+        console.log("Save Focal:", formData);
+    };
+
     const handleCancel = () => {
         setFormData({
-            id: 0,
             name: "",
             address: "",
             phone: "",
@@ -65,52 +104,13 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, fetchFocal }) => 
         });
     };
 
-    const handleSave = async () => {
-
-        const item = {
-            Id: formData.id ?? 0,
-            OperationType: formData.id ? "update" : "add",
-            Name: formData.name,
-            Description: "",
-            IsActive: "Y",
-            Notes: "",
-            Address: formData.address,
-            Department: formData.position,
-            Phone: Number(formData.phone),
-            Email: formData.email,
-            Title: formData.title,
-            orgTypeId: 0
-        };
-
-        const payload = {
-            MasterDataType: "Focal",
-            Items: [item]
-        };
-
-        try {
-
-            await EasaListService.addMasterDataType(payload);
-
-            if (fetchFocal) {
-                fetchFocal();
-            }
-
-            handleCancel();
-
-            console.log("Focal saved successfully");
-
-        } catch (error) {
-            console.error("Error saving focal:", error);
-        }
-    };
-
     return (
         <div className="focal-container">
 
             <div className="focal-form">
 
                 <div className="form-header">
-                    {formData.id ? "Edit Focal" : "Add Focal"}
+                    Add Focal
                 </div>
 
                 <div className="form-grid">
@@ -187,7 +187,6 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, fetchFocal }) => 
 
                     <Button
                         variant="contained"
-                        color="primary"
                         onClick={handleSave}
                     >
                         Save
