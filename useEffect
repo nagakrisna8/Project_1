@@ -4,208 +4,219 @@ import EasaListService from "../../EasaRegisterListService";
 import "./FocalForm.scss";
 
 interface FocalData {
-    ID?: number;
-    NAME: string;
-    ADDRESS: string;
-    PHONENO: number;
-    EMAIL: string;
-    POSITION: string;
-    TITLE?: string;
-    ISACTIVE?: boolean;
+  ID?: number;
+  NAME?: string;
+  ADDRESS?: string;
+  PHONENO?: number;
+  EMAIL?: string;
+  POSITION?: string;
+  TITLE?: string;
 }
 
 interface FocalFormProps {
-    focalData?: FocalData;     // edit mode data
-    fetchFocal?: () => void;   // reload grid after save
+  focalData?: FocalData;
+  fetchFocal?: () => void;
 }
 
 const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, fetchFocal }) => {
 
-    const [formData, setFormData] = useState({
-        id: 0,
-        name: "",
-        address: "",
-        phone: "",
-        email: "",
-        position: "",
-        title: ""
+  const [formData, setFormData] = useState({
+    id: 0,
+    name: "",
+    address: "",
+    phone: "",
+    email: "",
+    position: "",
+    title: ""
+  });
+
+  useEffect(() => {
+    if (focalData) {
+      setFormData({
+        id: focalData.ID ?? 0,
+        name: focalData.NAME ?? "",
+        address: focalData.ADDRESS ?? "",
+        phone: String(focalData.PHONENO ?? ""),
+        email: focalData.EMAIL ?? "",
+        position: focalData.POSITION ?? "",
+        title: focalData.TITLE ?? ""
+      });
+    }
+  }, [focalData]);
+
+  const handleChange = (e: any) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
     });
+  };
 
-    // Populate form when edit mode
-    useEffect(() => {
-        if (focalData) {
-            setFormData({
-                id: focalData.ID ?? 0,
-                name: focalData.NAME ?? "",
-                address: focalData.ADDRESS ?? "",
-                phone: String(focalData.PHONENO ?? ""),
-                email: focalData.EMAIL ?? "",
-                position: focalData.POSITION ?? "",
-                title: focalData.TITLE ?? ""
-            });
-        }
-    }, [focalData]);
+  const handleCancel = () => {
+    setFormData({
+      id: 0,
+      name: "",
+      address: "",
+      phone: "",
+      email: "",
+      position: "",
+      title: ""
+    });
+  };
 
-    const handleChange = (e: any) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
+  const handleSave = async () => {
+
+    const item = {
+      Id: formData.id ?? 0,
+      OperationType: formData.id ? "update" : "add",
+      Name: formData.name,
+      Description: "",
+      IsActive: "Y",
+      Notes: "",
+      Address: formData.address,
+      Department: formData.position,
+      Phone: Number(formData.phone),
+      Email: formData.email,
+      Title: formData.title,
+      orgTypeId: 0
     };
 
-    const handleCancel = () => {
-        setFormData({
-            id: 0,
-            name: "",
-            address: "",
-            phone: "",
-            email: "",
-            position: "",
-            title: ""
-        });
+    const payload = {
+      MasterDataType: "Focal",
+      Items: [item]
     };
 
-    const handleSave = async () => {
+    try {
 
-        const item = {
-            Id: formData.id ?? 0,
-            OperationType: formData.id ? "update" : "add",
-            Name: formData.name,
-            Description: "",
-            IsActive: "Y",
-            Notes: "",
-            Address: formData.address,
-            Department: formData.position,
-            Phone: Number(formData.phone),
-            Email: formData.email,
-            Title: formData.title,
-            orgTypeId: 0
-        };
+      await EasaListService.addMasterDataType(payload);
 
-        const payload = {
-            MasterDataType: "Focal",
-            Items: [item]
-        };
+      console.log("Focal saved successfully");
 
-        try {
+      if (fetchFocal) {
+        fetchFocal(); // refresh grid
+      }
 
-            await EasaListService.addMasterDataType(payload);
+      handleCancel();
 
-            if (fetchFocal) {
-                fetchFocal();
-            }
+    } catch (error) {
+      console.error("Error saving focal:", error);
+    }
+  };
 
-            handleCancel();
+  return (
+    <div className="focal-container">
 
-            console.log("Focal saved successfully");
+      <div className="focal-form">
 
-        } catch (error) {
-            console.error("Error saving focal:", error);
-        }
-    };
+        <div className="form-header">
+          {formData.id ? "Edit Focal" : "Add Focal"}
+        </div>
 
-    return (
-        <div className="focal-container">
+        <div className="form-grid">
 
-            <div className="focal-form">
+          {/* LEFT SIDE */}
 
-                <div className="form-header">
-                    {formData.id ? "Edit Focal" : "Add Focal"}
-                </div>
+          <div className="form-column">
 
-                <div className="form-grid">
-
-                    <div className="form-row">
-                        <label>Focal Name</label>
-                        <TextField
-                            name="name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                    <div className="form-row">
-                        <label>Phone No</label>
-                        <TextField
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                    <div className="form-row">
-                        <label>Address</label>
-                        <TextField
-                            name="address"
-                            value={formData.address}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                    <div className="form-row">
-                        <label>Email</label>
-                        <TextField
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                    <div className="form-row">
-                        <label>Position</label>
-                        <TextField
-                            name="position"
-                            value={formData.position}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                    <div className="form-row">
-                        <label>Title</label>
-                        <TextField
-                            name="title"
-                            value={formData.title}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                </div>
-
-                <div className="form-actions">
-
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleSave}
-                    >
-                        Save
-                    </Button>
-
-                    <Button
-                        variant="outlined"
-                        onClick={handleCancel}
-                    >
-                        Cancel
-                    </Button>
-
-                </div>
-
+            <div className="form-row">
+              <label>Focal Name</label>
+              <TextField
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                size="small"
+                fullWidth
+              />
             </div>
 
+            <div className="form-row">
+              <label>Address</label>
+              <TextField
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                size="small"
+                fullWidth
+              />
+            </div>
+
+            <div className="form-row">
+              <label>Position</label>
+              <TextField
+                name="position"
+                value={formData.position}
+                onChange={handleChange}
+                size="small"
+                fullWidth
+              />
+            </div>
+
+          </div>
+
+
+          {/* RIGHT SIDE */}
+
+          <div className="form-column">
+
+            <div className="form-row">
+              <label>Phone Number</label>
+              <TextField
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                size="small"
+                fullWidth
+              />
+            </div>
+
+            <div className="form-row">
+              <label>Email</label>
+              <TextField
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                size="small"
+                fullWidth
+              />
+            </div>
+
+            <div className="form-row">
+              <label>Title</label>
+              <TextField
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                size="small"
+                fullWidth
+              />
+            </div>
+
+          </div>
+
         </div>
-    );
+
+
+        <div className="form-actions">
+
+          <Button
+            variant="contained"
+            onClick={handleSave}
+          >
+            Save
+          </Button>
+
+          <Button
+            variant="outlined"
+            onClick={handleCancel}
+          >
+            Cancel
+          </Button>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
 });
 
 export default FocalForm;
