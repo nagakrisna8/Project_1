@@ -208,3 +208,136 @@ const FocalForm: React.FC<FocalListProps> = memo(({ focalData }) => {
 });
 
 export default FocalForm;
+
+ const onSaveFocal = async () => {
+        if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
+            return;
+        }
+
+        const current = [...focalData];
+        const original = [...originalFocalData];
+
+        // if (
+        //     current.some(
+        //         (i) =>
+        //             !i.ACTIVITYCATEGORY ||
+        //             i.ACTIVITYCATEGORY.trim() === "" ||
+        //             !i.ACTIVITYDESCRIPTION ||
+        //             i.ACTIVITYDESCRIPTION.trim() === ""
+        //     )
+        // ) {
+        //     dispatch(
+        //         showSnackbar({
+        //             snackbarOpen: true,
+        //             snackbarType: "error",
+        //             snackbarMessage: "Please fill details.",
+        //         })
+        //     );
+        //     return;
+        // }
+
+        // const uniqueCombinationCount = new Set(
+        //     current.map(
+        //         (i) =>
+        //             `${i.ACTIVITYCATEGORY.trim().toLowerCase()}__${i.ACTIVITYDESCRIPTION.trim().toLowerCase()}`
+        //     )
+        // ).size;
+
+        // if (uniqueCombinationCount !== current.length) {
+        //     dispatch(
+        //         showSnackbar({
+        //             snackbarOpen: true,
+        //             snackbarType: "error",
+        //             snackbarMessage:
+        //                 "Activity Category + Description  must be unique.",
+        //         })
+        //     );
+        //     return;
+        // }
+
+        const items: MasterDataItem[] = [];
+
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.ID === row.ID);
+
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: row.NAME?.trim(),
+                    Description: "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: row.ADDRESS ?? "",
+                    Department: "",
+                    Phone: row.PHONENO ?? 0,
+                    Email: "",
+                    Title: "",
+                    orgTypeId: 0
+                });
+            }
+            else if (
+                originalRow.NAME !== row.NAME ||
+                originalRow.PHONENO !== row.PHONENO ||
+                originalRow.ADDRESS !== row.ADDRESS ||
+                originalRow.EMAIL !== row.EMAIL ||
+                originalRow.POSITION !== row.POSITION ||
+                originalRow.TITLE !== row.TITLE ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.ID,
+                    OperationType: "update",
+                    Name: row.NAME,
+                    Description: "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: row.ADDRESS ?? "",
+                    Department: row.POSITION ?? "",
+                    Phone: row.PHONENO ?? "",
+                    Email: row.EMAIL ?? "",
+                    Title: row.TITLE ?? "",
+                    orgTypeId: 0
+                });
+            }
+        });
+
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
+        }
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "Focal",
+            Items: items,
+        };
+
+        try {
+            await EasaListService.addMasterDataType(payload);
+
+            setDirtyFlag(false);
+            fetchFocal();
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Focal saved successfully.",
+            }));
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Focal.",
+            }));
+        }
+    };
