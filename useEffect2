@@ -1,9 +1,13 @@
-setFormData({
-    id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
-    name: focalData.NAME ?? "",
-    address: focalData.ADDRESS ?? "",
-    phone: String(focalData.PHONENO ?? ""),
-    email: focalData.EMAIL ?? "",
-    position: focalData.POSITION ?? "",
-    title: focalData.TITLE ?? ""
-});
+useEffect(() => {
+
+    if (props.focalData?.length) {
+
+        const firstRow = props.focalData[0];
+
+        setDetailExpand({
+            [firstRow.ID]: true
+        });
+
+    }
+
+}, [props.focalData]);
