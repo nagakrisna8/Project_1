@@ -1,10 +1,39 @@
-.k-grid tr.k-selected,
-.k-grid tr.k-state-selected,
-.k-grid tr.k-focus {
-  background-color: transparent !important;
+interface FocalFormProps {
+    focalData?: FocalData;
+    saveFocal?: () => void;
+    fetchFocal: () => void;
+    onCancel: (id: number) => void;   // ⭐ new
 }
 
-.k-grid td.k-focus {
-  box-shadow: none !important;
-  background-color: transparent !important;
-}
+
+const handleCancel = () => {
+    if (focalData) {
+        setFormData({
+            id: focalData.ID ?? 0,
+            name: focalData.NAME ?? "",
+            address: focalData.ADDRESS ?? "",
+            phone: String(focalData.PHONENO ?? ""),
+            email: focalData.EMAIL ?? "",
+            position: focalData.POSITION ?? "",
+            title: focalData.TITLE ?? ""
+        });
+    }
+
+    onCancel(formData.id); // collapse row
+};
+
+const DetailComponent = (detailProps: any) => {
+    return (
+        <FocalForm
+            focalData={detailProps.dataItem}
+            saveFocal={props.saveFocal}
+            fetchFocal={props.fetchFocal}
+            onCancel={(id) =>
+                setDetailExpand(prev => ({
+                    ...prev,
+                    [id]: false
+                }))
+            }
+        />
+    );
+};
