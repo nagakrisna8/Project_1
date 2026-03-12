@@ -1,17 +1,43 @@
-React.useEffect(() => {
+.focal-form {
+  padding: 20px;
+}
 
-    if (props.focalData && props.focalData.length > 0) {
+.form-header {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
 
-        const lastItem = props.focalData[props.focalData.length - 1];
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
 
-        if (lastItem?.inEdit) {
+.form-column {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
 
-            setDetailExpand(prev => ({
-                ...prev,
-                [lastItem.ORGANIZATIONID]: true
-            }));
+.form-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
 
-        }
-    }
+.form-row label {
+  width: 130px;
+}
 
-}, [props.focalData]);
+.form-row .MuiTextField-root {
+  flex: 1;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  gap: 10px;
+}
