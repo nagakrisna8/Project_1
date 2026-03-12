@@ -180,17 +180,18 @@ const OrganizationTypeTable: React.FC<OrganizationTypeTableProps> = memo((props)
   };
 
   return (
-    <div style={{ paddingBottom: 20 }}>
+     <div style={{ height: "calc(100vh - 240px)" }}>
       <Card
         style={{
           borderLeft: "4px solid #0033A1",
           marginLeft: "22px",
+          overflow: "hidden",
+          maxHeight: "calc(100vh - 240px)",
         }}
       >
         <AnyGrid
           id="kgrid-oss-checklistType"
           ref={gridRefBuilder}
-          style={{ height: "100vh" }}
           scrollable="scrollable"
           data={process(props.organizationTypeData, props.dataState).data}
           selectable={{ enabled: true, drag: false, cell: false, mode: "multiple" }}
