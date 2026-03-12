@@ -1,13 +1,23 @@
-useEffect(() => {
+const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
+    const dataItem = cellProps.dataItem;
 
-    if (props.focalData?.length) {
-
-        const firstRow = props.focalData[0];
-
-        setDetailExpand({
-            [firstRow.ID]: true
-        });
-
-    }
-
-}, [props.focalData]);
+    return (
+        <td>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+                <input
+                    type="checkbox"
+                    checked={dataItem.ISACTIVE}
+                    onChange={(e) =>
+                        cellProps.onChange?.({
+                            dataIndex: cellProps.dataIndex,
+                            dataItem: dataItem,
+                            field: "ISACTIVE",
+                            syntheticEvent: e,
+                            value: e.target.checked
+                        })
+                    }
+                />
+            </div>
+        </td>
+    );
+};
