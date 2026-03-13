@@ -1,32 +1,310 @@
-useEffect(() => {
+import React, { memo, useState, useEffect } from "react";
+import { Button, TextField } from "@mui/material";
+import { useDispatch } from "react-redux";
+import EasaListService from "../../EasaRegisterListService";
+import "./FocalForm.scss";
+import { MasterDataItem } from "../AdminModal";
+import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
 
-    if (savedFormData) {
-        setFormData(savedFormData);
+interface FocalData {
+    ID?: number;
+    NAME?: string;
+    ADDRESS?: string;
+    PHONENO?: number;
+    EMAIL?: string;
+    POSITION?: string;
+    TITLE?: string;
+    ISACTIVE?: boolean;
+}
+
+interface FocalFormProps {
+    focalData?: FocalData;
+    saveFocal?: () => void;
+    fetchFocal: () => void;
+    focalList?: FocalData[];
+    cancelFocal?: (id: number) => void;
+}
+
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList=[] }) => {
+
+    const dispatch = useDispatch();
+
+    const [formData, setFormData] = useState({
+        id: 0,
+        name: "",
+        address: "",
+        phone: "",
+        email: "",
+        position: "",
+        title: "",
+        isActive: false
+    });
+
+    useEffect(() => {
+        if (focalData && formData.id === 0) {
+            setFormData({
+                id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
+                name: focalData.NAME ?? "",
+                address: focalData.ADDRESS ?? "",
+                phone: String(focalData.PHONENO ?? ""),
+                email: focalData.EMAIL ?? "",
+                position: focalData.POSITION ?? "",
+                title: focalData.TITLE ?? "",
+                isActive: focalData.ISACTIVE ?? false
+            });
+        }
+    }, [focalData]);
+
+    const handleChange = (e: any) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+    };
+
+    const handleCancel = () => {
+
+        if ((focalData as any)?.newFlag) {
+
+            // Clear only new row data
+            setFormData({
+                id: 0,
+                name: "",
+                address: "",
+                phone: "",
+                email: "",
+                position: "",
+                title: "",
+                isActive: false
+            });
+
+        } else {
+
+            // Restore existing data
+            setFormData({
+                id: focalData?.ID ?? 0,
+                name: focalData?.NAME ?? "",
+                address: focalData?.ADDRESS ?? "",
+                phone: String(focalData?.PHONENO ?? ""),
+                email: focalData?.EMAIL ?? "",
+                position: focalData?.POSITION ?? "",
+                title: focalData?.TITLE ?? "",
+                isActive: focalData?.ISACTIVE ?? false
+            });
+
+        }
+
+        // Collapse row
+        if (cancelFocal && focalData?.ID !== undefined) {
+            cancelFocal(focalData.ID);
+        }
+    };
+
+  const handleSave = async () => {
+
+    // Required validation
+    if (!formData.name || formData.name.trim() === "") {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Focal Name is required."
+        }));
         return;
     }
 
-    if (focalData) {
-        const initial = {
-            id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
-            name: focalData.NAME ?? "",
-            address: focalData.ADDRESS ?? "",
-            phone: String(focalData.PHONENO ?? ""),
-            email: focalData.EMAIL ?? "",
-            position: focalData.POSITION ?? "",
-            title: focalData.TITLE ?? "",
-            isActive: focalData.ISACTIVE ?? false
-        };
+    // Duplicate Focal Name validation
+    const isDuplicate = focalList?.some(
+        (item: FocalData) =>
+            item.NAME?.trim().toLowerCase() === formData.name.trim().toLowerCase() &&
+            item.ID !== formData.id
+    );
 
-        setFormData(initial);
-        onFormChange?.(initial);
+    if (isDuplicate) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Focal Name must be unique."
+        }));
+        return;
     }
 
-}, [savedFormData, focalData]);
+    // Phone validation
+    if (formData.phone && !/^\d+$/.test(formData.phone)) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Invalid Phone Number"
+        }));
+        return;
+    }
 
-useEffect(() => {
-    return () => {
-        if (debounceTimer.current) {
-            clearTimeout(debounceTimer.current);
-        }
+    const items: MasterDataItem[] = [];
+
+    items.push({
+        Id: formData.id ?? 0,
+        OperationType: formData.id ? "update" : "add",
+        Name: formData.name.trim(),
+        Description: "",
+        IsActive: formData.isActive ? "Y" : "N",
+        Notes: "",
+        Address: formData.address ?? "",
+        Department: formData.position ?? "",
+        Phone: formData.phone ?? "",
+        Email: formData.email ?? "",
+        Title: formData.title ?? "",
+        orgTypeId: 0
+    });
+
+    const payload = {
+        MasterDataType: "Focal",
+        Items: items
     };
-}, []);
+
+    try {
+
+        const response = await EasaListService.addMasterDataType(payload);
+        console.log(response, "response");
+
+        if (response?.data === -1) {
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error in saving the data."
+            }));
+
+            return;
+        }
+
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: "Focal saved successfully."
+        }));
+
+        fetchFocal?.();
+
+        handleCancel();
+
+    } catch (error) {
+
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Error saving Focal."
+        }));
+
+        console.error("Error saving focal:", error);
+    }
+};
+console.log(formData, 'formData');
+    return (
+        <div style={{ padding: "10px" }}>
+
+            <div className="form-header">
+                {formData.id ? "Edit Focal" : "Add Focal"}
+            </div>
+
+            <div className="form-grid">
+
+                {/* LEFT SIDE */}
+                <div className="form-column">
+
+                    <div className="form-row">
+                        <label>Focal Name</label>
+                        <TextField
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Address</label>
+                        <TextField
+                            name="address"
+                            value={formData.address}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Position</label>
+                        <TextField
+                            name="position"
+                            value={formData.position}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                </div>
+
+                {/* RIGHT SIDE */}
+                <div className="form-column">
+
+                    <div className="form-row">
+                        <label>Phone Number</label>
+                        <TextField
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Email</label>
+                        <TextField
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Title</label>
+                        <TextField
+                            name="title"
+                            value={formData.title}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div className="form-actions">
+                <Button
+                    className="CancelBtn"
+                    variant="outlined"
+                    onClick={handleCancel}
+                >
+                    Cancel
+                </Button>
+
+                <Button
+                    className="Savebtn"
+                    variant="contained"
+                    onClick={handleSave}
+                >
+                    Save
+                </Button>
+            </div>
+
+        </div>
+    );
+});
+
+export default FocalForm;
