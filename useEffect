@@ -1,13 +1,46 @@
-.focal-grid-compact .k-hover,
-.focal-grid-compact .k-hover td,
-.focal-grid-compact .k-table-tbody tr:hover,
-.focal-grid-compact .k-table-tbody tr:hover td,
-.focal-grid-compact .k-table-tbody .k-master-row:hover,
-.focal-grid-compact .k-table-tbody .k-master-row:hover td {
-  background-color: #ef9a9a !important;
-}
+const isModified = () => {
+    if (!focalData) return true;
 
-.focal-grid-compact {
-  --kendo-grid-row-hover-bg: #ef9a9a;
-  --kendo-table-hover-bg: #ef9a9a;
-}
+    return (
+        formData.name !== (focalData.NAME ?? "") ||
+        formData.address !== (focalData.ADDRESS ?? "") ||
+        formData.phone !== String(focalData.PHONENO ?? "") ||
+        formData.email !== (focalData.EMAIL ?? "") ||
+        formData.position !== (focalData.POSITION ?? "") ||
+        formData.title !== (focalData.TITLE ?? "") ||
+        formData.isActive !== (focalData.ISACTIVE ?? false)
+    );
+};
+
+const handleSave = async () => {
+
+    // For new row → check if user entered anything
+    if ((focalData as any)?.newFlag) {
+
+        const hasData =
+            formData.name ||
+            formData.address ||
+            formData.phone ||
+            formData.email ||
+            formData.position ||
+            formData.title;
+
+        if (!hasData) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "warning",
+                snackbarMessage: "No data to save."
+            }));
+            return;
+        }
+    }
+
+    // For existing row → check if modified
+    if (!(focalData as any)?.newFlag && !isModified()) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "info",
+            snackbarMessage: "No changes to save."
+        }));
+        return;
+    }
