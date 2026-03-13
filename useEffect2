@@ -22,3 +22,11 @@ useEffect(() => {
     }
 
 }, [savedFormData, focalData]);
+
+useEffect(() => {
+    return () => {
+        if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+        }
+    };
+}, []);
