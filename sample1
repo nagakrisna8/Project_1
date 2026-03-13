@@ -64,8 +64,6 @@ const FocalTable: React.FC<any> = memo((props) => {
     const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
     const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
     const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
-
-    // ← ADDED
     const [formDataMap, setFormDataMap] = useState<{ [id: number]: any }>({});
 
     const handleFormChange = (id: number, data: any) => {
@@ -79,7 +77,6 @@ const FocalTable: React.FC<any> = memo((props) => {
             return updated;
         });
     };
-    // ← END ADDED
 
     const cancelFocal = (id: number) => {
         setDetailExpand(prev => ({
@@ -120,7 +117,6 @@ const FocalTable: React.FC<any> = memo((props) => {
         );
     };
 
-    // ← UPDATED
     const DetailComponent = (detailProps: any) => {
         const id = detailProps.dataItem.ID;
         return (
@@ -222,6 +218,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                     [newRow.ID]: true
                 }));
             }
+            setFormDataMap({}); // ← clear all saved form data when focalData refreshes
         }
     }, [props.focalData]);
 
