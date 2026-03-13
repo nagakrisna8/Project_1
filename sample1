@@ -1,13 +1,22 @@
-const handleChange = (e: any) => {
+const previousId = React.useRef<number | null>(null);
 
-    // update the same object instead of creating a new one
-    dataItem.ISACTIVE = e.target.checked;
+useEffect(() => {
 
-    cellProps.onChange?.({
-        dataIndex: cellProps.dataIndex,
-        dataItem: dataItem,
-        field: cellProps.field,
-        syntheticEvent: e,
-        value: e.target.checked
+    if (!focalData) return;
+
+    if (previousId.current === focalData.ID) return;
+
+    previousId.current = focalData.ID ?? null;
+
+    setFormData({
+        id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
+        name: focalData.NAME ?? "",
+        address: focalData.ADDRESS ?? "",
+        phone: String(focalData.PHONENO ?? ""),
+        email: focalData.EMAIL ?? "",
+        position: focalData.POSITION ?? "",
+        title: focalData.TITLE ?? "",
+        isActive: focalData.ISACTIVE ?? false
     });
-};
+
+}, [focalData]);
