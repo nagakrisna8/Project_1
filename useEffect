@@ -1,7 +1,13 @@
+.focal-grid-compact .k-hover,
+.focal-grid-compact .k-hover td,
+.focal-grid-compact .k-table-tbody tr:hover,
+.focal-grid-compact .k-table-tbody tr:hover td,
+.focal-grid-compact .k-table-tbody .k-master-row:hover,
+.focal-grid-compact .k-table-tbody .k-master-row:hover td {
+  background-color: #ef9a9a !important;
+}
+
 .focal-grid-compact {
-  tbody tr:hover,
-  .k-table-row:hover,
-  .k-master-row:hover {
-    background-color: #ffebee !important; // light red
-  }
+  --kendo-grid-row-hover-bg: #ef9a9a;
+  --kendo-table-hover-bg: #ef9a9a;
 }
