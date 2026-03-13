@@ -1,28 +1,27 @@
 useEffect(() => {
-
-    if (savedFormData && savedFormData.id === formData.id) {
-        return; // prevent overwriting while typing
-    }
-
-    if (savedFormData) {
-        setFormData(savedFormData);
-        return;
-    }
-
     if (focalData) {
-        const initial = {
-            id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
-            name: focalData.NAME ?? "",
-            address: focalData.ADDRESS ?? "",
-            phone: String(focalData.PHONENO ?? ""),
-            email: focalData.EMAIL ?? "",
-            position: focalData.POSITION ?? "",
-            title: focalData.TITLE ?? "",
-            isActive: focalData.ISACTIVE ?? false
-        };
+        const fromSaved = savedFormData;
+        const freshId = (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0);
 
-        setFormData(initial);
-        onFormChange?.(initial);
+        // Only restore savedFormData if it belongs to same record AND has unsaved edits
+        const hasSavedEdits = fromSaved && fromSaved.id === freshId;
+
+        if (hasSavedEdits) {
+            setFormData(fromSaved); // ← restore unsaved typing
+        } else {
+            // Always load fresh from focalData
+            const initial = {
+                id: freshId,
+                name: focalData.NAME ?? "",
+                address: focalData.ADDRESS ?? "",
+                phone: String(focalData.PHONENO ?? ""),
+                email: focalData.EMAIL ?? "",
+                position: focalData.POSITION ?? "",
+                title: focalData.TITLE ?? "",
+                isActive: focalData.ISACTIVE ?? false
+            };
+            setFormData(initial);
+            onFormChange?.(initial);
+        }
     }
-
-}, [focalData]);
+}, []);
