@@ -41,7 +41,6 @@ const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
         <GridColumnMenuFilter {...props} expanded />
     </div>
 );
-
 interface FocalTableProps {
     KEY: string;
     columnPropsBuilder: (field: any) => { field: any; columnMenu: (props: any) => JSX.Element; headerClassName: string };
@@ -64,30 +63,12 @@ const FocalTable: React.FC<any> = memo((props) => {
     const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
     const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
     const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
-
-    // ← ADDED
-    const [formDataMap, setFormDataMap] = useState<{ [id: number]: any }>({});
-
-    const handleFormChange = (id: number, data: any) => {
-        setFormDataMap(prev => ({ ...prev, [id]: data }));
-    };
-
-    const clearFormData = (id: number) => {
-        setFormDataMap(prev => {
-            const updated = { ...prev };
-            delete updated[id];
-            return updated;
-        });
-    };
-    // ← END ADDED
-
     const cancelFocal = (id: number) => {
         setDetailExpand(prev => ({
             ...prev,
             [id]: false
         }));
     };
-
     const expandChange = (dataItem: any) => {
         const key = dataItem.ID;
         setDetailExpand(prev => ({
@@ -98,7 +79,11 @@ const FocalTable: React.FC<any> = memo((props) => {
 
     const gridData = process(props.focalData, props.dataState).data;
 
+
+
+    // Custom arrow column
     const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
+
         const expanded = detailExpand[cellProps.dataItem.ID];
 
         const toggle = (e: React.MouseEvent) => {
@@ -120,26 +105,15 @@ const FocalTable: React.FC<any> = memo((props) => {
         );
     };
 
-    // ← UPDATED
     const DetailComponent = (detailProps: any) => {
-        const id = detailProps.dataItem.ID;
         return (
             <div>
-                <FocalForm
-                    focalData={detailProps.dataItem}
-                    saveFocal={props.saveFocal}
-                    fetchFocal={props.fetchFocal}
-                    cancelFocal={cancelFocal}
-                    focalList={props.focalData}
-                    savedFormData={formDataMap[id]}
-                    onFormChange={(data: any) => handleFormChange(id, data)}
-                    clearFormData={() => clearFormData(id)}
-                />
+                <FocalForm focalData={detailProps.dataItem} saveFocal={props.saveFocal} fetchFocal={props.fetchFocal} cancelFocal={cancelFocal} focalList={props.focalData}/>
             </div>
         );
     };
-
     const FocalInformationCell: React.ComponentType<GridCellProps> = (cellProps) => {
+
         const dataItem = cellProps.dataItem;
 
         return (
@@ -154,6 +128,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                     <span style={{ minWidth: "120px" }}>
                         {dataItem.POSITION || ""}
                     </span>
+
                     <span style={{ minWidth: "180px" }}>
                         {dataItem.EMAIL || ""}
                     </span>
@@ -161,7 +136,6 @@ const FocalTable: React.FC<any> = memo((props) => {
             </td>
         );
     };
-
     const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
         const dataItem = cellProps.dataItem;
 
@@ -192,26 +166,29 @@ const FocalTable: React.FC<any> = memo((props) => {
             </td>
         );
     };
-
     const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
         let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
         let fixedWidth = totalColumnFixedWidth;
         let dynamicWidth = 0;
         let minScreenWidth = 1250;
+        let maxScreenWidth;
         if (k_grid_width) {
             if (k_grid_width <= minScreenWidth) {
                 return minWidth;
-            } else {
+            }
+            else {
                 dynamicWidth = k_grid_width - fixedWidth;
                 if (width == 0 && dynamicWidth > 0 && percentage > 0) {
                     const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
                     return Math.max(minWidth, dynamicColumnWidth);
-                } else {
-                    return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined;
+                }
+                else {
+                    return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
                 }
             }
         }
-    };
+
+    }
 
     useEffect(() => {
         if (props.focalData?.length) {
@@ -224,7 +201,6 @@ const FocalTable: React.FC<any> = memo((props) => {
             }
         }
     }, [props.focalData]);
-
     return (
         <div style={{ height: "calc(100vh - 240px)" }}>
             <Card
@@ -245,12 +221,14 @@ const FocalTable: React.FC<any> = memo((props) => {
                     resizable
                     editField={editField}
                     {...props.dataState}
+                    // selectedField={SELECTED_FIELD}
                     onDataStateChange={props.dataStateChange}
                     onItemChange={props.itemChange}
                     columnMenuIcon={filterIcon}
                     detail={DetailComponent}
                     detailExpand={detailExpand}
                 >
+
                     <GridToolbar key="grid-toolbar">
                         {
                             <Button
@@ -261,6 +239,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                                 size={"small"}
                                 color={"inherit"}
                                 variant={"outlined"}
+
                             >
                                 <AddCircleOutlineIcon className="iconClass" />
                                 <Typography
@@ -325,7 +304,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                                 </FormControl>
                             </Box>
                         }
-                    </GridToolbar>
+                    </GridToolbar >
                     <GridColumn
                         {...props.columnPropsBuilder("NAME")}
                         title="Focal Name"
