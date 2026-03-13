@@ -1,33 +1,3 @@
-const cancelFocal = (id: number) => {
-    setDetailExpand(prev => ({
-        ...prev,
-        [id]: false
-    }));
-};
-
-const expandChange = (dataItem: any) => {
-    const key = dataItem.ID;
-
-    setDetailExpand(prev => ({
-        ...prev,
-        [key]: !prev[key]
-    }));
-};
-
-const cancelFocal = (id: number) => {
-    setDetailExpand(prev => ({
-        ...prev,
-        [id]: false
-    }));
-};
-
-
-
-const DetailComponent = (detailProps: any) => {
-
-    return (
-        <div>
-            <FocalForm focalData={detailProps.dataItem} saveFocal={props.saveFocal} fetchFocal={props.fetchFocal}  cancelFocal={cancelFocal} />
-        </div>
-    );
-};
+.focal-grid-compact .k-grid tbody tr:hover {
+  background-color: transparent !important;
+}
