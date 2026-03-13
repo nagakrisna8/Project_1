@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect, useRef, useCallback } from "react";
+import React, { memo, useState, useEffect, useRef } from "react";
 import { Button, TextField } from "@mui/material";
 import { useDispatch } from "react-redux";
 import EasaListService from "../../EasaRegisterListService";
@@ -31,7 +31,7 @@ interface FocalFormProps {
 const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData }) => {
 
     const dispatch = useDispatch();
-    const debounceTimer = useRef<any>(null); // ← ADDED
+    const debounceTimer = useRef<any>(null);
 
     const [formData, setFormData] = useState({
         id: 0,
@@ -46,17 +46,13 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
 
     useEffect(() => {
         if (focalData) {
-            const fromSaved = savedFormData;
             const freshId = (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0);
-
-            // Only restore savedFormData if it belongs to same record AND has unsaved edits
-            const hasSavedEdits = fromSaved && fromSaved.id === freshId;
+            const hasSavedEdits = savedFormData && savedFormData.id === freshId;
 
             if (hasSavedEdits) {
-                setFormData(fromSaved); // ← restore unsaved typing
+                setFormData(savedFormData);
             } else {
-                // Always load fresh from focalData
-                const initial = {
+                setFormData({
                     id: freshId,
                     name: focalData.NAME ?? "",
                     address: focalData.ADDRESS ?? "",
@@ -65,39 +61,32 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                     position: focalData.POSITION ?? "",
                     title: focalData.TITLE ?? "",
                     isActive: focalData.ISACTIVE ?? false
-                };
-                setFormData(initial);
-                onFormChange?.(initial);
+                });
             }
         }
+
+        return () => {
+            if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        };
     }, []);
 
-
-
-    // ← UPDATED with debounce
     const handleChange = (e: any) => {
         const updated = {
             ...formData,
             [e.target.name]: e.target.value
         };
-        setFormData(updated); // ← immediate, typing stays smooth
+        setFormData(updated);
 
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
         debounceTimer.current = setTimeout(() => {
-            onFormChange?.(updated); // ← debounced, no grid re-render on every keystroke
+            onFormChange?.(updated);
         }, 400);
     };
-    useEffect(() => {
-        return () => {
-            if (debounceTimer.current) {
-                clearTimeout(debounceTimer.current);
-            }
-        };
-    }, []);
+
     const handleCancel = () => {
         clearFormData?.();
 
-        if (debounceTimer.current) clearTimeout(debounceTimer.current); // ← ADDED, clear pending debounce
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
         if ((focalData as any)?.newFlag) {
             setFormData({
