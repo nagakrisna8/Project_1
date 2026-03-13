@@ -1,3 +1,4 @@
-.focal-grid-compact .k-grid tbody tr:hover {
+.focal-grid-compact .k-table-row:hover,
+.focal-grid-compact .k-detail-row:hover {
   background-color: transparent !important;
 }
