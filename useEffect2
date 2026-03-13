@@ -1,23 +1,44 @@
-useEffect(() => {
-    let additionalHeight = 60;   // dropdown height added
-    let additionalGridHeight = 40;
+interface FocalFormProps {
+    focalData?: FocalData;
+    saveFocal?: () => void;
+    fetchFocal: () => void;
+    cancelFocal?: (id: number) => void;
+}
 
-    setShellWorkAppContainerMaxHeight(
-        shellClientHeight != undefined &&
-            shellOssHeaderMenuSectionHeight != undefined
-            ? shellClientHeight -
-            (shellHeaderSectionHeight +
-                shellOssMenubreadcrumsHeight +
-                shellOssHeaderMenuSectionHeight +
-                shellFooterHeight +
-                additionalHeight) +
-            additionalGridHeight
-            : 0
-    );
-}, [
-    shellClientHeight,
-    shellHeaderSectionHeight,
-    shellOssMenubreadcrumsHeight,
-    shellOssHeaderMenuSectionHeight,
-    shellFooterHeight,
-]);
+const handleCancel = () => {
+
+    if ((focalData as any)?.newFlag) {
+
+        // Clear only new row data
+        setFormData({
+            id: 0,
+            name: "",
+            address: "",
+            phone: "",
+            email: "",
+            position: "",
+            title: "",
+            isActive: false
+        });
+
+    } else {
+
+        // Restore existing data
+        setFormData({
+            id: focalData?.ID ?? 0,
+            name: focalData?.NAME ?? "",
+            address: focalData?.ADDRESS ?? "",
+            phone: String(focalData?.PHONENO ?? ""),
+            email: focalData?.EMAIL ?? "",
+            position: focalData?.POSITION ?? "",
+            title: focalData?.TITLE ?? "",
+            isActive: focalData?.ISACTIVE ?? false
+        });
+
+    }
+
+    // Collapse row
+    if (cancelFocal && focalData?.ID !== undefined) {
+        cancelFocal(focalData.ID);
+    }
+};
