@@ -1,21 +1,9 @@
-const EmptyHierarchyCell = () => {
-  return <td style={{ width: 0, padding: 0 }} />;
-};
+useEffect(() => {
+  const hierarchyCol = document.querySelector(
+    "#kgrid-oss-checklistType col.k-hierarchy-col"
+  ) as HTMLElement;
 
-<AnyGrid
-    ref={gridRefBuilder}
-    id="kgrid-oss-checklistType"
-    className="focal-grid-compact"
-    data={gridData}
-    dataItemKey="ID"
-    scrollable="scrollable"
-    resizable
-    editField={editField}
-    {...props.dataState}
-    onDataStateChange={props.dataStateChange}
-    onItemChange={props.itemChange}
-    columnMenuIcon={filterIcon}
-    detail={DetailComponent}
-    detailExpand={detailExpand}
-    hierarchyCell={EmptyHierarchyCell}
->
+  if (hierarchyCol) {
+    hierarchyCol.style.width = "0px";
+  }
+}, []);
