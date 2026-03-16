@@ -1,7 +1,21 @@
-const gridData = process(
-    props.focalData.map(item => ({
-        ...item,
-        expanded: detailExpand[item.ID] || false
-    })),
-    props.dataState
-).data;
+const EmptyHierarchyCell = () => {
+  return <td style={{ width: 0, padding: 0 }} />;
+};
+
+<AnyGrid
+    ref={gridRefBuilder}
+    id="kgrid-oss-checklistType"
+    className="focal-grid-compact"
+    data={gridData}
+    dataItemKey="ID"
+    scrollable="scrollable"
+    resizable
+    editField={editField}
+    {...props.dataState}
+    onDataStateChange={props.dataStateChange}
+    onItemChange={props.itemChange}
+    columnMenuIcon={filterIcon}
+    detail={DetailComponent}
+    detailExpand={detailExpand}
+    hierarchyCell={EmptyHierarchyCell}
+>
