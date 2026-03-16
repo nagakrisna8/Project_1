@@ -1,13 +1,7 @@
-/* Keep hierarchy column but make it invisible */
-.k-grid .k-hierarchy-col {
-  width: 0px !important;
-}
-
-.k-grid .k-hierarchy-cell {
-  width: 0px !important;
-  padding: 0 !important;
-}
-
-.k-grid .k-hierarchy-cell .k-icon {
-  display: none;
-}
+const gridData = process(
+    props.focalData.map(item => ({
+        ...item,
+        expanded: detailExpand[item.ID] || false
+    })),
+    props.dataState
+).data;
