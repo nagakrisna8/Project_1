@@ -1,11 +1,13 @@
-/* Remove default Kendo hierarchy column */
+/* Keep hierarchy column but make it invisible */
 .k-grid .k-hierarchy-col {
-  width: 0 !important;
-  display: none !important;
+  width: 0px !important;
 }
 
 .k-grid .k-hierarchy-cell {
-  width: 0 !important;
+  width: 0px !important;
   padding: 0 !important;
-  display: none !important;
+}
+
+.k-grid .k-hierarchy-cell .k-icon {
+  display: none;
 }
