@@ -1,13 +1,11 @@
-/* 🔥 Remove hierarchy column completely */
-.focal-grid-compact .k-hierarchy-col,
+// Replace the existing rule with this:
 .focal-grid-compact .k-hierarchy-cell {
+  display: none !important;
   width: 0 !important;
-  min-width: 0 !important;
   padding: 0 !important;
   border: none !important;
 }
 
-/* Remove extra indent spacing */
-.focal-grid-compact .k-table-td {
-  padding-left: 0 !important;
+.focal-grid-compact colgroup col.k-hierarchy-col {
+  width: 0 !important;
 }
