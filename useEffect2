@@ -1,4 +1,15 @@
-.k-grid .k-hierarchy-col,
-.k-grid .k-hierarchy-cell {
-  display: none !important;
+// KEEP this (already exists in your file, just make sure it looks like this):
+.focal-grid-compact {
+  .k-hierarchy-cell {
+    display: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  colgroup col.k-hierarchy-col {
+    width: 0 !important;
+    display: none !important;
+  }
 }
