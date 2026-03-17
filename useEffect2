@@ -1,25 +1,4 @@
-<AnyGrid
-    ref={gridRefBuilder}
-    id="kgrid-oss-checklistType"
-    className="focal-grid-compact"
-    data={gridData}
-    dataItemKey="ID"
-    scrollable="scrollable"
-    resizable
-    editField={editField}
-    {...props.dataState}
-    onDataStateChange={props.dataStateChange}
-    onItemChange={props.itemChange}
-    columnMenuIcon={filterIcon}
-    detail={DetailComponent}
-    expandField="__neverExpand__"   // 👈 Add this line
-    detailExpand={detailExpand}
->
-
-.focal-grid-compact {
-  .k-hierarchy-cell {
-    display: none !important;
-    width: 0 !important;
-    padding: 0 !important;
-  }
+.k-grid .k-hierarchy-col,
+.k-grid .k-hierarchy-cell {
+  display: none !important;
 }
