@@ -1,14 +1,13 @@
-.focal-grid-compact .k-hierarchy-cell,
-.focal-grid-compact th.k-hierarchy-cell {
-  visibility: hidden !important;
-  padding: 0 !important;
-  border-right: none !important;
-  border-left: none !important;
-  max-width: 32px !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
-}
+const handleCreateFocalFromOutside = () => {
+    setSelectedPage("Focal Management"); // ✅ switch tab
 
-.focal-grid-compact colgroup col.k-hierarchy-col {
-  max-width: 32px !important;
-}
+    // small delay to ensure component mounts
+    setTimeout(() => {
+        CreateFocal(); // ✅ trigger existing logic
+    }, 0);
+};
+
+
+  onCreateFocal={handleCreateFocalFromOutside}
+
+<FocalList onCreateFocal={props.onCreateFocal} />
