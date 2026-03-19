@@ -1,13 +1,28 @@
-const handleCreateFocalFromOutside = () => {
-    setSelectedPage("Focal Management"); // ✅ switch tab
+<div className="focal-header">
+  <Button
+    className={`focal-tab ${activeTab === "list" ? "active" : ""}`}
+    onClick={() => setActiveTab("list")}
+    size="small"
+    color="inherit"
+    variant="outlined"
+  >
+    <Typography sx={{ textTransform: "none", fontSize: "14px" }}>
+      List of Focals
+    </Typography>
+  </Button>
 
-    // small delay to ensure component mounts
-    setTimeout(() => {
-        CreateFocal(); // ✅ trigger existing logic
-    }, 0);
-};
-
-
-  onCreateFocal={handleCreateFocalFromOutside}
-
-<FocalList onCreateFocal={props.onCreateFocal} />
+  <Button
+    className={`focal-tab ${activeTab === "add" ? "active" : ""}`}
+    onClick={() => {
+      setActiveTab("add");
+      onCreateFocal();
+    }}
+    size="small"
+    color="inherit"
+    variant="outlined"
+  >
+    <Typography sx={{ textTransform: "none", fontSize: "14px" }}>
+      Add New Focal
+    </Typography>
+  </Button>
+</div>
