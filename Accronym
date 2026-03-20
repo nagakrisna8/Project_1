@@ -1,34 +1,9 @@
-// AFTER:
 useEffect(() => {
     if (
         selectedPage === "Focal Management" &&
         selectedOrganizationId &&
         selectedOrgId
     ) {
-        const load = async () => {
-            await fetchFocal(selectedOrgId, selectedOrganizationId);
-
-            if (shouldAutoCreateFocal) {
-                setShouldAutoCreateFocal(false);
-
-                const newFocal: FocalMasterTable = {
-                    ID: new Date().getTime(),
-                    NAME: "",
-                    PHONENO: "",
-                    ADDRESS: "",
-                    EMAIL: "",
-                    POSITION: "",
-                    TITLE: "",
-                    newFlag: true,
-                    SORT_ORDER: 1,
-                    ISACTIVE: true,
-                };
-
-                // ✅ Force a fresh array reference so FocalTable's useEffect triggers
-                setFocalData(prev => [newFocal, ...prev]);
-            }
-        };
-
-        load();
+        fetchFocal(selectedOrgId, selectedOrganizationId);
     }
-}, [selectedPage, selectedOrganizationId, selectedOrgId, shouldAutoCreateFocal]); // ✅ add shouldAutoCreateFocal here
+}, [selectedPage, selectedOrganizationId, selectedOrgId]);
