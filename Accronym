@@ -1,36 +1,12 @@
 useEffect(() => {
-    if (
-        selectedPage === "Focal Management" &&
-        selectedOrganizationId &&
-        selectedOrgId
-    ) {
-        const load = async () => {
+    if (props.focalData?.length) {
+        const newRow = props.focalData.find(row => row.newFlag);
 
-            // ✅ STEP 1: load list FIRST
-            await fetchFocal(selectedOrgId, selectedOrganizationId);
-
-            // ✅ STEP 2: THEN create new row (form)
-            if (shouldAutoCreateFocal) {
-
-                const newFocal = {
-                    ID: new Date().getTime(),
-                    NAME: "",
-                    PHONENO: "",
-                    ADDRESS: "",
-                    EMAIL: "",
-                    POSITION: "",
-                    TITLE: "",
-                    newFlag: true,
-                    SORT_ORDER: 1,
-                    ISACTIVE: true,
-                };
-
-                setFocalData(prev => [newFocal, ...prev]);
-
-                setShouldAutoCreateFocal(false);
-            }
-        };
-
-        load();
+        if (newRow) {
+            setDetailExpand({
+                [newRow.ID]: true
+            });
+        }
     }
-}, [selectedPage, selectedOrganizationId, selectedOrgId]);
+}, [props.focalData]);
+
