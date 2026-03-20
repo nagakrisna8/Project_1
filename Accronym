@@ -1,9 +1,8 @@
 useEffect(() => {
     if (
         selectedPage === "Focal Management" &&
-        selectedOrganizationId &&
-        selectedOrgId
+        organizationData.length > 0
     ) {
-        fetchFocal(selectedOrgId, selectedOrganizationId);
+        setSelectedOrganizationId(organizationData[0].ORGANIZATIONID);
     }
-}, [selectedPage, selectedOrganizationId, selectedOrgId]);
+}, [selectedPage, organizationData]);
