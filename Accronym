@@ -4,11 +4,13 @@ useEffect(() => {
         selectedOrganizationId &&
         selectedOrgId
     ) {
-        fetchFocal(selectedOrganizationId, selectedOrgId);
+        fetchFocal(selectedOrgId, selectedOrganizationId);
+
+        if (shouldAutoCreateFocal) {
+            setTimeout(() => {
+                CreateFocal();
+                setShouldAutoCreateFocal(false);
+            }, 200); // wait for data load
+        }
     }
 }, [selectedPage, selectedOrganizationId, selectedOrgId]);
-
-
-const onFocalDataStateChange = (event: GridDataStateChangeEvent) => {
-    setSupplierActivityDataState(event.dataState);
-};
