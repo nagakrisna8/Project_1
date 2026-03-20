@@ -4,13 +4,15 @@ useEffect(() => {
         selectedOrganizationId &&
         selectedOrgId
     ) {
-        fetchFocal(selectedOrgId, selectedOrganizationId);
+        const load = async () => {
+            await fetchFocal(selectedOrgId, selectedOrganizationId);
 
-        if (shouldAutoCreateFocal) {
-            setTimeout(() => {
+            if (shouldAutoCreateFocal) {
                 CreateFocal();
                 setShouldAutoCreateFocal(false);
-            }, 200); // wait for data load
-        }
+            }
+        };
+
+        load();
     }
 }, [selectedPage, selectedOrganizationId, selectedOrgId]);
