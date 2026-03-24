@@ -1,8 +1,31 @@
 useEffect(() => {
     if (
         selectedPage === "Focal Management" &&
-        organizationData.length > 0
+        selectedOrganizationId &&
+        selectedOrgId
     ) {
-        setSelectedOrganizationId(organizationData[0].ORGANIZATIONID);
+        const load = async () => {
+            await fetchFocal(selectedOrgId, selectedOrganizationId);
+
+            if (shouldAutoCreateFocal) {
+                const newFocal = {
+                    ID: new Date().getTime(),
+                    NAME: "",
+                    PHONENO: "",
+                    ADDRESS: "",
+                    EMAIL: "",
+                    POSITION: "",
+                    TITLE: "",
+                    newFlag: true,
+                    SORT_ORDER: 1,
+                    ISACTIVE: true,
+                };
+
+                setFocalData(prev => [newFocal, ...prev]);
+                setShouldAutoCreateFocal(false);
+            }
+        };
+
+        load();
     }
-}, [selectedPage, organizationData]);
+}, [selectedPage, selectedOrganizationId, selectedOrgId, shouldAutoCreateFocal]); // ✅ FIX
