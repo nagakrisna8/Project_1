@@ -1,3 +1,15 @@
-const newRow = props.focalData.find(
-    row => row.newFlag && (!row.NAME || row.NAME.trim() === "")
-);
+useEffect(() => {
+    if (props.focalData?.length) {
+        const newRow = props.focalData.find(
+            row => row.newFlag
+        );
+
+        if (newRow) {
+            setTimeout(() => {
+                setDetailExpand({
+                    [newRow.ID]: true
+                });
+            }, 0);
+        }
+    }
+}, [props.focalData]);
