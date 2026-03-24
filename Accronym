@@ -1,12 +1,22 @@
 useEffect(() => {
-    if (
-        selectedPage === "Focal Management" &&
-        selectedOrganizationId &&
-        selectedOrgId
-    ) {
-        // ❌ skip fetch if we just created new row
-        if (!focalData.some(row => row.newFlag)) {
-            fetchFocal(selectedOrgId, selectedOrganizationId);
+    if (props.focalData?.length) {
+        const newRow = props.focalData.find(row => row.newFlag);
+
+        if (newRow) {
+            setDetailExpand(prev => ({
+                ...prev,
+                [newRow.ID]: true
+            }));
         }
     }
-}, [selectedPage, selectedOrganizationId, selectedOrgId]);
+}, [props.focalData]);
+
+
+const expandChange = (dataItem: any) => {
+    const key = dataItem.ID;
+
+    setDetailExpand(prev => ({
+        ...prev,
+        [key]: !prev[key]
+    }));
+};
