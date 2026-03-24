@@ -1,15 +1,20 @@
-useEffect(() => {
-    if (props.focalData?.length) {
-        const newRow = props.focalData.find(
-            row => row.newFlag
-        );
+if (shouldAutoCreateFocal) {
+    const newId = new Date().getTime();
 
-        if (newRow) {
-            setTimeout(() => {
-                setDetailExpand({
-                    [newRow.ID]: true
-                });
-            }, 0);
-        }
-    }
-}, [props.focalData]);
+    const newFocal: FocalMasterTable = {
+        ID: newId,
+        NAME: "",
+        PHONE: "",
+        ADDRESS: "",
+        EMAIL: "",
+        POSITION: "",
+        TITLE: "",
+        newFlag: true,
+        SORT_ORDER: 1,
+        ISACTIVE: true,
+    };
+
+    setFocalData(prev => [newFocal, ...prev]);
+    setExpandFocalId(newId); // 🔥 important
+    setShouldAutoCreateFocal(false);
+}
