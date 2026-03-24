@@ -1,9 +1,13 @@
-// ✅ Step 1: remove newFlag row from grid
-if (clearFormData) clearFormData();
+useEffect(() => {
+    if (props.focalData?.length) {
+        const newRow = props.focalData.find(
+            row => row.newFlag && (!row.NAME || row.NAME === "")
+        );
 
-if (cancelFocal && focalData?.ID !== undefined) {
-    cancelFocal(focalData.ID);
-}
-
-// ✅ Step 2: fetch fresh data
-fetchFocal?.(selectedOrgId, selectedOrganizationId);
+        if (newRow) {
+            setDetailExpand({
+                [newRow.ID]: true
+            });
+        }
+    }
+}, [props.focalData]);
