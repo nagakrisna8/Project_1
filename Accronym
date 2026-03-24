@@ -1,4 +1,8 @@
 useEffect(() => {
+    console.log("AUTO CREATE FLAG:", shouldAutoCreateFocal);
+    console.log("ORG TYPE:", selectedOrgId);
+    console.log("ORG ID:", selectedOrganizationId);
+
     if (
         selectedPage === "Focal Management" &&
         selectedOrganizationId &&
@@ -6,6 +10,8 @@ useEffect(() => {
     ) {
         const load = async () => {
             await fetchFocal(selectedOrgId, selectedOrganizationId);
+
+            console.log("AFTER FETCH, FLAG:", shouldAutoCreateFocal);
 
             if (shouldAutoCreateFocal) {
                 const newFocal = {
@@ -21,6 +27,8 @@ useEffect(() => {
                     ISACTIVE: true,
                 };
 
+                console.log("ADDING NEW FOCAL ROW");
+
                 setFocalData(prev => [newFocal, ...prev]);
                 setShouldAutoCreateFocal(false);
             }
@@ -28,4 +36,4 @@ useEffect(() => {
 
         load();
     }
-}, [selectedPage, selectedOrganizationId, selectedOrgId, shouldAutoCreateFocal]); // ✅ FIX
+}, [selectedPage, selectedOrganizationId, selectedOrgId, shouldAutoCreateFocal]);
