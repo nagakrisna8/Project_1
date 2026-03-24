@@ -1,39 +1,30 @@
-useEffect(() => {
-    console.log("AUTO CREATE FLAG:", shouldAutoCreateFocal);
-    console.log("ORG TYPE:", selectedOrgId);
-    console.log("ORG ID:", selectedOrganizationId);
+const fetchFocal = async (orgName: number, orgTypeId: number) => {
+    let masterdataType = 4;
 
-    if (
-        selectedPage === "Focal Management" &&
-        selectedOrganizationId &&
-        selectedOrgId
-    ) {
-        const load = async () => {
-            await fetchFocal(selectedOrgId, selectedOrganizationId);
+    EasaListService.getAdminMasterDetailsTypeFocals(masterdataType, orgName, orgTypeId)
+        .then((response) => {
+            let result: FocalMasterTable[] = response?.data.map(x => ({
+                ID: x.ID,
+                NAME: x.NAME,
+                PHONENO: x.PHONENO,
+                ADDRESS: x.ADDRESS,
+                EMAIL: x.EMAIL,
+                POSITION: x.POSITION,
+                TITLE: x.TITLE,
+                ISACTIVE: x.ISACTIVE === "Y",
+            }));
 
-            console.log("AFTER FETCH, FLAG:", shouldAutoCreateFocal);
+            setFocalData(prev => {
+                const newRow = prev.find(r => r.newFlag);
 
-            if (shouldAutoCreateFocal) {
-                const newFocal = {
-                    ID: new Date().getTime(),
-                    NAME: "",
-                    PHONENO: "",
-                    ADDRESS: "",
-                    EMAIL: "",
-                    POSITION: "",
-                    TITLE: "",
-                    newFlag: true,
-                    SORT_ORDER: 1,
-                    ISACTIVE: true,
-                };
+                if (newRow) {
+                    return [newRow, ...result.reverse()];
+                }
 
-                console.log("ADDING NEW FOCAL ROW");
+                return [...result].reverse();
+            });
 
-                setFocalData(prev => [newFocal, ...prev]);
-                setShouldAutoCreateFocal(false);
-            }
-        };
-
-        load();
-    }
-}, [selectedPage, selectedOrganizationId, selectedOrgId, shouldAutoCreateFocal]);
+            setOriginalFocalData([...result].reverse());
+        })
+        .catch((err) => console.error(err));
+};
