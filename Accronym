@@ -1,22 +1,30 @@
-useEffect(() => {
-    if (props.focalData?.length) {
-        const newRow = props.focalData.find(row => row.newFlag);
+const handleCreateFocalFromOrg = async (orgId: number, orgTypeId: number) => {
+    setSelectedOrgId(orgTypeId);
+    setSelectedOrganizationId(orgId);
+    setSelectedPage("Focal Management");
 
-        if (newRow) {
-            setDetailExpand(prev => ({
-                ...prev,
-                [newRow.ID]: true
+    setFocalData([]);
+    setOriginalFocalData([]);
+
+    await EasaListService.getAdminMasterDetailsTypeFocals(4, orgTypeId, orgId)
+        .then((response) => {
+            let result: FocalMasterTable[] = response?.data.map(x => ({
+                ID: x.ID,
+                NAME: x.NAME,
+                PHONE: x.PHONE,
+                ADDRESS: x.ADDRESS,
+                EMAIL: x.EMAIL,
+                POSITION: x.POSITION,
+                TITLE: x.TITLE,
+                ISACTIVE: x.ISACTIVE === "Y",
             }));
-        }
-    }
-}, [props.focalData]);
 
+            setFocalData([...result].reverse());
+            setOriginalFocalData([...result].reverse());
 
-const expandChange = (dataItem: any) => {
-    const key = dataItem.ID;
-
-    setDetailExpand(prev => ({
-        ...prev,
-        [key]: !prev[key]
-    }));
+            setTimeout(() => {
+                CreateFocal();
+            }, 0);
+        })
+        .catch((err) => console.error(err));
 };
