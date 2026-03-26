@@ -1,20 +1,32 @@
-const handleChange = (e: any) => {
-    const { name, value } = e.target;
+const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
+  const dataItem = cellProps.dataItem;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
 
     const updated = {
-        ...formData,
-        [name]: value
+      ...dataItem,
+      ISACTIVE: checked
     };
 
-    setFormData(updated);
+    cellProps.onChange?.({
+      dataIndex: cellProps.dataIndex,
+      dataItem: updated,
+      field: "ISACTIVE",
+      syntheticEvent: e,
+      value: checked
+    });
+  };
 
-    // ✅ dirty should happen immediately
-    markDirty?.();
-
-    // ✅ keep debounce only for parent form sync
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-
-    debounceTimer.current = setTimeout(() => {
-        onFormChange?.(updated);
-    }, 400);
+  return (
+    <td>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <input
+          type="checkbox"
+          checked={!!dataItem.ISACTIVE}
+          onChange={handleChange}
+        />
+      </div>
+    </td>
+  );
 };
