@@ -1,12 +1,19 @@
 const handleChange = (e: any) => {
+    const { name, value } = e.target;
+
     const updated = {
         ...formData,
-        [e.target.name]: e.target.value
+        [name]: value
     };
 
     setFormData(updated);
 
+    // ✅ dirty should happen immediately
+    markDirty?.();
+
+    // ✅ keep debounce only for parent form sync
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
     debounceTimer.current = setTimeout(() => {
         onFormChange?.(updated);
     }, 400);
