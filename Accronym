@@ -3,18 +3,10 @@ const handleChange = (e: any) => {
         ...formData,
         [e.target.name]: e.target.value
     };
-
     setFormData(updated);
 
-    // ✅ Immediately mark form dirty
-    onFormChange?.(updated);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+        onFormChange?.(updated);
+    }, 400);
 };
-
-
-
-const handleFormChange = useCallback((id: number, data: any) => {
-    formDataMapRef.current[id] = data;
-
-    // ✅ Mark tab dirty immediately
-    props.setDirtyFlag?.(true);
-}, [props]);
