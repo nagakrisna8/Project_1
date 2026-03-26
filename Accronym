@@ -1,42 +1,20 @@
-useEffect(() => {
-    if (shouldAutoCreateFocal && focalData.length > 0) {
-        CreateFocal();
-        setShouldAutoCreateFocal(false);
-    }
-}, [focalData, shouldAutoCreateFocal]);
+const handleChange = (e: any) => {
+    const updated = {
+        ...formData,
+        [e.target.name]: e.target.value
+    };
 
-const handleCreateFocalFromOrg = async (orgId: number, orgTypeId: number) => {
-    setSelectedOrgId(orgTypeId);
-    setSelectedOrganizationId(orgId);
-    setSelectedPage("Focal Management");
+    setFormData(updated);
 
-    // ✅ Reset grid + state (IMPORTANT)
-    setFocalData([]);
-    setOriginalFocalData([]);
-    setFocalDataState({}); // ⭐ VERY IMPORTANT FIX
-
-    try {
-        const response = await EasaListService.getAdminMasterDetailsTypeFocals(4, orgTypeId, orgId);
-
-        let result: FocalMasterTable[] = response?.data.map(x => ({
-            ID: x.ID,
-            NAME: x.NAME,
-            PHONE: x.PHONE,
-            ADDRESS: x.ADDRESS,
-            EMAIL: x.EMAIL,
-            DEPARTMENT: x.DEPARTMENT,
-            TITLE: x.TITLE,
-            ISACTIVE: x.ISACTIVE === "Y",
-        }));
-
-        setFocalData([...result].reverse());
-        setOriginalFocalData([...result].reverse());
-
-        // ✅ trigger create AFTER state update
-        setShouldAutoCreateFocal(true);
-
-    } catch (err) {
-        console.error(err);
-    }
+    // ✅ Immediately mark form dirty
+    onFormChange?.(updated);
 };
 
+
+
+const handleFormChange = useCallback((id: number, data: any) => {
+    formDataMapRef.current[id] = data;
+
+    // ✅ Mark tab dirty immediately
+    props.setDirtyFlag?.(true);
+}, [props]);
