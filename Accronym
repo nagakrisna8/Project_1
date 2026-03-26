@@ -1,5 +1,4 @@
 const gridData = process(props.organizationData, {
-  ...props.dataState,
-  take: undefined,
-  skip: undefined
+  sort: props.dataState.sort,
+  filter: props.dataState.filter
 }).data;
