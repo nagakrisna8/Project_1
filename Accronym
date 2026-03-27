@@ -1,18 +1,86 @@
- <TextField
-                          variant="standard"
-                          value={searchText}
-                          style={{ width: "295px" }}
-                          // onChange={handleSearchUser}
-                          onChange={getName}
-                          onKeyPress={onKeyUp}
-                          placeholder="Last Name, First Name/BEMS ID"
-                          className="kgrid-oss-csr-lookup-popup-input"
-                          inputProps={{ style: { fontSize: 14, color: '#253746', fontWeight: 'normal' } }}
-                          InputProps={{
+const NameEditableCell: React.ComponentType<GridCellProps> = (cellProps) => {
+    const dataItem = cellProps.dataItem;
+
+    const isExpanded = !!detailExpand[dataItem.ID];
+    const showSearchField = isExpanded && !!dataItem.newFlag;
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+
+        cellProps.onChange?.({
+            dataIndex: cellProps.dataIndex,
+            dataItem: {
+                ...dataItem,
+                NAME: value
+            },
+            field: "NAME",
+            syntheticEvent: e,
+            value
+        });
+    };
+
+    const handleSearch = () => {
+        console.log("Search clicked for:", dataItem.NAME);
+        // call your search popup / lookup logic here
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter") {
+            handleSearch();
+        }
+    };
+
+    return (
+        <td>
+            {showSearchField ? (
+                <div style={{ width: "100%" }}>
+                    <TextField
+                        variant="standard"
+                        value={dataItem.NAME || ""}
+                        style={{ width: "100%" }}
+                        onChange={handleChange}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Last Name, First Name/BEMS ID"
+                        className="kgrid-oss-csr-lookup-popup-input"
+                        inputProps={{
+                            style: {
+                                fontSize: 14,
+                                color: "#253746",
+                                fontWeight: "normal"
+                            }
+                        }}
+                        InputProps={{
                             endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton className="kgrid-oss-csr-lookup-popup-search-icon" onClick={() => handleSearchTextChange(searchText)}><SearchIcon /></IconButton>
-                              </InputAdornment>
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        className="kgrid-oss-csr-lookup-popup-search-icon"
+                                        onClick={handleSearch}
+                                    >
+                                        <SearchIcon />
+                                    </IconButton>
+                                </InputAdornment>
                             ),
-                          }}
-                        />
+                        }}
+                    />
+                </div>
+            ) : (
+                <span>{dataItem.NAME || ""}</span>
+            )}
+
+
+
+
+
+
+<GridColumn
+    field="NAME"
+    title="Focal Name"
+    width={setPercentage(undefined, 0, 272)}
+    cells={{ data: NameEditableCell }}
+/>
+        </td>
+    );
+};
+
+
+
