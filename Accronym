@@ -1,32 +1,18 @@
-const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
-  const dataItem = cellProps.dataItem;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const checked = e.target.checked;
-
-    const updated = {
-      ...dataItem,
-      ISACTIVE: checked
-    };
-
-    cellProps.onChange?.({
-      dataIndex: cellProps.dataIndex,
-      dataItem: updated,
-      field: "ISACTIVE",
-      syntheticEvent: e,
-      value: checked
-    });
-  };
-
-  return (
-    <td>
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <input
-          type="checkbox"
-          checked={!!dataItem.ISACTIVE}
-          onChange={handleChange}
-        />
-      </div>
-    </td>
-  );
-};
+ <TextField
+                          variant="standard"
+                          value={searchText}
+                          style={{ width: "295px" }}
+                          // onChange={handleSearchUser}
+                          onChange={getName}
+                          onKeyPress={onKeyUp}
+                          placeholder="Last Name, First Name/BEMS ID"
+                          className="kgrid-oss-csr-lookup-popup-input"
+                          inputProps={{ style: { fontSize: 14, color: '#253746', fontWeight: 'normal' } }}
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton className="kgrid-oss-csr-lookup-popup-search-icon" onClick={() => handleSearchTextChange(searchText)}><SearchIcon /></IconButton>
+                              </InputAdornment>
+                            ),
+                          }}
+                        />
