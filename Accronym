@@ -1,110 +1,388 @@
-import * as React from 'react';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
-import Box from '@mui/material/Box';
-import EasaListRegister from './EasaListRegister.Component';
-import AdminTable from './Configuration/AdminTable';
+import "../AdminTable.scss";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
+import { OrganizationTableData, SortByData } from "../AdminModal";
+import { State, process } from "@progress/kendo-data-query";
+import {
+    Grid as DataGrid,
+    GridCellProps,
+    GridColumn,
+    GridColumnMenuFilter,
+    GridColumnMenuProps,
+    GridDataStateChangeEvent,
+    GridItemChangeEvent,
+    GridToolbar
+} from "@progress/kendo-react-grid";
 
-interface TabPanelProps {
-    children?: React.ReactNode;
-    index: number;
-    value: number;
+import {
+    Box,
+    Button,
+    Card,
+    FormControl,
+    MenuItem,
+    Select,
+    TextField,
+    Typography
+} from "@mui/material";
+
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import SettingsIcon from "@mui/icons-material/Settings";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import SortIcon from "@mui/icons-material/Sort";
+import GroupIcon from "@mui/icons-material/Group";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
+
+import { filterIcon } from "@progress/kendo-svg-icons";
+import FocalList from "./FocalList";
+
+const editField = "inEdit";
+const SELECTED_FIELD = "selected";
+const AnyGrid = DataGrid as any;
+
+const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
+    <div>
+        <GridColumnMenuFilter {...props} expanded />
+    </div>
+);
+interface OrganizationTypeTableProps {
+    KEY: string;
+    columnPropsBuilder: (field: any) => { field: any; columnMenu: (props: any) => JSX.Element; headerClassName: string };
+    organizationData: OrganizationTableData[];
+    dataState: State;
+    dataStateChange: (event: GridDataStateChangeEvent) => void;
+    itemChange: (event: GridItemChangeEvent) => void;
+    createOrganization: () => void;
+    saveOrganization: () => void;
+    onCreateFocal: () => void;
+    dragStart: (dataItem: OrganizationTableData) => void;
+    reorder: (dataItem: OrganizationTableData) => void;
+    sortBy: "custom" | "asc" | "desc" | undefined;
+    handleSortByChange: (key: keyof SortByData, value: "custom" | "asc" | "desc", setScreenDirty?: boolean) => void;
 }
 
-function CustomTabPanel(props: TabPanelProps) {
-    const { children, value, index, ...other } = props;
+const OrganizationTable: React.FC<any> = memo((props) => {
 
-    return (
-        <div
-            role="tabpanel"
-            hidden={value !== index}
-            id={`simple-tabpanel-${index}`}
-            aria-labelledby={`simple-tab-${index}`}
-            {...other}
-        >
-            {value === index && (
-                <Box
-                    sx={{
-                        p: 0,
-                        m: 0,
-                        width: "100%",
-                    }}
-                >
-                    {children}
-                </Box>
-            )}
-        </div>
+    const gridRefBuilder = useRef<any>(null);
+    const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+    const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
+
+    // expansion state
+    const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
+
+    const expandChange = (dataItem: any) => {
+        const key = dataItem.ORGANIZATIONID;
+        setDetailExpand(prev => {
+            const isCurrentlyOpen = prev[key];
+            if (isCurrentlyOpen) {
+                return {};
+            }
+            return { [key]: true };
+        });
+
+    };
+    const gridData = process(props.organizationData, {
+        sort: props.dataState.sort,
+        filter: props.dataState.filter,
+        take: undefined,
+        skip: undefined
+    }).data;
+
+
+    const OrganizationCell: React.ComponentType<GridCellProps> = useCallback(
+        (cellProps) => {
+
+            const field = cellProps.field || "";
+            const value = cellProps.dataItem[field] ?? "";
+
+            const handleChange = (e: any) => {
+
+                const updated = { ...cellProps.dataItem };
+                updated[field] = e.target.value;
+
+                cellProps.onChange?.({
+                    dataIndex: cellProps.dataIndex,
+                    dataItem: updated,
+                    field,
+                    syntheticEvent: e,
+                    value: e.target.value
+                });
+            };
+
+            return (
+                <td>
+                    <TextField fullWidth value={value} onChange={handleChange} />
+                </td>
+            );
+        },
+        []
     );
-}
 
-function a11yProps(index: number) {
-    return {
-        id: `simple-tab-${index}`,
-        'aria-controls': `simple-tabpanel-${index}`,
-    };
-}
-
-export default function CoordinationRegister() {
-    const [value, setValue] = React.useState(0);
-
-    const handleChange = (event: React.SyntheticEvent, newValue: number) => {
-        setValue(newValue);
-    };
-
-    return (
-        <Box
-            sx={{
-                width: '100%',
-                px: 3,
-                pt: 1,
-                boxSizing: "border-box",
+    const DragCell: React.ComponentType<GridCellProps> = (dragcellprops) => (
+        <td
+            onDragOver={(e) => {
+                e.preventDefault();
+                props.reorder(dragcellprops.dataItem);
             }}
         >
-            <Box
-                sx={{
-                    borderBottom: 1,
-                    borderColor: 'divider',
+            <span
+                draggable
+                style={{
+                    cursor: "move",
+                    display: "flex",
+                    //justifyContent: "center"
+                }}
+                onDragStart={() => props.dragStart(dragcellprops.dataItem)}
+            >
+                <SortIcon />
+            </span>
+        </td>
+    );
+
+    // Custom arrow column
+    const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
+
+        const expanded = detailExpand[cellProps.dataItem.ORGANIZATIONID];
+
+        const toggle = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            expandChange(cellProps.dataItem);
+        };
+
+        return (
+            <td>
+                <div style={{ display: "flex", justifyContent: 'center', alignItems: "center", gap: 6, }}>
+                    <GroupIcon />
+
+                    <span
+                        onClick={toggle}
+                        style={{ cursor: "pointer", display: "flex" }}
+                    >
+                        {expanded ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
+                    </span>
+                </div>
+            </td>
+        );
+    };
+
+    const DetailComponent = (detailProps: any) => {
+
+        const orgName = detailProps.dataItem.ORGANIZATIONID;
+
+        return (
+            <div>
+                <FocalList orgName={orgName} orgType={props.selectedOrgId} onCreateFocal={props.onCreateFocal} />
+            </div>
+        );
+    };
+    const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
+        const dataItem = cellProps.dataItem;
+
+        const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            const checked = e.target.checked;
+            const updated = {
+                ...dataItem,
+                ISACTIVE: checked
+            };
+            cellProps.onChange?.({
+                dataIndex: cellProps.dataIndex,
+                dataItem: updated,
+                field: "ISACTIVE",
+                syntheticEvent: e,
+                value: checked
+            });
+        };
+
+        return (
+            <td>
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                    <input
+                        type="checkbox"
+                        checked={!!dataItem.ISACTIVE}
+                        onChange={handleChange}
+                    />
+                </div>
+            </td>
+        );
+    };
+    const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
+        let k_grid_width = document.querySelector("#kgrid-oss-checklistType_org")?.clientWidth;
+        let fixedWidth = totalColumnFixedWidth;
+        let dynamicWidth = 0;
+        let minScreenWidth = 1250;
+        let maxScreenWidth;
+        if (k_grid_width) {
+            if (k_grid_width <= minScreenWidth) {
+                return minWidth;
+            }
+            else {
+                dynamicWidth = k_grid_width - fixedWidth;
+                if (width == 0 && dynamicWidth > 0 && percentage > 0) {
+                    const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
+                    return Math.max(minWidth, dynamicColumnWidth);
+                }
+                else {
+                    return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
+                }
+            }
+        }
+    }
+    return (
+        <div
+        //  style={{ height: "calc(100vh - 240px)" , overflow:'hidden'}}
+        >
+            <Card
+                style={{
+                    borderLeft: "4px solid #0033A1",
+                    marginLeft: "22px",
+                    overflow: "hidden",
                 }}
             >
-                <Tabs
-                    value={value}
-                    onChange={handleChange}
-                    aria-label="basic tabs example"
-                    sx={{
-                        minHeight: "40px",
-                        "& .MuiTabs-indicator": {
-                            backgroundColor: "black",
-                            height: "2px",
-                        },
-                        "& .MuiTab-root": {
-                            textTransform: "none",
-                            minHeight: "40px",
-                            padding: "8px 16px",
-                            color: "#253746",
-                        },
-                        "& .Mui-selected": {
-                            color: "#253746",
-                            fontWeight: 500,
-                        },
-                    }}
+                <AnyGrid
+                    ref={gridRefBuilder}
+                    id="kgrid-oss-checklistType_org"
+                    data={gridData}
+                    dataItemKey="ORGANIZATIONID"
+                    resizable
+                    editField={editField}
+                    // {...props.dataState}
+                    selectedField={SELECTED_FIELD}
+                    onDataStateChange={props.dataStateChange}
+                    onItemChange={props.itemChange}
+                    columnMenuIcon={filterIcon}
+                    detail={DetailComponent}
+                    detailExpand={detailExpand}
                 >
-                    <Tab label="Registers" {...a11yProps(0)} />
-                    <Tab label="Admin" {...a11yProps(1)} />
-                </Tabs>
-            </Box>
 
-            <CustomTabPanel value={value} index={0}>
-                <EasaListRegister
-                    pmdbProjectId={-1}
-                    getItarProjectFlag={0}
-                    selectedDisciplinId={"N/A"}
-                    csrWorkAppFlag={false}
-                />
-            </CustomTabPanel>
+                    <GridToolbar key="grid-toolbar">
+                        {
+                            <Button
+                                className="easalist-marginLeft10"
+                                id="createBtn"
+                                title="Create New"
+                                onClick={props.createOrganization}
+                                size={"small"}
+                                color={"inherit"}
+                                variant={"outlined"}
 
-            <CustomTabPanel value={value} index={1}>
-                <AdminTable />
-            </CustomTabPanel>
-        </Box>
+                            >
+                                <AddCircleOutlineIcon className="iconClass" />
+                                <Typography
+                                    variant={"button"}
+                                    sx={{ textTransform: "none", fontSize: "14px" }}
+                                >
+                                    Create New
+                                </Typography>
+                            </Button>
+                        }
+
+                        {
+                            < Button
+                                className="easalist-marginLeft10"
+                                id="saveBtn"
+                                title="Save"
+                                onClick={props.saveOrganization}
+                                variant={"outlined"}
+                                size={"small"}
+                                color={"inherit"}
+                            >
+                                <Typography
+                                    variant={"button"}
+                                    sx={{ textTransform: "none", fontSize: "14px" }}
+                                >
+                                    Save
+                                </Typography>
+                            </Button >
+                        }
+                        {
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1.5,
+                                    position: "absolute",
+                                    right: 20,
+                                }}
+                            >
+                                <Typography
+                                    variant="body2"
+                                    sx={{
+                                        color: "#253746",
+                                        fontWeight: 500,
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    Sort Order :
+                                </Typography>
+                                <FormControl variant="outlined">
+                                    <Select
+                                        id="register-type-select-dropdown"
+                                        className="text-normal"
+                                        style={{
+                                            width: "200px",
+                                            height: "32px",
+                                            fontSize: "14px",
+                                            color: "#253746",
+                                        }}
+                                        value={props.sortBy || "custom"}
+                                        onChange={(e) =>
+                                            props.handleSortByChange(
+                                                "organization",
+                                                e.target.value as "custom" | "asc" | "desc"
+                                            )
+                                        }
+                                    >
+                                        <MenuItem value="custom">
+                                            <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                            Customize
+                                        </MenuItem>
+                                        <MenuItem value="asc">
+                                            <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                            Organization : Ascending
+                                        </MenuItem>
+                                        <MenuItem value="desc">
+                                            <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                            Organization : Descending
+                                        </MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                        }
+                    </GridToolbar >
+                    <GridColumn title="Sort" cells={{ data: DragCell }} width="80px" />
+                    <GridColumn
+                        {...props.columnPropsBuilder("ORGANIZATIONNAME")}
+                        title="Organization Name"
+                        cells={{ data: OrganizationCell }}
+                        width={setPercentage(undefined, 0, 272)}
+                    />
+                    <GridColumn
+                        {...props.columnPropsBuilder("ORGANIZATIONDESCRIPTION")}
+                        title="Description"
+                        cells={{ data: OrganizationCell }}
+                        width={setPercentage(undefined, 0, 272)}
+                    />
+                    <GridColumn
+                        title="Active"
+                        field="ISACTIVE"
+                        cells={{ data: activeCheckbox }}
+                        width="90px"
+                    />
+                    <GridColumn
+                        {...props.columnPropsBuilder("NOTES")}
+                        title="Notes"
+                        cells={{ data: OrganizationCell }}
+                        width={setPercentage(undefined, 0, 472)}
+                    />
+                    <GridColumn
+                        title="Contact Focals"
+                        cells={{ data: ContactFocals }}
+                        width="150px"
+                    />
+                </AnyGrid>
+            </Card>
+        </div>
     );
-}
+});
+
+export default OrganizationTable;
