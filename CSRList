@@ -1,52 +1,110 @@
- <Box
-                            sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1.5,
-                                position: "absolute",
-                                right: 20,
-                            }}
-                        >
-                            <Typography
-                                variant="body2"
-                                sx={{
-                                    color: "#253746",
-                                    fontWeight: 500,
-                                    whiteSpace: "nowrap",
-                                }}
-                            >
-                                Sort Order :
-                            </Typography>
-                            <FormControl variant="outlined">
-                                <Select
-                                    id="register-type-select-dropdown"
-                                    className="text-normal"
-                                    style={{
-                                        width: "200px",
-                                        height: "32px",
-                                        fontSize: "14px",
-                                        color: "#253746",
-                                    }}
-                                    value={props.sortBy || "custom"}
-                                    onChange={(e) =>
-                                        props.handleSortByChange(
-                                            "focal",
-                                            e.target.value as "custom" | "asc" | "desc"
-                                        )
-                                    }
-                                >
-                                    <MenuItem value="custom">
-                                        <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                                        Customize
-                                    </MenuItem>
-                                    <MenuItem value="asc">
-                                        <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                                        Focal Management: Ascending
-                                    </MenuItem>
-                                    <MenuItem value="desc">
-                                        <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                                        Focal Management : Descending
-                                    </MenuItem>
-                                </Select>
-                            </FormControl>
+<Box
+    sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1.5,
+        position: "absolute",
+        right: 20,
+    }}
+>
+    <Typography
+        variant="body2"
+        sx={{
+            color: "#253746",
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+        }}
+    >
+        Sort Order :
+    </Typography>
+
+    <FormControl
+        variant="outlined"
+        size="small"
+        sx={{
+            minWidth: "200px",
+            "& .MuiOutlinedInput-root": {
+                backgroundColor: "#fafafa !important",
+                height: "32px",
+                fontSize: "14px",
+                color: "#253746",
+            },
+            "& .MuiOutlinedInput-notchedOutline": {
+                borderColor: "#c4c4c4",
+            },
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+                borderColor: "#9e9e9e",
+            },
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                borderColor: "#1976d2",
+            },
+            "& .MuiSelect-select": {
+                display: "flex",
+                alignItems: "center",
+                backgroundColor: "#fafafa !important",
+                paddingTop: "6px",
+                paddingBottom: "6px",
+            },
+        }}
+    >
+        <Select
+            id="register-type-select-dropdown"
+            className="text-normal"
+            value={props.sortBy || "custom"}
+            onChange={(e) =>
+                props.handleSortByChange(
+                    "focal",
+                    e.target.value as "custom" | "asc" | "desc"
+                )
+            }
+            sx={{
+                backgroundColor: "#fafafa !important",
+            }}
+            renderValue={(selected) => {
+                if (selected === "custom") {
+                    return (
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                            <SettingsIcon sx={{ height: 16, width: 16, mr: 1 }} />
+                            Customize
                         </Box>
+                    );
+                }
+                if (selected === "asc") {
+                    return (
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                            <ArrowUpwardIcon sx={{ height: 16, width: 16, mr: 1 }} />
+                            Focal Management: Ascending
+                        </Box>
+                    );
+                }
+                return (
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                        <ArrowDownwardIcon sx={{ height: 16, width: 16, mr: 1 }} />
+                        Focal Management : Descending
+                    </Box>
+                );
+            }}
+        >
+            <MenuItem value="custom">
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <SettingsIcon sx={{ height: 16, width: 16, mr: 1 }} />
+                    Customize
+                </Box>
+            </MenuItem>
+
+            <MenuItem value="asc">
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <ArrowUpwardIcon sx={{ height: 16, width: 16, mr: 1 }} />
+                    Focal Management: Ascending
+                </Box>
+            </MenuItem>
+
+            <MenuItem value="desc">
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <ArrowDownwardIcon sx={{ height: 16, width: 16, mr: 1 }} />
+                    Focal Management : Descending
+                </Box>
+            </MenuItem>
+        </Select>
+    </FormControl>
+</Box>
