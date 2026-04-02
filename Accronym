@@ -22,7 +22,17 @@ function CustomTabPanel(props: TabPanelProps) {
             aria-labelledby={`simple-tab-${index}`}
             {...other}
         >
-            {value === index && <Box sx={{ p: 3 ,padding:'0px !important', margin:"24px 0 0 -24px"}}>{children}</Box>}
+            {value === index && (
+                <Box
+                    sx={{
+                        p: 0,
+                        m: 0,
+                        width: "100%",
+                    }}
+                >
+                    {children}
+                </Box>
+            )}
         </div>
     );
 }
@@ -42,20 +52,48 @@ export default function CoordinationRegister() {
     };
 
     return (
-        <Box sx={{ width: '100%' }}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={value} onChange={handleChange} aria-label="basic tabs example"
+        <Box
+            sx={{
+                width: '100%',
+                px: 3,
+                pt: 1,
+                boxSizing: "border-box",
+            }}
+        >
+            <Box
+                sx={{
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                }}
+            >
+                <Tabs
+                    value={value}
+                    onChange={handleChange}
+                    aria-label="basic tabs example"
                     sx={{
+                        minHeight: "40px",
                         "& .MuiTabs-indicator": {
                             backgroundColor: "black",
-                        }
+                            height: "2px",
+                        },
+                        "& .MuiTab-root": {
+                            textTransform: "none",
+                            minHeight: "40px",
+                            padding: "8px 16px",
+                            color: "#253746",
+                        },
+                        "& .Mui-selected": {
+                            color: "#253746",
+                            fontWeight: 500,
+                        },
                     }}
                 >
-                    <Tab label="Registers" {...a11yProps(0)} sx={{ textTransform: "none" }} />
-                    <Tab label="Admin" {...a11yProps(1)} sx={{ textTransform: "none" }} />
+                    <Tab label="Registers" {...a11yProps(0)} />
+                    <Tab label="Admin" {...a11yProps(1)} />
                 </Tabs>
             </Box>
-            <CustomTabPanel value={value} index={0} >
+
+            <CustomTabPanel value={value} index={0}>
                 <EasaListRegister
                     pmdbProjectId={-1}
                     getItarProjectFlag={0}
@@ -63,8 +101,9 @@ export default function CoordinationRegister() {
                     csrWorkAppFlag={false}
                 />
             </CustomTabPanel>
+
             <CustomTabPanel value={value} index={1}>
-                 <AdminTable/>
+                <AdminTable />
             </CustomTabPanel>
         </Box>
     );
