@@ -1,0 +1,1151 @@
+import * as React from 'react';
+import { useState, useEffect, useLayoutEffect } from "react";
+import { CardContent, Grid, IconButton, Link, TextField, Typography, Badge, Box, Button, Tooltip } from "@mui/material"
+import KendoEditor from "./k-editor-wrapper/KendoEditor.component"
+import ViewMoreButton from "./ViewMoreButton.component";
+import SpeakerNotesOutlinedIcon from '@mui/icons-material/SpeakerNotesOutlined';
+import ArrowForwardIosSharpIcon from '@mui/icons-material/ArrowForwardIosSharp';
+import MuiAccordion, { AccordionProps } from '@mui/material/Accordion';
+import MuiAccordionSummary, { AccordionSummaryProps, } from '@mui/material/AccordionSummary';
+import MuiAccordionDetails from '@mui/material/AccordionDetails';
+import { styled } from '@mui/material/styles';
+import './RecursiveEditorComponent.scss';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import DynamicTabsService from './DynamicTabsService';
+
+const Accordion = styled((props: AccordionProps) => (
+    <MuiAccordion disableGutters elevation={0} square {...props} key={`MUIAccordian`} />
+))(({ theme }) => ({
+    border: `1px solid ${theme.palette.divider}`,
+    '&:not(:last-child)': {
+        borderBottom: 0,
+    },
+    '&::before': {
+        display: 'none',
+    },
+}));
+
+const AccordionSummary = styled((props: AccordionSummaryProps) => (
+    <MuiAccordionSummary
+        expandIcon={<ArrowForwardIosSharpIcon sx={{ fontSize: '0.9rem' }} key={`MUIAccordianIcon`} />}
+        {...props}
+        key={`MUIAccordianSummary`}
+    />
+))(({ theme }) => ({
+    backgroundColor:
+        theme.palette.mode === 'dark'
+            ? 'rgba(255, 255, 255, .05)'
+            : 'rgba(0, 0, 0, .03)',
+    flexDirection: 'row-reverse',
+    '& .MuiAccordionSummary-expandIconWrapper.Mui-expanded': {
+        transform: 'rotate(90deg)',
+    },
+    '& .MuiAccordionSummary-content': {
+        marginLeft: theme.spacing(1),
+    },
+}));
+
+const AccordionDetails = styled(MuiAccordionDetails)(({ theme }) => ({
+    padding: theme.spacing(2),
+    borderTop: '1px solid rgba(0, 0, 0, .125)',
+}));
+import { CCLRptTemplate, ConfigRefDetails, FixedTabTitle, MasterData, OperationType, ReportStepId, ScreenNameEnum, SectionMsg, StaticTable } from "../../../../../model/Model";
+import { RecursiveEditorComponentProps } from '../../../../../model/PropsModel';
+import { MasterDataContext } from './MasterDataContext/masterDataContext';
+import SupportingDataGrid from '../compliance-showing/supporting-data-grid/SupportingDataGrid';
+import GridInsideGrid from '../compliance-showing/grid-inside-grid/GridInsideGrid';
+import StorageService from '../../../../../utils/StorageService';
+import EnvDetail from '../../../../../utils/EnvDetail';
+import CommentHistoryPopup from './comment-history-popup/CommentHistoryPopup';
+import UserToken from '../../../../../utils/UserToken';
+import AuthorizationService from '../../../../core/services/AuthorizationService';
+import { showSnackbar } from '../../../../core/snackbar/CustomSnackBarSlice';
+import { useDispatch, useSelector } from "react-redux";
+import CommonFunction from '../../../../../utils/CommonFunction';
+import DynamicHtmlScriptTemplate from './dynamic-html-script-template/DynamicHtmlScriptTemplate';
+import { userDefinedConfirm } from '../../../../../utils/ConfirmDialog';
+import SubstantiationInsertPopup from '../configure-substantiation/substantiation-insert-popup-data-grid/SubInsertPopupData';
+import PathConstants from '../../../../../routes/PathConstants';
+import { useNavigate, useParams } from 'react-router-dom';
+import SupportingInsertPopupData from '../compliance-showing/supporting-insert-popup-data-grid/SupportingInsertPopupData';
+import ConfigureReferencesService from '../configure-references/ConfigureReferencesService';
+import SubstantiationGridService from '../configure-substantiation/substantiation-grid/SubstantiationGridService';
+import { setSubstantiationData } from '../compliance-showing/grid-inside-grid/GridInsideGridSlice';
+import ReferenceDataGridService from '../configure-references/references-data-grid/ReferenceDataGridService';
+import { fetchSuccess } from '../compliance-showing/supporting-data-grid/SupportingDataReferenceContentSlice';
+import { doesSectionFormatHaveLeadingZeros } from '@mui/x-date-pickers/internals/hooks/useField/useField.utils';
+import ConfigureSubstantiationService from '../configure-substantiation/ConfigureSubstantiationService';
+
+const easaReportFlag = new CommonFunction().IsEASAReport();
+document.documentElement.classList.toggle('easa', easaReportFlag);
+
+const RecursiveEditorComponent: React.FC<RecursiveEditorComponentProps> = ({ currentTab, updateTotalCommentCount, currentTabComments, reportLevelTagList, sendDataToRootParent, totalComment, index, item, insertImage, insertNewTable, insertSubSection, deleteSection, depth = 0, onEditorChange, insertNewParagraph, onTitleChange, elementSectionName, onAccordianExpand, insertMinorCategory, handleImagePreview, accordianRef, reportId, headerData, getTargetId, loadContentCommenttdata, refreshAllEditor, uploadImagePopup, referencesDetails, currentTabDetails, editorData, onStaticTableChange, restoreDelSection, syncEditorDataWithOrientationData, saveTabDetails, openPopupForNonSubsection, scrollAction, setScrollAction }) => {
+    let masterData = React.useContext<{ masterDataList: MasterData[], filteredCategory: string[] }>(MasterDataContext);
+    const [contentID, setContentID] = useState<number>(0);
+    const [targetText, setTargetText] = useState("");
+    const [openHistoryPopup, setOpenHistoryPopup] = useState<boolean>(false);
+    const [selectedRowId, setShowSelectedRowId] = useState<number>(0);
+    const [addNewComment, setIsNewComment] = useState(false);
+    const [openSubstantitionPopup, setOpenSubstantiationPopup] = useState(false);
+    const [openSupportingInsertPopup, setOpenSupportingInsertPopup] = useState(false);  // handling insert supporting popup
+    const [configRefSourceId, setConfigRefSourceId] = useState<string>("");
+    const [refTableCode, setRefTableCode] = useState<string>("");
+    const [refGridTitle, setRefGridTitle] = useState<string>("");
+    const [getSequence, setSequence] = useState<string>("");
+    const [showOtherOtpion, setShowOtherOption] = useState<boolean>(false);
+    const userToken = new UserToken();
+    const userBemsId = userToken.getUserBemsId();
+    const [iconToggles, setIconToggles] = useState<Record<string, boolean>>({}); //uses Key : boolean
+    const dispatch = useDispatch();
+    const [configRegSourceId, setConfigRegSourceId] = useState<string>("");
+    const [regTableCode, setRegTableCode] = useState<string>("");
+    const [regGridTitle, setRegGridTitle] = useState<string>("");
+    let landScapeFlag: boolean = item.LandscapeFlag === 'Y';
+    const isToggled = (key: string) => {
+        return !!iconToggles[key];
+    }
+    const iconSx = (toggled: boolean) => ({
+        transform: toggled ? 'rotate(90deg)' : 'rotate(0deg)',
+        transition: 'transform 200ms ease-in-out',
+    });
+    const navigate = useNavigate();
+    let scrollPositionTop = false;
+
+    //  const Datasource: DataSourceDtl[] = useSelector(
+    //     (state: RootState) => state.CommonHeaderData?.DataSourceDtl ?? []
+    // );
+
+    const flagToBool = (flag) => {
+        if (flag === 'Y' || flag === true) return true;
+        return false;
+    };
+
+    useEffect(() => {
+        const applyCustomClass = () => {
+            const wizardWindow = document.querySelector('[class*="k-editor-table-wizard-window"]');
+            if (wizardWindow && !wizardWindow.classList.contains('k-table-wizard-custom-class')) {
+                wizardWindow.classList.add('k-table-wizard-custom-class');
+            }
+
+            const buttons = document.querySelectorAll('.k-window-actions .k-button .k-button-text');
+            buttons.forEach(button => {
+                if (button.textContent?.trim() === 'Save') {
+                    button.textContent = 'Apply';
+                }
+            });
+        };
+        const observer = new MutationObserver(applyCustomClass);
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+        });
+
+        const intervalId = setInterval(applyCustomClass, 1000); // checks every 1 second
+        return () => {
+            observer.disconnect();
+            clearInterval(intervalId);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!item) return;
+
+        const newToggles = {};
+
+        const visitSection = (section) => {
+            if (!section) return;
+            if (section.TabSectionId != null) {
+                newToggles[`s-${section.TabSectionId}`] = flagToBool(section.LandscapeFlag);
+            }
+            if (Array.isArray(section.ContentDetailList)) {
+                section.ContentDetailList.forEach(cd => {
+                    if (cd && cd.ContentId != null) {
+                        newToggles[`c-${cd.ContentId}`] = flagToBool(cd.LandscapeFlag);
+                    }
+                });
+            }
+            if (Array.isArray(section.SubSectionData)) {
+                section.SubSectionData.forEach(sub => visitSection(sub));
+            }
+        };
+
+        visitSection(item);
+
+        setIconToggles(prev => ({ ...prev, ...newToggles }));
+    }, [item]);
+
+    React.useEffect(() => {
+        // Maintain scroll position in case user opens Comment History popup
+        //const scrollPosition = window['rightPaneScrollPosition'] || "0";
+        // const scrollableDiv: any = document.querySelector('#leftPane');
+        // scrollableDiv.scrollTo(0, parseInt(scrollPosition, 10));    
+        // window.scroll(0, scrollPosition);
+
+        // Scroll to newly added content
+        if (accordianRef?.current) {
+            const key = Object.keys(accordianRef.current)?.toString();
+            if (accordianRef.current[key]?.current) {
+                accordianRef.current[key].current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => {
+                    accordianRef.current = {};
+                });
+            }
+        }
+
+        //Highlight Comment Icon based on click
+        let storageService = new StorageService();
+        let elementList: any = document.querySelectorAll('[id^="content_comment_Btn_"]');
+        let cache = JSON.parse(storageService.getApplicationData(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`));
+
+        for (let index = 0; index < elementList.length; index++) {
+            const element = elementList[index];
+
+            if (element && element.id) {
+                let tempContentId = element.id.split('_').pop();
+
+                if (tempContentId === cache.contentid + "") {
+                    (element as HTMLElement).style.color = '#1976d2';
+                } else {
+                    (element as HTMLElement).style.color = 'rgba(0, 0, 0, 0.54)';
+                }
+            }
+        }
+    }, [accordianRef, item]);
+
+    const bookmarkNavigation = () => {
+        const getBookmarkLinkId = new StorageService().getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'bookmarkLinkId');
+        const getBookmarkTabId = new StorageService().getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'bookmarkTabid');
+        if (getBookmarkLinkId != "" && getBookmarkTabId > 0 && editorData && editorData.length > 0 && editorData[0]?.TabId == getBookmarkTabId) {
+            let elementList: any = document.querySelectorAll('[class^="editorContentId-"], [class*=" editorContentId-"]');
+            const getBookmarkContentId = getBookmarkLinkId.split("-")[0];
+            const getBookmarkAnchorId = getBookmarkLinkId.split("-")[1];
+            let getBookMarkDestinationByClassName = document.querySelectorAll('[class^="bookmark_destination-"], [class*=" bookmark_destination-"]');
+            for (let i = 0; i < elementList.length; i++) {
+                const element = elementList[i];
+                let getElementContentId = elementList[i].className?.split("-")?.pop();
+                if (getElementContentId == getBookmarkContentId) {
+                    let kendoToolbarEle = element.getElementsByClassName('k-editor-toolbar');
+                    if (kendoToolbarEle.length > 0) {
+                        kendoToolbarEle[0].style.display = 'block';
+                        kendoToolbarEle[0].style.borderTop = '1px solid rgba(0, 0, 0, 0.23)';
+                        kendoToolbarEle[0].style.zIndex = 1;
+                        element.style.border = '1px solid rgba(0, 0, 0, 0.23)';
+                    }
+                    for (let i = 0; i < getBookMarkDestinationByClassName.length; i++) {
+                        const anchorElement = getBookMarkDestinationByClassName[i];
+                        let getElementContentId = anchorElement.className?.split("-")[2];
+                        let getElementBKId = anchorElement.id;
+                        if (getElementContentId == getBookmarkContentId && getElementBKId == getBookmarkAnchorId) {
+                            const topOffset = (anchorElement as HTMLElement).getBoundingClientRect().top + window.pageYOffset;
+                            window.scrollTo({ top: topOffset - 150, behavior: 'smooth' });
+                            (anchorElement as HTMLElement).style.border = '2px solid #1976d2';
+                            setTimeout(() => {
+                                (anchorElement as HTMLElement).style.border = 'none';
+                            }, 3000);
+                        };
+                    };
+                    setTimeout(() => {
+                        if (kendoToolbarEle.length > 0) {
+                            kendoToolbarEle[0].style.display = 'none';
+                            kendoToolbarEle[0].style.borderTop = 'none';
+                            (element as HTMLElement).style.border = 'none';
+                        }
+                    }, 5000);
+                }
+            }
+        }
+    };
+
+    const checkIsReferenceTableExist = (defaultRefDocTypeList, tableContent) => {
+        if (defaultRefDocTypeList && defaultRefDocTypeList.length > 0) {
+            const checkRefTableExist = defaultRefDocTypeList.filter(table => table.TableCode == tableContent);
+            if (checkRefTableExist && checkRefTableExist.length > 0) {
+                return false;
+            } else {
+                return true;
+            }
+        } else {
+            return false;
+        }
+    };
+
+    useEffect(() => {
+        // calling event for bookmark navigation
+        bookmarkNavigation();
+
+        // handling scroll position on accordion change
+        if (window && window['rightPaneScrollPosition'] != 0 && scrollAction) {
+            let setScrollPosition = window['rightPaneScrollPosition'];
+            window.scrollTo({ top: setScrollPosition, behavior: 'instant' });
+            setTimeout(() => {
+                window['rightPaneScrollPosition'] = 0;
+                setScrollAction(false);
+            });
+        };
+    }, [editorData]);
+
+    // useLayoutEffect(() => {
+    //     // if (scrollToId !== null) {
+    //     //   const editorElement = editorRefs.current.get(scrollToId);
+    //     //   if (editorElement && containerRef.current) {
+    //     //     editorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    //     //   }
+    //     //   setScrollToId(null); // reset after scrolling
+    //     // }
+    //     if (window && window['rightPaneScrollPosition'] != 0 && scrollAction) {
+    //         let setScrollPosition = window['rightPaneScrollPosition'];
+    //         window.scrollTo({ top: setScrollPosition, behavior: 'instant' });
+    //         setTimeout(() => {
+    //             window['rightPaneScrollPosition'] = 0;
+    //             setScrollAction(false);
+    //         });
+    //     };
+    //   }, [editorData]); // scrollToId
+
+    const IsNotComplianceGridTable = (subItem) => {
+        const list = headerData?.DefaultRefDocTypeList || [];
+        const subList = headerData?.DefaultRehDocTypeList || [];
+        if (subList.some(x => x.TableCode == subItem.TableContent)  && list.every(x => x.TableCode !== subItem.TableContent)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    const updateAddNewComment = (value) => {
+        setIsNewComment(value);
+    };
+
+    const isPendingWithUser = () => {
+        let currentUserBemsId = AuthorizationService.getUserBemsId();
+        const isUserDataExist = headerData?.PendingWithBemsId?.filter(item => {
+            return item == currentUserBemsId;
+        });
+        if (isUserDataExist && isUserDataExist.length > 0 && headerData?.RELEASE_DATE == null)
+            return true;
+        return false;
+    };
+
+    const handleSubstantiationInsertBtn = async (subItem) => {
+        try {
+            let filterGridData: ConfigRefDetails[] = [];
+            const res = await ConfigureSubstantiationService.GetRegulationDropDownData(Number(reportId));
+            if (res?.data) {
+                filterGridData = res.data.filter(d => d.Title === subItem?.TableTitle);
+            }
+            if (filterGridData.length > 0) {
+                const first = filterGridData[0];
+                setConfigRegSourceId(first?.SourceId);
+                setRegTableCode(first?.TableCode);
+                setRegGridTitle(first?.Title);
+                //setSequence(first?.SequenceStartWith);
+                // const hasSourceEntries = !!first?.SourceId && first.SourceId.split(',').length > 0;
+                // if (!hasSourceEntries) {
+                //     setShowOtherOption(true);
+                // }
+                setOpenSubstantiationPopup(true);
+            }
+        } catch (error) {
+            console.error('Error fetching reference dropdown data', error);
+        }       
+    }
+
+    const handleReferenceInsertBtn = async (subItem?: { TableTitle?: string }) => {
+        try {
+            let filterGridData: ConfigRefDetails[] = [];
+            const res = await ConfigureReferencesService.GetReferenceDropDownData(Number(reportId));
+            if (res?.data) {
+                filterGridData = res.data.filter(d => d.Title === subItem?.TableTitle);
+            }
+            if (filterGridData.length > 0) {
+                const first = filterGridData[0];
+                setConfigRefSourceId(first?.SourceId);
+                setRefTableCode(first?.TableCode);
+                setRefGridTitle(first?.Title);
+                setSequence(first?.SequenceStartWith);
+                const hasSourceEntries = !!first?.SourceId && first.SourceId.split(',').length > 0;
+                if (!hasSourceEntries) {
+                    setShowOtherOption(true);
+                }
+                setOpenSupportingInsertPopup(true);
+            }
+        } catch (error) {
+            console.error('Error fetching reference dropdown data', error);
+        }
+    };
+
+    const handleCloseInsSupportingPopup = (checkIsDataAdded) => {
+        setShowOtherOption(false);
+        setOpenSupportingInsertPopup(false);
+        const refDetails = { RefDocId: 0, RptId: Number(reportId), TableCode: refTableCode, ReqCompId: 0 };
+        const key = `${refTableCode ?? ""}`;
+        if (checkIsDataAdded && easaReportFlag) {
+            ReferenceDataGridService.getReferenceDocumentDetails(refDetails)
+                .then(res => {
+                    const data = res?.data?.RefDetailsList ?? [];
+                    dispatch(fetchSuccess({ key, data }));
+                })
+                .catch(err => { });
+            refreshAllEditor();
+        }
+    };
+
+    const handleOpenHistoryPopup = (contentId, rowId) => {
+        setShowSelectedRowId(rowId);
+        setOpenHistoryPopup(true);
+        setContentID(contentId);
+        if (isPendingWithUser()) {
+            setIsNewComment(true);
+        }
+        setTargetText("");
+    }
+
+    const handleCloseHistoryPopup = (isPopupDirty) => {
+        setOpenHistoryPopup(false);
+        setContentID(0);
+        setTargetText("");
+        setIsNewComment(false);
+        if (isPopupDirty) {
+            refreshAllEditor();
+        }
+    }
+
+    const getTagDisplayFor = (subItem: any) => {
+        return (referencesDetails || [])
+            .find(td => td.TableCode === subItem?.TableContent)
+            ?.SupportingFlag;
+    }
+
+    const getColumnConfigData = (subItem: any) => {
+        return headerData?.DefaultRefDocTypeList.length > 0 ? headerData?.DefaultRefDocTypeList.filter(item => item.TableCode === subItem.TableContent).flatMap(item => JSON.parse(item.TableColumnData)) : [];
+    };
+
+    const getColumnConfigSubsData = (subItem: any) => {
+        return headerData?.DefaultSubDocTypeList.length > 0 ? headerData?.DefaultSubDocTypeList.filter(item => item.TableCode === subItem.TableContent).flatMap(item => JSON.parse(item.TableColumnData)) : [];
+    };
+
+    const handleIdForHelpGuide = (item) => {
+        if (item?.SectionSerialNumber?.includes('.')) {
+            return false;
+        } else {
+            return true;
+        }
+    };
+
+    window["staticTableChangeEvent"] = (target, groupName, value) => {
+        //let target = event.target;
+        // Untick all radio button group except selected
+        // document.querySelectorAll(`input[type="radio"][name="${groupName}"]`).forEach((item: any) => {
+        //     if (item.value != value)
+        //         item.removeAttribute("checked");
+        // });
+
+        let dynamicRootHtmlElement;
+        // Traverse up until we find the div element with below matching name
+        for (; target; target = target.parentElement) {
+            if (target.tagName === 'DIV' &&
+                (target.getAttribute("name") === StaticTable.HTML_TABLE_WITHOUT_TITLE
+                    || target.getAttribute("name") === StaticTable.STATIC_TABLE_CODE)) {
+                // Return the found div element
+                dynamicRootHtmlElement = target;
+                break;
+            }
+        }
+
+        if (dynamicRootHtmlElement) {
+            let contentId = dynamicRootHtmlElement.parentElement.getAttribute("id");
+            let updatedDynamicHtmlContent = dynamicRootHtmlElement.parentElement.innerHTML;
+            // Extract script tag and append again with HTML 
+            // Select the script tag with the custom attribute
+            const scriptTag = document.querySelector(`script[script-contentid='${contentId}']`);
+            // Get the raw text content
+            if (scriptTag) {
+                var rawContent = scriptTag.textContent?.trim();
+                if (rawContent) {
+                    rawContent = '\n <script> \n' + rawContent + ' \n</script> \n';
+                    updatedDynamicHtmlContent += rawContent;
+                };
+            }
+            onStaticTableChange(contentId, updatedDynamicHtmlContent);
+        }
+    }
+
+    const hasActiveContent = (item?.ContentDetailList || []).some(sub => sub?.ActiveFlag === 'Y');
+
+    const getOrientationTitle = (toggled: boolean) => {
+        return toggled ? 'Change to Portrait' : 'Change to Landscape';
+    };
+
+    const sectionKey = `s-${item?.TabSectionId}`;
+    const sectionToggled = isToggled(sectionKey);
+    const sectionTitle = getOrientationTitle(sectionToggled);
+
+    const updatedOreintationFlag = async (nextRotated, prevRotated, getScrollHeight, key, reportId, tabSectionId, contentID, node, TabId) => {
+        landScapeFlag = nextRotated;
+        // UI update when not refresh
+        setIconToggles(prev => ({ ...prev, [key]: nextRotated }));
+        const layoutMode = nextRotated ? "landscape" : "portrait";
+        try {
+            await DynamicTabsService.updateorientationflag(reportId, tabSectionId, nextRotated, contentID, node);
+            const editorDataResult = await DynamicTabsService.getReportTabDetailsByTabId(reportId, TabId);
+            if (editorDataResult && editorDataResult.data) {
+                let addIsExpandedFlag_IsTextBoxEmptyFlag = (nestedArray) => {
+                    return nestedArray.map(item => {
+                        item = { ...item, IsExpanded: true, IsError: false }
+                        item.SubSectionData = addIsExpandedFlag_IsTextBoxEmptyFlag(item.SubSectionData)
+                        return item;
+                    })
+                }
+                let result = addIsExpandedFlag_IsTextBoxEmptyFlag([editorDataResult.data]);
+                dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: `Layout changed to ${layoutMode} sucessfully.` }));
+                syncEditorDataWithOrientationData(result, getScrollHeight);
+            }
+        } catch (err) {
+            setIconToggles(prev => ({ ...prev, [key]: prevRotated }));
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: `Failed to apply layout changes. Please try again.` }));
+        }
+    };
+
+    const handleOrientation = async (e, key, reportId, tabSectionId, contentID = 0, node = 0, TabId = 0) => {
+        e.stopPropagation(); // prevents expanding/collapsing accordion
+        let isTabDirty = new StorageService().getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'IsTabDirty');
+        let getScrollHeight = window.scrollY || window.pageYOffset;
+        const prevRotated = isToggled(key);
+        const nextRotated = !prevRotated;
+        if (isTabDirty) {
+            userDefinedConfirm({ message: `There are unsaved changes in the current session. Do you want to proceed without saving?`, okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
+                ({ button, input }) => {
+                    updatedOreintationFlag(nextRotated, prevRotated, getScrollHeight, key, reportId, tabSectionId, contentID, node, TabId);
+                    new StorageService().setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
+                },
+                () => {
+                    return;
+                }
+            );
+        } else {
+            updatedOreintationFlag(nextRotated, prevRotated, getScrollHeight, key, reportId, tabSectionId, contentID, node, TabId);
+        };
+    };
+
+    const handleCloseInsSubStantiationPopup = (checkIsDataAdded) => {
+        setOpenSubstantiationPopup(false);
+        if (checkIsDataAdded && easaReportFlag) {
+            SubstantiationGridService.GetSubstantiationGridData(reportId,regTableCode)
+                .then((response) => {
+                    const data = response?.data ?? [];
+                    dispatch(setSubstantiationData({ setSubstaDt: data }));
+                })
+                .catch(err => { });
+            refreshAllEditor();
+        }
+    };
+
+    const handleScrollPosition = () => {
+        const setScrollPosition = window.pageYOffset;
+        let scrollableDiv;
+        if (scrollPositionTop) {
+            scrollableDiv = document.querySelector('#compliance-report-base-page');
+            const divScrollOffset = scrollableDiv.scrollTop;
+            window['compliance-report-base-page'] = divScrollOffset;
+            window.scroll(0, divScrollOffset);
+        } else {
+            window['rightPaneScrollPosition'] = setScrollPosition;
+        }
+        scrollPositionTop = false;
+    };
+
+    const isCurrentUserAuthor = () => {
+        if (headerData && headerData.EditEnabledFlag === "Y")
+            return true;
+        else
+            return false;
+    }
+
+    const confirmAndNavigate = async (navigateTo: () => void) => {
+        const appKey = `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`;
+        const isTabDirty = new StorageService().getApplicationDataByKey(appKey, 'IsTabDirty');
+        scrollPositionTop = true;
+        if (isTabDirty) {
+            return userDefinedConfirm({
+                message: 'There are unsaved changes in the current session. Do you want to proceed without saving?',
+                okBtnText: 'Yes',
+                cancelBtnText: 'Cancel',
+            }).then(
+                () => {
+                    new StorageService().setApplicationDataByKey(appKey, 'IsTabDirty', false);
+                    handleScrollPosition();
+                    navigateTo();
+                },
+                () => {
+                    scrollPositionTop = false;
+                    handleScrollPosition();
+                }
+            );
+        }
+        handleScrollPosition();
+        navigateTo();
+    };
+
+    const handleConfigureReferences = (e, key, tableTitle) => {
+        const navigateTo = () =>
+            navigate(PathConstants.CONFIGURE_REFERENCES.replace(':reportId', reportId), {
+                state: { lastTabIndex: key, TableTitle: tableTitle },
+            });
+        return confirmAndNavigate(navigateTo);
+    };
+
+    const handleConfigureSubstantiation = (e, key, tableTitle) => {
+        const navigateTo = () =>
+            navigate(PathConstants.CONFIGURE_SUBSTANTIATION.replace(':reportId', reportId), {
+                state: { lastTabIndex: key, TableTitle: tableTitle },
+            });
+        return confirmAndNavigate(navigateTo);
+    };
+
+    const renderSubItemRow = (subItem, headerData, onTitleChange) => {
+        // If no subItem provided, return null
+        if (!subItem) return null;
+        // Case 1: CONFIG_SUBSTANTIATION table and default content
+        const isSubstantiationTable = (headerData?.DefaultSubDocTypeList || []).some(x => x.TableCode === subItem.TableContent);
+        if (isSubstantiationTable) {
+            let keyBase = `gridItemChildren__${subItem?.ContentId}`;
+            return (
+                <Grid item xs={12} key={keyBase}>
+                    <Box
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        sx={{ width: '100%', gap: 2 }}
+                    >
+                        <Box
+                            display="flex"
+                            alignItems="center"
+                            sx={{ minWidth: 0 }}
+                        >
+                            <Typography
+                                component="div"
+                                className="sectionHeader-compliance section-addSubstantiation"
+                                sx={{
+                                    fontSize: '16px',
+                                    fontWeight: 600,
+                                    color: '#253746',
+                                    whiteSpace: 'normal',
+                                    overflow: 'visible',
+                                    mr: 2,
+                                    minWidth: 0,
+                                }}
+                                key={`typography1${subItem.ContentId}`}
+                                title={`${subItem.PdfTableTitle} ${subItem.TableTitle}`}
+                            >
+                                {`${subItem.PdfTableTitle} ${subItem.TableTitle}`}
+                            </Typography>
+
+                            {headerData?.Designation != CCLRptTemplate.CCLRpt && <Typography
+                                component="div"
+                                sx={{
+                                    fontSize: '14px',
+                                    color: '#0078B8',
+                                    fontWeight: 400,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    minWidth: 0,
+                                }}
+                                title='Use "Project Regulations" button to add to project.'
+                            // title='Use "Project Regulations" button to add to project. Use "Manage Substantiation" button to add Substantiation Descriptions'
+                            >
+                                Use "Project Regulations" button to add to project.
+                            </Typography>}
+                        </Box>
+                        <Box display="flex" alignItems="center" gap={1} sx={{ marginRight: '-10px' }}>
+                            {(isCurrentUserAuthor() && headerData?.WorkFlowStep == ReportStepId.CREATE_STEP
+                                && headerData?.Designation != CCLRptTemplate.CCLRpt) &&
+                                <Tooltip title="Insert Substantiation">
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        className="substantiation-button"
+                                        onClick={() => handleSubstantiationInsertBtn(subItem)}
+                                        sx={{ fontSize: '14px', textTransform: 'capitalize', height: 32, padding: '4px 10px' }}
+                                        aria-label="Insert Substantiation"
+                                    >
+                                        Insert
+                                    </Button></Tooltip>}
+                            {headerData?.Designation != CCLRptTemplate.CCLRpt &&
+                                <Tooltip title="Manage Substantiation">
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        className="substantiation-button"
+                                        aria-label="Configure Substantiation"
+                                        onClick={(e) => { handleConfigureSubstantiation(e, `s-${subItem?.TabId}`, subItem.TableTitle) }}
+                                    >
+                                        Manage Substantiation
+                                    </Button>
+                                </Tooltip>}
+                        </Box>
+                    </Box>
+                </Grid>
+            );
+        }
+        // Case 2: Reference tables (exists in headerData.DefaultRefDocTypeList)
+        const isReferenceTable = (headerData?.DefaultRefDocTypeList || []).some(x => x.TableCode === subItem.TableContent);
+        if (isReferenceTable) {
+            let keyBase = `gridItemChildren__${subItem?.ContentId}`;
+            return (
+                <Grid item xs={12} key={keyBase}>
+                    <Box
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        sx={{ width: '100%' }}
+                    >
+                        <Box display="flex" alignItems="center" sx={{ minWidth: 0 }}>
+                            <Typography
+                                component="div"
+                                className="sectionHeader-compliance"
+                                sx={{
+                                    fontSize: '16px',
+                                    fontWeight: 600,
+                                    color: '#253746',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    minWidth: 0,
+                                    mr: 2,
+                                }}
+                                key={`typography1${subItem.ContentId}`}
+                                title={`${subItem.PdfTableTitle} ${subItem.TableTitle}`}
+                            >
+                                {subItem.PdfTableTitle + ' ' + subItem.TableTitle}
+                                &nbsp;&nbsp;
+                                <Box
+                                    component="span"
+                                    sx={{
+                                        fontSize: '10px',
+                                        color: '#0078B8',
+                                        fontWeight: 'normal',
+                                        whiteSpace: 'pre-wrap',
+                                        alignSelf: "center"
+                                    }}
+                                >
+                                    Use "Insert" button to add references and Use "Manage References" button to delete/manage additional details
+                                </Box>
+                            </Typography>
+                        </Box>
+
+                        <Box display="flex" alignItems="center" gap={1} sx={{ paddingRight: '10px' }}>
+                            {(isCurrentUserAuthor() && headerData?.WorkFlowStep == ReportStepId.CREATE_STEP) && (
+                                <Tooltip title={`Insert ${subItem.TableTitle}`}>
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        className="reference-button"
+                                        onClick={() => handleReferenceInsertBtn(subItem)}
+                                        sx={{ fontSize: '14px', textTransform: 'capitalize', height: 32, padding: '4px 10px' }}
+                                        aria-label="Insert Reference"
+                                    >
+                                        Insert
+                                    </Button>
+                                </Tooltip>
+                            )}
+                            <Tooltip title="Manage References">
+                                <Button
+                                    size="medium"
+                                    variant="contained"
+                                    className="reference-button"
+                                    onClick={(e) => {
+                                        handleConfigureReferences(e, `s-${subItem?.TabId}`, subItem.TableTitle);
+                                    }}
+                                    aria-label="Configure References"
+                                >
+                                    Manage References
+                                </Button>
+                            </Tooltip>
+                        </Box>
+                    </Box>
+                </Grid>
+            );
+        }
+        // Case 3: Custom tables (non-default and not CONFIG_SUBSTANTIATION)
+        if (!isSubstantiationTable) {
+            let keyBase = `gridItemChildren__${subItem?.ContentId}`;
+            return (<>
+                <Grid item xs={1} key={`label-${keyBase}`}>
+                    <Typography
+                        component="div"
+                        className="sectionHeader"
+                        sx={{ fontSize: '16px', fontWeight: 600, color: '#253746', textWrap: 'nowrap' }}
+                        key={`typography1${subItem.ContentId}`}
+                    >
+                        {subItem.PdfTableTitle}
+                        &nbsp;&nbsp;
+                    </Typography>
+                </Grid>
+                <Grid item xs={11} key={`input-${keyBase}`}>
+                    <TextField
+                        id={`TblInput${subItem.ContentId}`}
+                        disabled={headerData?.EditEnabledFlag === 'N'}
+                        error={!!subItem.IsTableTextBoxField}
+                        key={`typography2${subItem.ContentId}`}
+                        sx={{ fontSize: '14px', width: '100%' }}
+                        className="textFieldWidth"
+                        inputProps={{ maxLength: 220 }}
+                        size="small"
+                        defaultValue={subItem.TableTitle}
+                        title={subItem.TableTitle}
+                        onChange={(event) => {
+                            onTitleChange?.(event, subItem, subItem.ContentId, 'TableTitle', `${event.target?.value}`, false);
+                        }}
+                    />
+                </Grid></>
+            );
+        }
+        return null;
+    }
+
+    return (item ? (<Grid container spacing={2} className='accordionContainerWrap' style={{ marginLeft: '0px' }} key={`root_parent_container${item?.TabSectionId}`} direction={'row'}>
+        {item?.RecStatus != OperationType?.DELETE &&
+            <Accordion className="collapseSection" expanded={item?.IsExpanded} onChange={() => onAccordianExpand?.(item?.TabSectionId, item?.IsExpanded)} key={`accordian_item${item?.TabSectionId}`}>
+                <Grid className='rec-editor-accordionGridRoot' item xs={12} key={`first_child.${item?.TabSectionId}`}>
+                    <Grid container spacing={2} key={`first__Grid${item?.TabSectionId}`} sx={{ alignItems: 'center' }}>
+                        <Grid item xs={11} className='rec-editor-accordion-summary-grid-item' style={{ paddingTop: '12px', paddingLeft: '30px', paddingRight: '20px' }} key={`first_accordian_grid_item${item?.TabSectionId}`}>
+                            <AccordionSummary className="introAccordianHeading" style={{ paddingRight: '0px' }} aria-controls="panel1d-content" key={`first_accordian_summary${item?.TabSectionId}`}>
+                                {item?.DefEditableFlag === 'N' ?
+                                    <Typography className="sectionHeader" key={`edited_sectionHeader_${item?.TabSectionId}`}> {`${item?.SectionUiNumber ? item?.SectionUiNumber : ''} ${item?.SectionTitle}`
+                                        + ((item?.ActiveFlag?.toUpperCase() === 'N' && (item?.RevParentTabSecId ?? 0) > 0)
+                                            ? ` : ${SectionMsg.SectionDeletedMsg}` : '')}
+                                    </Typography>
+                                    :
+                                    (
+                                        <Grid container key={`name_sectionHeader1${item?.TabSectionId}`} spacing={masterData?.masterDataList?.length < 0 ? 2 : 1} sx={{ flexWrap: "nowrap", alignItems: "center" }}>
+                                            {
+                                                masterData?.masterDataList?.length === 0 &&
+                                                <Grid item key={`gridItem_!1${item?.TabSectionId}`} className="sectionHeaderParent">
+                                                    <Typography key={`gridItemTypop${item?.TabSectionId}`} className="sectionHeader first" sx={{ marginTop: '8px' }}>
+                                                        {item?.SectionUiNumber ? item?.SectionUiNumber : item?.SectionTitle?.toLowerCase().includes(FixedTabTitle.APPENDIX) ? item?.SectionTitle?.split(' ')[0] + " " + item?.SectionTitle?.split(' ')[1] : item?.SectionTitle?.split(' ')[0]}
+                                                    </Typography>
+                                                </Grid>
+                                            }
+                                            <Grid item key={`gridItem${item?.TabSectionId}`} sx={{ width: "100%" }}>
+                                                {masterData?.masterDataList?.length === 0 ? (item?.ActiveFlag?.toUpperCase() === 'N' && (item?.RevParentTabSecId ?? 0) > 0) ?
+                                                    <Typography key={`gridItemTextField${item?.TabSectionId}`} sx={{ width: "100%" }}>
+                                                        {item?.SectionUiNumber ? item?.SectionTitle : (!item?.SectionTitle?.toLowerCase().includes(FixedTabTitle.APPENDIX) ? item?.SectionTitle?.split(' ')?.slice(1)?.join(' ') : item?.SectionTitle?.split(' ')?.slice(2)?.join(' '))
+                                                            + ((item?.ActiveFlag.toUpperCase() === 'N' && item?.RevParentTabSecId > 0) ? ' : ' + SectionMsg.SectionDeletedMsg : '')
+                                                        }</Typography>
+                                                    :
+                                                    <TextField error={item?.IsError} key={`gridItemTextField${item?.TabSectionId}`} size="small" sx={{ width: "100%" }} onClick={(event) => event?.stopPropagation()} onFocus={(event) => event?.stopPropagation()}
+                                                        defaultValue={item?.SectionUiNumber ? item?.SectionTitle : (!item?.SectionTitle?.toLowerCase().includes(FixedTabTitle.APPENDIX) ? item?.SectionTitle?.split(' ')?.slice(1)?.join(' ') : item?.SectionTitle?.split(' ')?.slice(2)?.join(' '))}
+                                                        onChange={(event) => {
+                                                            if (item && onTitleChange) {
+                                                                onTitleChange?.(event, item, item?.TabSectionId, 'SectionTitle', ` ${event?.target?.value}`, true)
+                                                            }
+                                                        }}
+
+                                                        disabled={headerData?.EditEnabledFlag == "N"} />
+                                                    :
+                                                    <Typography className="sectionHeader" sx={item?.SectionTitle && !item?.SectionTitle?.startsWith(masterData?.filteredCategory?.[0]?.split("Category")[0]) ? { marginTop: '8px' } : {}} key={`minorAspectKey${item?.TabSectionId}`}>
+                                                        {(item?.SectionTitle?.startsWith(masterData?.filteredCategory?.[0]?.split("Category")[0]) ? item?.SectionTitle : item?.SectionTitle?.startsWith("Criterion") ? item?.SectionTitle : item?.SectionUiNumber ? `${item?.SectionUiNumber} ${item?.SectionTitle}` : `${item?.SectionTitle}`
+                                                        ) + ((item?.ActiveFlag?.toUpperCase() === 'N' && (item?.RevParentTabSecId ?? 0) > 0) ? ` : ${SectionMsg.SectionDeletedMsg}` : ''
+                                                            )}
+                                                    </Typography>}
+                                            </Grid>
+                                        </Grid>
+                                    )}
+                            </AccordionSummary>
+                        </Grid>
+                        <Grid item xs={1} key={`_grid_item${item?.TabSectionId}`} style={{ paddingTop: '14px', paddingRight: '23px' }}>
+                            <Grid container spacing={0} key={`container_grid_item${item?.TabSectionId}`} direction={'row'}>
+                                <Grid item xs={6} style={{ display: 'flex', justifyContent: 'center' }} className="rec-editor-commentAccord2" key={`comment_item${item?.TabSectionId}`}>
+                                    {/* <Badge
+                                        id="badge2"
+                                        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                        sx={{ marginTop: '2px' }}
+                                        badgeContent={item?.SectionCommentNumber}
+                                        color={item?.SectionCommentResolveStatus > 0 ? 'error' : 'success'}
+                                    >
+                                        <IconButton
+                                            disabled={item?.TabSectionId < 0}
+                                            key={`iconButton_${item?.TabSectionId}`}
+                                            // onClick={() => handleOpenCommentPopup(item.TabSectionId, 0)}
+                                        >
+                                            <SpeakerNotesOutlinedIcon
+                                                key={`iconButton_comment_${item?.TabSectionId}`}
+                                            />
+                                        </IconButton>
+                                    </Badge> */}
+
+                                    <IconButton
+                                        size="small"
+                                        onClick={(e) => { handleOrientation(e, `s-${item?.TabSectionId}`, reportId, item?.TabSectionId, undefined, item?.Node, item?.TabId) }}
+                                        aria-label={`toggle-section-${item?.TabSectionId}`}
+                                        sx={{ padding: '6px' }}
+                                        disabled={item?.TabSectionId < 0 || (headerData?.EditEnabledFlag == "N")}>
+                                        <DescriptionOutlinedIcon titleAccess={`${sectionTitle}`} sx={iconSx(isToggled(`s-${item?.TabSectionId}`))} />
+                                    </IconButton>
+                                </Grid>
+                                {item && (
+                                    <ViewMoreButton index={index} insertImage={insertImage}
+                                        insertNewTable={insertNewTable}
+                                        item={item}
+                                        DefaultFlag={item.DefaultFlag == 'Y'}
+                                        insertSubSection={insertSubSection}
+                                        insertNewParagraph={insertNewParagraph}
+                                        isInsertSubSection={new CommonFunction().IsEASAReport() || (currentTabDetails?.CustomTabFlag === "Y" || item.DisplayIndex == null || /^\d+$/.test(item.DisplayIndex))}
+                                        isInsertChildSubSection={true}
+                                        deleteSection={deleteSection}
+                                        isParentSection={true}
+                                        elementName={elementSectionName}
+                                        headerData={headerData}
+                                        editorData={editorData}
+                                        restoreDelSection={restoreDelSection}
+                                        openPopupForNonSubsection={openPopupForNonSubsection}
+                                    />
+                                )}
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Grid>
+                {item && <Grid item xs={12} key={`gridItem_beforeAccordiAN${item?.TabSectionId}`}>
+                    <AccordionDetails
+                        style={{
+                            border: '0px',
+                            paddingBottom: '5px',
+                            ...(Array.isArray(item?.ContentDetailList) && item.ContentDetailList.length > 0
+                                ? { paddingTop: '5px' }
+                                : {}
+                            ),
+                        }}
+                    >
+                        {hasActiveContent && (
+                            <Grid container spacing={2} key={`gridContainerChild${item?.TabSectionId}`} sx={{ alignItems: 'center' }}>
+                                {item?.ContentDetailList?.map((subItem, subIndex) => {
+                                    const isStaticTable = subItem && subItem.TableContent?.indexOf(StaticTable.STATIC_TABLE_CODE) > -1;
+                                    const shouldDisableStaticTable = headerData && (headerData?.EditEnabledFlag === "N" || headerData.RELEASE_DATE !== null);
+                                    const contentKey = `c-${subItem.ContentId}`;
+                                    const contentToggled = isToggled(contentKey);
+                                    const contentTitle = getOrientationTitle(contentToggled);
+                                    landScapeFlag = subItem.LandscapeFlag === 'Y';
+                                    const tableHtml = (isStaticTable && shouldDisableStaticTable && subItem?.TableContent)
+                                        ? (subItem.TableContent || '').replace(
+                                            /<input\b(?=[^>]*\btype\s*=\s*(['"]?)radio\1)(?![^>]*\bdisabled\b)/gi,
+                                            '<input disabled'
+                                        )
+                                        : (subItem?.TableContent || '');
+                                    const paraDynamicHtmlContentFlag = subItem && subItem?.ParagraphContent?.indexOf(StaticTable.HTML_TABLE_WITHOUT_TITLE) > -1;
+                                    const shouldDisableParagraphInput = !!headerData && (headerData.AuthorBemsId === Number(userBemsId) ? (headerData.RELEASE_DATE === null ? true : false) : false);
+                                    const processedParagraphHtml = (paraDynamicHtmlContentFlag && subItem?.ParagraphContent && !shouldDisableParagraphInput)
+                                        ? (subItem.ParagraphContent || '').replace(
+                                            /<input\b(?=[^>]*\btype\s*=\s*(['"]?)text\1)(?![^>]*\bdisabled\b)/gi,
+                                            '<input disabled'
+                                        )
+                                        : (subItem?.ParagraphContent || '');
+                                    if (subItem && subItem.ContentStatus !== OperationType.DELETE) {     // // CID 433675: (#1 of 1): Bad use of null-like value (FORWARD_NULL)
+                                        return (
+                                            <Grid ref={accordianRef && accordianRef.current[subItem && subItem.ContentId]} item xs={12} key={`gridItemChild${subItem && subItem.ContentId}`}>
+                                                <Grid container spacing={2} style={{ marginLeft: '0px' }} key={`item_container${subItem && subItem.ContentId}`}>
+                                                    <Grid item xs={11} style={{ paddingRight: '20px' }} key={`grid_item${subItem && subItem.ContentId}`}>
+                                                        <Grid container spacing={2} key={`gridItemContainer${subItem && subItem.ContentId}`}>
+                                                            {subItem && subItem.PdfTableTitle != null && <Grid item xs={12} key={`gridItem_${subItem && subItem.ContentId}`}>
+                                                                <Grid container sx={{ alignItems: "center" }} direction={'row'} spacing={2} key={`gridContainer__${subItem && subItem.ContentId}`}>
+                                                                    {renderSubItemRow(subItem, headerData, onTitleChange)}
+                                                                </Grid>
+                                                            </Grid>}
+                                                            {subItem && subItem.IsFigure === 'Y' && subItem.PdfFigureTitle != null &&
+                                                                <Grid item xs={12} key={`gridItem_figure${subItem && subItem.ContentId}`} className={subItem && subItem.IsFigure === 'Y' ? 'figureCustomClass' : ''}>
+                                                                    <Grid container direction={'row'} style={{ display: 'flex', alignItems: 'flex-start' }} sx={{ alignItems: "center" }} spacing={2} key={`gridContainer__figure${subItem && subItem.ContentId}`}>
+                                                                        <Grid item xs={1} key={`gridItemCHildren__${subItem && subItem.ContentId}`}><Typography key={`typography1${subItem && subItem.ContentId}`} className='sectionHeader' sx={{ fontSize: '16px', fontWeight: '600', color: '#253746', paddingTop: '10px' }}>{subItem && subItem.PdfFigureTitle}</Typography></Grid>
+                                                                        <Grid item xs={11} key={`gridItemLink__${subItem && subItem.ContentId}`} className='figureItemWrap'>
+                                                                            <Grid container spacing={2} key={`gridFigureContainer${subItem && subItem.ContentId}`} direction='column'>
+                                                                                <Grid item xs={12} key={`gridItemTypography${subItem && subItem.ContentId}`}>
+                                                                                    {subItem && subItem.IsDefaultContent !== 'Y' ?
+                                                                                        <div className={`editorContentId-${subItem ? subItem.ContentId : 'default'}`}>
+                                                                                            <KendoEditor selectedRowId={selectedRowId} contentID={contentID} openHistoryPopup={openHistoryPopup} handleCloseHistoryPopup={handleCloseHistoryPopup} IsNonDynamicTab={false} IsBadgeIconClick={false} currentTabComments={currentTabComments} reportLevelTagList={reportLevelTagList} IsError={subItem?.IsError} headerData={headerData} tools={'PARAGRAPH'} content={subItem && subItem.FigureTitle} key={`editor_${subItem?.ContentId}`} contentKey={subItem?.ContentKey}
+                                                                                                onEditorChange={(event) => { onTitleChange && onTitleChange(event, subItem, subItem.ContentId, 'FigureTitle', `${event.html}`, false) }}
+                                                                                                item={subItem} totalComment={totalComment} sendDataToRootParent={sendDataToRootParent}
+                                                                                                reportId={reportId} loadContentCommenttdata={loadContentCommenttdata} refreshAllEditor={refreshAllEditor} SectionSerialNumber={item?.SectionSerialNumber} sectionTitle={item?.SectionTitle} uploadImagePopup={uploadImagePopup} saveTabDetails={saveTabDetails} landScapeFlag={landScapeFlag} />
+                                                                                        </div>
+                                                                                        :
+                                                                                        <Typography className='sectionHeader' sx={{ fontSize: '14px' }}>{subItem && subItem.FigureTitle}</Typography>
+                                                                                    }
+
+                                                                                </Grid>
+                                                                                <Grid item style={{ paddingLeft: '6px', paddingTop: '0' }} key={`figureLink${subItem && subItem.ContentId}`}>
+                                                                                    <Link className='imageUploadedClass' component="button" variant="body2" onClick={() => { handleImagePreview(subItem && subItem.FigurePath, subItem) }} disabled={subItem?.ContentId < 0}>
+                                                                                        {/* || (headerData?.EditEnabledFlag == "N") */}
+                                                                                        <p style={{ margin: '0px', textAlign: 'left' }}>{subItem && subItem.FigurePath && subItem.FigurePath.split("_")[subItem.FigurePath.split("_")?.length - 1]}</p>
+                                                                                    </Link>
+                                                                                </Grid>
+                                                                            </Grid>
+                                                                        </Grid>
+                                                                    </Grid>
+                                                                </Grid>}
+                                                            <Grid item xs={12} className='rec-editor-grid-item' key={`kendoEditorGridItem__${subItem ? subItem.ContentId : 'default'}`} sx={subIndex === item?.ContentDetailList.length - 1 ? { paddingBottom: '16px' } : {}} style={subItem !== null && subItem.IsFigure === 'Y' ? { display: 'none', justifyContent: 'center' } : {}}>
+                                                                <div className={`rec-editor-container editorContentId-${subItem ? subItem.ContentId : 'default'}`}>
+                                                                    {subItem && subItem.IsParagraph == 'Y'
+                                                                        && (paraDynamicHtmlContentFlag ?
+                                                                            // <div id={subItem.ContentId} aria-disabled={!shouldDisableParagraphInput ? 'true' : 'false'} style={!shouldDisableParagraphInput ? { pointerEvents: 'none', cursor: 'unset' } : {}}
+                                                                            //     dangerouslySetInnerHTML={{ __html: processedParagraphHtml }} />
+                                                                            <DynamicHtmlScriptTemplate
+                                                                                subItem={subItem}
+                                                                                query={subItem}
+                                                                                htmlTableWithScript={processedParagraphHtml}
+                                                                                dataSourceQueryResult={subItem.DataSourceQueryResult}
+                                                                                ariaDisabled={!shouldDisableParagraphInput}
+                                                                                style={!shouldDisableParagraphInput ? { pointerEvents: 'none', cursor: 'unset' } : {}}
+                                                                            />
+                                                                            : <KendoEditor selectedRowId={selectedRowId} contentID={contentID} openHistoryPopup={openHistoryPopup} handleCloseHistoryPopup={handleCloseHistoryPopup} IsNonDynamicTab={false} IsBadgeIconClick={false} currentTabComments={currentTabComments} reportLevelTagList={reportLevelTagList} IsError={subItem && subItem.IsError} headerData={headerData} tools={'PARAGRAPH'}
+                                                                                content={subItem && subItem.ParagraphContent ? subItem.ParagraphContent : ""} key={`editor_${subItem && subItem.ContentId}`} onEditorChange={onEditorChange} item={subItem}
+                                                                                contentKey={'ParagraphContent'} totalComment={totalComment} sendDataToRootParent={sendDataToRootParent} reportId={reportId} loadContentCommenttdata={loadContentCommenttdata} refreshAllEditor={refreshAllEditor}
+                                                                                SectionSerialNumber={item?.SectionSerialNumber} sectionTitle={item?.SectionTitle} uploadImagePopup={uploadImagePopup} saveTabDetails={saveTabDetails} landScapeFlag={landScapeFlag} />)}
+
+                                                                    {subItem && subItem.IsTable == 'Y' && (subItem && (headerData?.DefaultSubDocTypeList || []).some(x => x.TableCode === subItem.TableContent) ? <GridInsideGrid reportId={reportId} contentID={subItem.ContentId} designation={headerData?.Designation} tableCode={subItem.TableContent} columnConfigData={getColumnConfigSubsData(subItem)}></GridInsideGrid>
+                                                                        : (subItem && (headerData?.DefaultRefDocTypeList || []).some(x => x.TableCode === subItem.TableContent) ? <SupportingDataGrid isSupportingType={getTagDisplayFor(subItem)} columnConfigData={getColumnConfigData(subItem)} rptId={reportId} tblCode={subItem.TableContent} tabId={subItem.TabId} />
+                                                                            : (isStaticTable ?
+                                                                                <div id={subItem.ContentId} aria-disabled={shouldDisableStaticTable ? "true" : "false"} style={shouldDisableStaticTable ? { pointerEvents: 'none', cursor: 'unset' } : {}}
+                                                                                    dangerouslySetInnerHTML={{ __html: tableHtml }}></div>
+                                                                                : <KendoEditor selectedRowId={selectedRowId} contentID={contentID} openHistoryPopup={openHistoryPopup} handleCloseHistoryPopup={handleCloseHistoryPopup} IsNonDynamicTab={false} IsBadgeIconClick={false} currentTabComments={currentTabComments} reportLevelTagList={reportLevelTagList} IsError={subItem && subItem.IsError} headerData={headerData} tools={'TABLE'} content={subItem && subItem.TableContent ? subItem.TableContent : ""} key={`editor_${subItem.ContentId}`} onEditorChange={onEditorChange} item={subItem}
+                                                                                    contentKey={'TableContent'} totalComment={totalComment} sendDataToRootParent={sendDataToRootParent} reportId={reportId} loadContentCommenttdata={loadContentCommenttdata} refreshAllEditor={refreshAllEditor} SectionSerialNumber={item?.SectionSerialNumber} sectionTitle={item?.SectionTitle} uploadImagePopup={uploadImagePopup} saveTabDetails={saveTabDetails} landScapeFlag={landScapeFlag} />
+                                                                            )
+                                                                        ))
+                                                                    }
+                                                                </div>
+                                                            </Grid>
+                                                        </Grid>
+                                                    </Grid>
+                                                    <Grid item xs={1} key={`button_item${subItem ? subItem.ContentId : 'default'}`} className={`${subItem ? subItem.ContentId : ''}`} style={{ paddingRight: '23px' }}>
+                                                        <Grid container key={`button_container_item${subItem ? subItem.ContentId : 'default'}`}>
+                                                            {((subItem && subItem.IsFigure === 'Y') || (subItem && subItem.IsTable === 'Y')) ?
+                                                                <Grid
+                                                                    item
+                                                                    xs={6}
+                                                                    style={{ display: 'flex', justifyContent: 'center' }}
+                                                                    className={(subItem?.IsTable === 'Y' && IsNotComplianceGridTable(subItem)) ? "commentAccordForFig" : "commentAccord"}
+                                                                    key={`comment_item${subItem && subItem.ContentId}`}
+                                                                >
+                                                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            onClick={(e) => {
+                                                                                handleOrientation(e, `c-${subItem?.ContentId}`, reportId, item?.TabSectionId, subItem?.ContentId, item?.Node, item?.TabId);
+                                                                            }}
+                                                                            sx={{ padding: '6px' }}
+                                                                            disabled={subItem?.ContentId < 0 || (headerData?.EditEnabledFlag === "N")}
+                                                                            aria-label={`toggle-content-${subItem?.ContentId}`}
+                                                                        >
+                                                                            <DescriptionOutlinedIcon titleAccess={`${contentTitle}`} sx={iconSx(isToggled(`c-${subItem ? subItem.ContentId : 'default'}`))} />
+                                                                        </IconButton>
+
+                                                                        <Badge
+                                                                            id="badge2"
+                                                                            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                                                            sx={{ marginTop: '2px' }}
+                                                                            badgeContent={subItem && subItem.ContentCommentCount}
+                                                                            color={subItem && subItem.CommentResolveStatus > 0 ? 'error' : 'success'}
+                                                                        >
+                                                                            <IconButton
+                                                                                id={(subItem && subItem?.ContentSequence === 1 && handleIdForHelpGuide(item)) ? `cmtIconHG_${subItem?.ContentSequence}` : 'cmt_Icon'}
+                                                                                disabled={subItem && subItem.ContentId < 0}
+                                                                                key={`iconButton_${subItem && subItem.ContentId}`}
+                                                                                onClick={() => { if (subItem) handleOpenHistoryPopup(subItem?.ContentId, 0); }}
+                                                                            >
+                                                                                <SpeakerNotesOutlinedIcon id={`content_comment_Btn_${subItem ? subItem.ContentId : 'default'}`}
+                                                                                    key={`iconButton_comment_${subItem ? subItem.ContentId : 'default'}`} />
+                                                                            </IconButton>
+                                                                        </Badge>
+                                                                    </Box>
+                                                                </Grid>
+                                                                :
+                                                                <Grid item xs={6} style={{ display: 'flex', justifyContent: 'center' }} className="commentAccord" key={`comment_item${subItem && subItem.ContentId}`}>
+                                                                    <Badge
+                                                                        id="badge2"
+                                                                        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                                                        badgeContent={subItem && subItem.ContentCommentCount}
+                                                                        color={subItem && subItem.CommentResolveStatus > 0 ? 'error' : 'success'}
+                                                                    >
+                                                                        <IconButton onClick={() => { if (subItem) handleOpenHistoryPopup(subItem?.ContentId, 0); }}>
+                                                                            <SpeakerNotesOutlinedIcon id={`content_comment_Btn_${subItem ? subItem.ContentId : 'default'}`}
+                                                                                key={`iconButton_comment_${subItem ? subItem.ContentId : 'default'}`} />
+                                                                        </IconButton>
+                                                                    </Badge>
+                                                                </Grid>
+                                                            }
+                                                            <ViewMoreButton index={index} insertImage={insertImage}
+                                                                insertNewTable={insertNewTable}
+                                                                item={item}
+                                                                subItem={subItem}
+                                                                DefaultFlag={subItem && subItem.DefaultFlag == 'Y'}
+                                                                isParentSection={false}
+                                                                insertSubSection={insertSubSection}
+                                                                insertNewParagraph={insertNewParagraph}
+                                                                isInsertSubSection={false}
+                                                                isInsertChildSubSection={false}
+                                                                deleteSection={deleteSection}
+                                                                elementName={subItem.IsParagraph === 'Y' ? 'Paragraph' : subItem.IsTable === 'Y' ? 'Table' : subItem.IsFigure === 'Y' ? 'Figure' : ''}
+                                                                insertMinorCategory={insertMinorCategory}
+                                                                headerData={headerData}
+                                                                editorData={editorData}
+                                                                restoreDelSection={restoreDelSection}
+                                                                openPopupForNonSubsection={openPopupForNonSubsection}
+                                                            />
+                                                        </Grid>
+                                                    </Grid>
+                                                </Grid>
+                                            </Grid>)
+                                    }
+                                })}
+                            </Grid>
+                        )}
+                        {item?.SubSectionData && item?.SubSectionData?.map((sectionItem, sectionIndex) => (
+                            <CardContent className='accordionCard' ref={accordianRef?.current[item?.TabSectionId]} style={{ paddingLeft: 0, paddingRight: 0, paddingBottom: 0 }} key={`cardContent${sectionIndex}`}>
+
+                                <RecursiveEditorComponent
+                                    currentTab={currentTab}
+                                    index={sectionIndex}
+                                    item={sectionItem}
+                                    currentTabComments={currentTabComments}
+                                    reportLevelTagList={reportLevelTagList}
+                                    insertImage={insertImage}
+                                    insertNewTable={insertNewTable}
+                                    insertSubSection={insertSubSection} deleteSection={deleteSection} depth={depth + 1} onEditorChange={onEditorChange} insertNewParagraph={insertNewParagraph} onTitleChange={onTitleChange}
+                                    elementSectionName={'Subsection'}
+                                    onAccordianExpand={onAccordianExpand}
+                                    handleImagePreview={handleImagePreview}
+                                    key={`recursiveComponentSubsection${item?.TabSectionId}`}
+                                    accordianRef={accordianRef}
+                                    reportId={reportId}
+                                    headerData={headerData}
+                                    SectionCommentNumber={sectionItem.ContentCommentCount}
+                                    sendDataToRootParent={sendDataToRootParent}
+                                    updateTotalCommentCount={updateTotalCommentCount}
+                                    totalComment={totalComment}
+                                    getTargetId={getTargetId}
+                                    loadContentCommenttdata={loadContentCommenttdata}
+                                    refreshAllEditor={refreshAllEditor}
+                                    uploadImagePopup={uploadImagePopup}
+                                    referencesDetails={referencesDetails}
+                                    currentTabDetails={currentTabDetails}
+                                    onStaticTableChange={onStaticTableChange}
+                                    restoreDelSection={restoreDelSection}
+                                    editorData={editorData}
+                                    syncEditorDataWithOrientationData={syncEditorDataWithOrientationData}
+                                    saveTabDetails={saveTabDetails}
+                                    openPopupForNonSubsection={openPopupForNonSubsection}
+                                    scrollAction={scrollAction}
+                                    setScrollAction={setScrollAction}
+                                />
+
+                            </CardContent>
+                        ))}
+                    </AccordionDetails>
+                </Grid>}
+            </Accordion>
+        }
+        {openSupportingInsertPopup && <SupportingInsertPopupData supGridLenght={0} checkedItem={[]} isOpen={openSupportingInsertPopup} showOtherOtpion={showOtherOtpion} onCloseSupportingModelPopup={handleCloseInsSupportingPopup} IsManageSupTab={false} revision={headerData.REVISION} ddtlProjectId={headerData.DDTLReference != null ? headerData.DDTLReference : ""} projectId={(new CommonFunction().IsEASAReport()) ? String(headerData.PROJECT_ID) : ""} isTemplate={headerData.Designation} configRefSourceId={configRefSourceId} refTableCode={refTableCode} refGridTitle={refGridTitle} sequenceStartWith={getSequence} isOpenedFromDocumentNumber={false} />}
+        {openSubstantitionPopup && <SubstantiationInsertPopup isOpen={openSubstantitionPopup} onCloseInsSubStantiationPopup={handleCloseInsSubStantiationPopup} contentOwner={headerData.CONTENT_OWNER} projectId={headerData.PROJECT_ID} revision={headerData.REVISION} parentReportId={headerData.PARENT_RPT_ID} configRegSourceId={configRegSourceId} regTableCode={regTableCode} regGridTitle={regGridTitle}/>}
+        {openHistoryPopup && <CommentHistoryPopup isControlLevelComment={false} tabName={null} controlName={null} selectedTabRowId={null} selectedRowId={selectedRowId} editFileCount={null} IsNonDynamicTab={false} IsBadgeIconClick={true} addNewComment={addNewComment} updateAddNewComment={updateAddNewComment} CompGridDetails={null} contentID={contentID} openHistoryPopup={openHistoryPopup} handleCloseHistoryPopup={handleCloseHistoryPopup} RptId={reportId} item={item} TabSectionId={item?.TabSectionId} headerData={headerData}
+            getFormatedHtmlData={null} getFormatedEditorHtml={null} showEditModeForCommentID={null} comment={null} commetType={null} SectionSerialNumber={item?.SectionSerialNumber} seletedTargetText={null} addCommentAsAuthor={false} currentContentID={0} openCommentHistoryPopup={null} handleCloseCommentHistoryPopup={null} currentTabComments={currentTabComments} showReplyCommentId={0} />}
+    </Grid >) : null
+    );
+}
+export default React.memo(RecursiveEditorComponent);
