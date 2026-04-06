@@ -1,2259 +1,1470 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
-import * as ReactDOM from "react-dom";
-import { useDispatch } from "react-redux";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { filterIcon } from "@progress/kendo-svg-icons";
+import "./AdminTable.scss";
 import {
-  Grid,
-  GridColumn,
-  GridColumnMenuFilter,
-  GridDataStateChangeEvent,
-  GridColumnMenuSort,
-  GridToolbar,
-  isColumnMenuFilterActive,
-  isColumnMenuSortActive,
-} from "@progress/kendo-react-grid";
+    MenuItem, Select,
+    SelectChangeEvent
+} from "@mui/material";
+import React, { useEffect, useState } from "react";
+import {
+    OrganizationTypeMasterTable,
+    SupplierActivityMasterTable, GetAdminSortByResponse,
+    SortByData,
+    SupplierCategoryMasterTable, OrganizationTableData,
+    MasterDataItem,
+    FocalMasterTable
+} from "./AdminModal";
+
+import EasaListService from "../EasaRegisterListService";
+import { useDispatch } from "react-redux";
 import { State, getter } from "@progress/kendo-data-query";
 import {
-  Button,
-  Card,
-  Container,
-  MenuItem,
-  Typography,
-  Select,
-  FormControl,
-  FormLabel,
-  Box,
-} from "@mui/material";
-import DeleteSharpIcon from "@mui/icons-material/DeleteSharp";
-import LibraryAddOutlinedIcon from "@mui/icons-material/LibraryAddOutlined";
-import { process as kendoProcess } from "@progress/kendo-data-query";
-import {
-  logPageViewEventWithData,
-  adobeWindowData,
-  logFilterAction,
-} from "@boeing-fsit/react-oss-adobe-analytics-lib";
-import {
-  ColumnConfig,
-  MasterDataType,
-  SupplierDetail,
-  MRODetail,
-  CreateRevisionDataItem,
-  WADetail,
-  CSRHeaderData,
-  ParameterObject,
-  FilterParam,
-  parameterObj,
-  TempTemplateDetails,
-  EasaMasterType,
-  CSRApprovalUserList,
-  ReportType,
-} from "../../../../model/Model";
-import { DatePicker } from "@progress/kendo-react-dateinputs";
-import UserToken from "../../../../utils/UserToken";
-import ShellEventRegister from "../../../../utils/ShellEventRegister";
-import StorageService from "../../../../utils/StorageService";
-import { userDefinedConfirm } from "../../../../utils/ConfirmDialog";
-import PathConstants from "../../../../routes/PathConstants";
-import { showSnackbar } from "../../../core/snackbar/CustomSnackBarSlice";
-import CreateRevisionPopup from "../create-revision-popup/CreateRevisionPopup";
-import CreateCopyPopup from "../create-copy-popup/CreateCopyPopup";
-import { GridHelper } from "./grid-helper/GridHelper";
-import EasaListService from "./EasaRegisterListService";
-import { supplierDetails, mroDetails } from "./demoData";
-import EasaRegisterListService from "./EasaRegisterListService";
-import EnvDetail from "../../../../utils/EnvDetail";
-import CSRListService from "../csr-list/CSRListService";
-import WorkFlowPopup from "../csr-list/wkf-popup/WorkFlowPopup";
+    GridColumnMenuFilter, GridColumnMenuSort,
+    GridDataStateChangeEvent, GridItemChangeEvent,
+    isColumnMenuFilterActive,
+    isColumnMenuSortActive
+} from "@progress/kendo-react-grid";
+import * as _ from "lodash";
+import EnvDetail from "../../../../../utils/EnvDetail";
+import { showSnackbar } from "../../../../core/snackbar/CustomSnackBarSlice";
+import StorageService from "../../../../../utils/StorageService";
+import OrganizationTypeTable from "./OrganizationType/OrganizationTypeTable";
+import SupplierActivityTable from "./SupplierActivity/SupplierActivityTable";
+import SupplierCategoryTable from "./SupplierCategory/SupplierCategoryTable";
+import OrganizationTable from "./Organization/OrganizationTable.Component";
+import FocalTable from "./Focal/FocalTable";
 
-const AnyGrid = Grid as any;
-//Component for Column Menu
-const ColumnMenu = (props) => {
-  return (
-    <div>
-      <GridColumnMenuSort {...props} />
-      <GridColumnMenuFilter {...props} expanded={true} />
-    </div>
-  );
+// constants
+
+const ORGANIZATION_TYPE_DATA_ITEM_KEY: string = "ORGANIZATIONTYPEID";
+const SUPPLIER_ACTIVITY_DATA_ITEM_KEY: string = "ACTIVITYID";
+const ORGANIZATION_DATA_ITEM_KEY = "ORGANIZATIONID";
+const FOCAL_DATA_ITEM_KEY = "ID";
+const SUPPLIER_CATEGORY_DATA_ITEM_KEY: string = "CATEGORYID";
+// kendo grid utilities
+const ColumnMenuBuilder = (props) => {
+    return (
+        <div>
+            <GridColumnMenuSort {...props} />
+            <GridColumnMenuFilter {...props} expanded={true} />
+        </div>
+    );
 };
 
-// Date Picker Component
-const dateFilterCell = (props) => (
-  <DatePicker
-    {...props}
-    value={props.value ? new Date(`${props.value}`) : null}
-    format="MM-dd-yyyy"
-    onChange={(event) => {
-      props.onChange({
-        value: event.target.value instanceof Date ? event.target.value : null,
-        operator: "eq",
-        syntheticEvent: event.nativeEvent,
-      });
-    }}
-  />
-);
+interface MasterDataPayload {
+    MasterDataType: string;
+    Items: MasterDataItem[]
+}
+const isColumnActive = (field, dataState) => {
+    return isColumnMenuFilterActive(field, dataState.filter) || isColumnMenuSortActive(field, dataState.sort);
+};
+type TableMaintenancePage = "Organization Type" | "Organization" | "Supplier Category" | "Supplier Activity Authorised" | "Focal Management";
+const TableMaintenance: React.FC = () => {
+    const dispatch = useDispatch();
+    const [sortBy, setSortBy] = useState<SortByData>({
+        organization: 'custom',
+        organizationType: 'custom',
+        supplierCategory: 'custom',
+        supplierActivity: 'custom',
+        focal: 'custom'
+    });
+    const [selectedOrgId, setSelectedOrgId] = useState<number | "">("");
+    const [selectedOrganizationId, setSelectedOrganizationId] = useState<number | "">("");
+    const [masterDataOptions, setMasterDataOptions] = useState<any[]>([]);
+    const [selectedPage, setSelectedPage] = useState<TableMaintenancePage>("Organization Type");
+    const [dirtyFlag, setDirtyFlag] = React.useState(false);
+    const [isItarAppFlag, setIsItarAppFlag] = useState(false);
+    const [originalOrganizationTypeData, setOriginalOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
+    const [originalSupplierCategoryData, setOriginalSupplierCategoryData] = useState<SupplierCategoryMasterTable[]>([]);
+    const [originalSupplierActivityData, setOriginalSupplierActivityData] = useState<SupplierActivityMasterTable[]>([]);
+    const [originalFocalData, setOriginalFocalData] = useState<FocalMasterTable[]>([]);
+    const [originalOrganizationData, setOriginalOrganizationData] = useState<OrganizationTableData[]>([]);
+    const [shouldAutoCreateFocal, setShouldAutoCreateFocal] = useState(false);
+    const handlePageChange = async (event: SelectChangeEvent<TableMaintenancePage>): Promise<void> => {
+        var storageService = new StorageService();
+        const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
+        if (!dirtyResponse) return;
 
-const DATA_ITEM_KEY: string = "RPT_ID";
-const SELECTED_FIELD = "selected";
-var CsrListDetails: CSRHeaderData[] = [];
-var selectedCsrListDtls: parameterObj[] = [];
-var storageService = new StorageService();
-const EasaListRegister = ({
-  pmdbProjectId,
-  getItarProjectFlag,
-  selectedDisciplinId,
-  csrWorkAppFlag,
-}) => {
-  const [currentUserBemsId, setCurrentUserBemsId] = useState(0);
-  const currentUserBemsIdRef = useRef(currentUserBemsId);
-  const { projectId } = useParams();
-  const { registerId } = useParams();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const [data, setData] = useState<any>();
-  const [dataState, setDataState] = React.useState<State>({});
-  const [resultState, setResultState] = useState<any[]>([]);
-  const [registerTypes, setRegisterTypes] = useState<MasterDataType[]>([]);
-  const [selectedMasterType, setSelectedMasterType] = useState("");
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
-  const [selectedReportTemplate, setSelectedReportTemplate] = useState({});
-  const [hasContent, setHasContent] = useState<any>(false);
-  const [anchorElCreate, setAnchorElCreate] =
-    React.useState<null | HTMLElement>(null);
-  const openCreateNew = Boolean(anchorElCreate);
-  let tempSelReg = "";
-  if (location?.state?.selectedRegisterType) {
-    tempSelReg = location?.state?.selectedRegisterType;
-  } else {
-    tempSelReg = EasaMasterType.Supplier;
-  }
-  const [selectedRegisterType, setSelectedRegisterType] =
-    useState<string>(tempSelReg);
-
-  const [openRevisionModelPopup, setOpenRevisionModelPopup] = useState(false);
-
-  //Height Width Related States
-  // const [gridWidth, setGridWidth] = useState<any>();
-  const [screenPercentage, setScreenPercentage] = useState(0);
-  const [defaultWindowWidth, setDefaultWindowWidth] = useState(
-    window.innerWidth
-  );
-  const [gridHeight, setGridHeight] = useState<any>(window.innerHeight);
-  const [gridRowHeight, setGridRowHeight] = useState(30);
-  const [windowHeight, setWindowHeight] = useState(window.innerHeight);
-  const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
-  const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
-  const [shellClientHeight, setShellClientHeight] = useState(
-    document?.getElementById("shell-main-section")?.clientHeight
-  );
-  const [shellHeaderSectionHeight, setShellHeaderSectionHeight] = useState(
-    document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
-  );
-  const [shellOssMenubreadcrumsHeight, setShellOssMenubreadcrumsHeight] =
-    useState(
-      document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
-    );
-  const [shellOssHeaderMenuSectionHeight, setShellOssHeaderMenuSectionHeight] =
-    useState(document?.getElementById("oss-header-menu-setion")?.clientHeight);
-  const [shellWorkAppContainerMaxHeight, setShellWorkAppContainerMaxHeight] =
-    useState(0);
-  const [shellFooterHeight, setShellFooterHeight] = useState(
-    document?.getElementsByTagName("footer")[0]?.clientHeight
-  );
-  const [searchFieldHeight, setSearchFieldHeight] = useState(
-    document?.getElementsByClassName("easa-search-row")[0]?.clientHeight
-  );
-  const gridRef = useRef<any>(null);
-
-  // useEffect(() => {
-  //   handleEasaDetails(tempSelReg);
-  // }, []);
-
-  useEffect(() => {
-    let userToken = new UserToken();
-    let bemsId = userToken.getUserBemsId();
-    const newBemsId = Number(bemsId);
-    setCurrentUserBemsId(newBemsId);
-    currentUserBemsIdRef.current = newBemsId;
-  }, [currentUserBemsId]);
-
-  /** Request the List of Easa Register Types on Initial Render -- start */
-  useEffect(() => {
-    fetchMasterDataTypes();
-  }, [projectId, registerId]);
-
-  //Handle fetching Register Types Asynchronously
-  const fetchMasterDataTypes = async () => {
-    const result = await EasaListService.getMasterDataType();
-    const data = result?.data ?? [];
-    console.log("===============");
-    console.log("Register Types are : ");
-    console.log(data);
-    console.log("==============");
-
-    setRegisterTypes(data);
-
-    // set selectedMasterType from the first item if present; otherwise null
-    if (data.length > 0) {
-      setSelectedMasterType(data[0].TemplateTitle ?? null);
-      setSelectedGroupId(data[0].GroupId ?? null);
-    } else {
-      setSelectedMasterType("");
-      setSelectedGroupId(null);
-    }
-
-    // return data;
-  };
-
-  //FetchData if SelectedReportType Changes
-  useEffect(() => {
-    setResultState([]);
-    handleEasaDetails(selectedRegisterType);
-    fetchData({});
-  }, [selectedRegisterType, selectedMasterType, selectedGroupId]);
-
-  //Setting columnProps for GridColumns
-  const columnProps = (field) => {
-    return {
-      // field: field,
-      columnMenu: ColumnMenu,
-      headerClassName: isColumnActive(field, dataState) ? "active" : "",
-    };
-  };
-
-  //Setting Column Filter and Sort States
-  const isColumnActive = (field, dataState) => {
-    return (
-      isColumnMenuFilterActive(field, dataState.filter) ||
-      isColumnMenuSortActive(field, dataState.sort)
-    );
-  };
-
-  /**Grid Column Related Props Setting or State updates -- end */
-
-  /** Height Width Related Coding Logics -- start */
-
-  // useEffect to set the height of each container on component render
-  useEffect(() => {
-    if (document?.getElementById("shell-main-section") != undefined) {
-      setShellHeaderSectionHeight(
-        document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
-      );
-      setShellOssMenubreadcrumsHeight(
-        document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
-      );
-      setShellOssHeaderMenuSectionHeight(
-        document?.getElementById("oss-header-menu-setion")?.clientHeight
-      );
-      setShellFooterHeight(
-        document?.getElementsByTagName("footer")[0]?.clientHeight
-      );
-      setSearchFieldHeight(
-        document?.getElementsByClassName("easa-search-row")[0]?.clientHeight
-      );
-    }
-  });
-
-  //useEffect to setShellWorkAppContainerMaxHeight
-  useEffect(() => {
-    // let additionalHeight =
-    //   pmdbProjectId > -1 && window.innerHeight > 450
-    //     ? searchFieldHeight + 50
-    //     : 0;
-    // let additionalGridHeight =
-    //   pmdbProjectId > -1 ? (window.innerHeight > 450 ? 55 : 400) : 40;
-    let additionalHeight = 0;
-    let additionalGridHeight = 40;
-    setShellWorkAppContainerMaxHeight(
-      shellClientHeight != undefined &&
-        shellOssHeaderMenuSectionHeight != undefined
-        ? shellClientHeight -
-            (shellHeaderSectionHeight +
-              shellOssMenubreadcrumsHeight +
-              shellOssHeaderMenuSectionHeight +
-              shellFooterHeight +
-              additionalHeight) +
-            additionalGridHeight
-        : 0
-    );
-  }, [
-    shellClientHeight,
-    shellHeaderSectionHeight,
-    shellOssMenubreadcrumsHeight,
-    shellOssHeaderMenuSectionHeight,
-    shellFooterHeight,
-    setSearchFieldHeight,
-  ]);
-
-  //useEffect to set shell height and gird with on change of screenPercentage
-  useEffect(() => {
-    setShellClientHeight(
-      document?.getElementById("shell-main-section")?.clientHeight
-    );
-    setShellHeaderSectionHeight(
-      document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
-    );
-    setShellOssMenubreadcrumsHeight(
-      document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
-    );
-    setShellOssHeaderMenuSectionHeight(
-      document?.getElementById("oss-header-menu-setion")?.clientHeight
-    );
-    setShellFooterHeight(
-      document?.getElementsByTagName("footer")[0]?.clientHeight
-    );
-    setSearchFieldHeight(
-      document?.getElementsByClassName("easa-search-row")[0]?.clientHeight
-    );
-    // setGridWidth(window.innerWidth);
-  }, [screenPercentage]);
-
-  // Function to update the screen percentage
-  const handleScreenResize = () => {
-    const percentage = calculateScreenPercentage(); // Your function to calculate screen percentage
-    setScreenPercentage(percentage);
-  };
-
-  //Function to Calculate screen percentage
-  const calculateScreenPercentage = () => {
-    const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight;
-    const totalPixels = screenWidth * screenHeight;
-    // Assuming a reference screen size of 1920x1080 for 100% screen size
-    const referenceWidth = 1920;
-    const referenceHeight = 1080;
-    const referencePixels = referenceWidth * referenceHeight;
-    const percentage = (totalPixels / referencePixels) * 100;
-    return screenWidth == defaultWindowWidth ? 0 : percentage;
-  };
-
-  // Attach event listener for screen resize
-  useEffect(() => {
-    window.addEventListener("resize", handleScreenResize);
-    return () => {
-      window.removeEventListener("resize", handleScreenResize);
-    };
-  }, []);
-
-  //useEffect to set GridHeigh based on resultState change
-  useEffect(() => {
-    // let additionalHeight = pmdbProjectId > -1 ? 220 : 180;
-    let additionalHeight = 180;
-    let numRows = resultState?.length;
-    setGridHeight(
-      isNaN(numRows) ? 0 : numRows * gridRowHeight + additionalHeight
-    );
-  }, [resultState]);
-
-  /** Height Width Related Coding Logics -- end */
-
-  //Function to calculate screen percentage
-  const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
-    let k_grid_width = document.querySelector(
-      "#kgrid-oss-easa-list"
-    )?.clientWidth;
-
-    let fixedWidth = totalColumnFixedWidth;
-    let dynamicWidth = 0;
-    let minScreenWidth = 2000;
-    let maxScreenWidth;
-    if (k_grid_width) {
-      if (k_grid_width <= minScreenWidth) {
-        return minWidth;
-      } else {
-        dynamicWidth = k_grid_width - fixedWidth;
-        if (width == 0 && dynamicWidth > 0 && percentage > 0) {
-          const dynamicColumnWidth = Math.round(
-            dynamicWidth * (percentage / 100)
-          );
-          return Math.max(minWidth, dynamicColumnWidth);
-        } else {
-          return calculatedDynamicColWidth != 0
-            ? minWidth > dynamicWidth - calculatedDynamicColWidth
-              ? minWidth
-              : undefined
-            : undefined;
+        if (dirtyFlag) {
+            if (selectedPage === 'Supplier Activity Authorised') fetchSupplierActivity();
+            else if (selectedPage === 'Supplier Category') fetchSupplierCategory();
+            else if (selectedPage === 'Organization Type') fetchOrganizationType();
+            else if (selectedPage === 'Organization' && selectedOrgId !== "") fetchOrganization(selectedOrgId);
+            else if (selectedPage === 'Focal Management' && selectedOrgId !== "" && selectedOrganizationId !== "") fetchFocal(selectedOrgId, selectedOrganizationId);
         }
-      }
-    }
-  };
 
-  //useEffect to set dynamic column width and total column width
-  useEffect(() => {
-    if (gridRef?.current) {
-      const headerCells = gridRef.current.element.querySelectorAll(".k-header");
-      let calculatedFixedColumnWidth = 0;
-      let dynamicWidth = 0;
-      headerCells.forEach((cell, index) => {
-        if (gridRef.current.columns[index].width != undefined) {
-          if (
-            gridRef.current.columns[index].width.toString().indexOf("px") > -1
-          ) {
-            calculatedFixedColumnWidth =
-              calculatedFixedColumnWidth +
-              parseInt(gridRef.current.columns[index].width);
-          } else {
-            dynamicWidth = dynamicWidth + gridRef.current.columns[index].width;
-          }
-        }
-        const columnHeader = gridRef.current.columns[index].title;
-        cell.title = columnHeader;
-      });
-      setCalculatedDynamicColWidth(dynamicWidth);
-      setTotalColumnFixedWidth(calculatedFixedColumnWidth);
-    }
-  }, [gridRef, data]);
-
-  //useEffect to setData based on dataState change
-  // useEffect(() => {
-  //   if (resultState && resultState.length > 0) {
-  //     setData(process(resultState, dataState));
-  //   }
-  // }, [dataState]);
-
-  //Convert to date only
-  const toDateOnly = (value: string | null | undefined): Date | null => {
-    if (!value) return null;
-    const d = new Date(value);
-    // Normalize to local date at midnight to make date-only comparisons consistent
-    d.setHours(0, 0, 0, 0);
-    return d;
-  };
-
-  //  stage popup
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [userStateData, setUserStateData] = useState("");
-  const [popupData, setPopupData] = useState<CSRApprovalUserList[]>([]);
-  const handleClosePopup = () => {
-    setIsPopupOpen(false);
-  };
-  const onStatusClick = (data) => {
-    if (data.TemplateTitle.toUpperCase() == ReportType.Drawing.toUpperCase()) {
-      CSRListService.getReportWorkflowDetailsForDrawing(data.RPT_ID).then(
-        (response) => {
-          setUserStateData(data);
-          setPopupData(response.data);
-          setIsPopupOpen(true);
-        }
-      );
-    } else {
-      CSRListService.getReportWorkflowDetails(data.RPT_ID).then((response) => {
-        setUserStateData(data);
-        setPopupData(response.data);
-        setIsPopupOpen(true);
-      });
-    }
-  };
-
-  let currentBUId = storageService.getApplicationDataByKey(
-    `${process.env.REACT_PARENT_APP_NAME}-Shell`,
-    "currentbusinessunitid"
-  );
-
-  const sendBreadcrumbDataToShell = (
-    docNumber,
-    projectId,
-    revision,
-    groupId,
-    groupBU,
-    RegProjectId,
-    regProjectIdRev
-  ) => {
-    // Send Document Name to Shell
-    let dataToShare = {
-      AppName: EnvDetail.AppName,
-      Action: "EasaRegister_Navigation",
-      Detail: {
-        DocNumber: docNumber ? docNumber : "",
-        ProjectId: projectId,
-        Rev: revision,
-        GroupId: groupId,
-        GroupBU: groupBU,
-        registerProjectId: RegProjectId,
-        regProjectIdRev: regProjectIdRev,
-      },
+        setDirtyFlag(false);
+        setSelectedPage(event.target.value as TableMaintenancePage);
     };
-    let appDataEvent = new ShellEventRegister().getShellEvent();
-    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] =
-      dataToShare;
-    window.dispatchEvent(appDataEvent);
-  };
+    const [organizationTypeData, setOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
+    const [organizationTypeDataState, setOrganizationTypeDataState] = React.useState<State>({});
+    const [checklistTypeActiveItem, setChecklistTypeActiveItem] = useState<OrganizationTypeMasterTable | null>(null);
+    const [organizationData, setOrganizationData] = useState<OrganizationTableData[]>([]);
+    const [supplierActivityData, setSupplierActivityData] = useState<SupplierActivityMasterTable[]>([]);
+    const [focalData, setFocalData] = useState<FocalMasterTable[]>([]);
+    const [focalDataState, setFocalDataState] = React.useState<State>({});
+    const [supplierCategoryData, setSupplierCategoryData] = useState<SupplierCategoryMasterTable[]>([]);
+    const [supplierCategoryDataState, setSupplierCategoryDataState] = useState<State>({});
+    const [organizationDataState, setOrganizationDataState] = useState<State>({});
+    const [supplierActivityDataState, setSupplierActivityDataState] = useState<State>({});
+    const [errorCodeMasterActiveItem, setErrorCodeMasterActiveItem] = useState<SupplierActivityMasterTable | null>(null);
+    const [supplierCategoryActiveItem, setSupplierCategoryActiveItem] = useState<SupplierCategoryMasterTable | null>(null);
+    const [focalActiveItem, setFocalActiveItem] = useState<FocalMasterTable | null>(null);
+    const [organizationActiveItem, setOrganizationActiveItem] = useState<OrganizationTableData | null>(null);
+    const [expandFocalId, setExpandFocalId] = useState<number | null>(null);
 
-  const dispatchCreateNewBreadcrumbEvent = (
-    docNumber,
-    projectId,
-    revision,
-    groupId,
-    groupBU,
-    RegProjectId,
-    regProjectIdRev,
-    templateTitle
-  ) => {
-    new StorageService().setApplicationDataByKey(
-      `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-      "easaRegisterCreateNew",
-      true
-    );
-    const payload = {
-      AppName: EnvDetail.AppName,
-      Action: "EASA_CreateNew_Breadcrumb",
-      Detail: {
-        DocNumber: docNumber,
-        ProjectId: projectId,
-        Rev: revision,
-        GroupId: groupId,
-        GroupBU: groupBU,
-        registerProjectId: RegProjectId,
-        regProjectIdRev: regProjectIdRev,
-        TemplateTitle: templateTitle || "",
-      },
+    // Organization Type handlers
+    const CreateOrganizationType = () => {
+        const newOrganizatonType: OrganizationTypeMasterTable = {
+            ORGANIZATIONTYPEID: new Date().getTime(),
+            ORGANIZATIONTYPE: "",
+            newFlag: true,
+            SORT_ORDER: organizationTypeData.length + 1,
+            ISACTIVE: true
+        };
+
+        setOrganizationTypeData([newOrganizatonType, ...organizationTypeData]);
+        setDirtyFlag(true);
+
     };
-    const appDataEvent = new ShellEventRegister().getShellEvent();
-    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] =
-      payload;
-    window.dispatchEvent(appDataEvent);
-  };
+    const organizationTypeColumnPropsBuilder = (field) => {
+        return {
+            field: field,
+            columnMenu: ColumnMenuBuilder,
+            headerClassName: isColumnActive(field, organizationTypeDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
+        };
+    };
+    const onOrganizationTypeDatastateChange = (event: GridDataStateChangeEvent) => {
+        setOrganizationTypeDataState(event.dataState);
+    };
+    const organizationTypeItemChange = async (event: GridItemChangeEvent) => {
+        let tempChickListType = [...organizationTypeData];
+        const match = tempChickListType.findIndex((i) => i.ORGANIZATIONTYPEID === event.dataItem.ORGANIZATIONTYPEID);
 
-  const fetchData = async (dataState) => {
-    let rev = "";
-    const selectedDiscipline = storageService.getApplicationDataByKey(
-      `${process.env.REACT_PARENT_APP_NAME}-Shell`,
-      "currentdiscipline"
-    );
-    let inputProjectId =
-      projectId != undefined && projectId != null ? projectId : "-1";
-    let projectRegisterId =
-      registerId === "0" || registerId == undefined ? 0 : Number(registerId);
-    let masterType = selectedMasterType ?? "";
-    let groupId = selectedGroupId ?? 0;
-    CsrListDetails = [];
-    selectedCsrListDtls = [];
-    CSRListService.getCSRList(
-      inputProjectId,
-      selectedDiscipline,
-      Number(groupId),
-      projectRegisterId,
-      masterType
-    ).then((result) => {
-      CsrListDetails = result.data;
-      setData(kendoProcess(result.data, dataState));
-      setResultState(result.data);
-      setHasContent(result.data.length != 0 ? true : false);
-      // Set Current User bemsId while loading page
-      let userToken = new UserToken();
-      let bemsId = userToken.getUserBemsId();
-      const newBemsId = Number(bemsId);
-      setCurrentUserBemsId(newBemsId);
+        if (match !== -1 && event.field) {
+            tempChickListType[match] = event.dataItem;
+            setOrganizationTypeData(tempChickListType);
+            setDirtyFlag(true);
+        }
+    };
 
-      if (result.data[0]?.DOCUMENT_NAME || result.data[0]?.DOCUMENT_NUMBER) {
-        // setIsCommentIconVisible(true);
-        let docNumber = result.data[0]["DOCUMENT_NUMBER"];
-        let projectId = null;
+    const saveOrganizationType = async () => {
+        if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
+            return;
+        }
+
+        const current = [...organizationTypeData];
+        const original = [...originalOrganizationTypeData];
+
+        // Validation
+        if (current.some((i) => !i.ORGANIZATIONTYPE || i.ORGANIZATIONTYPE.trim() === "")) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Please fill details.",
+            }));
+            return;
+        }
+
+        const uniqueCount = new Set(
+            current.map((i) => i.ORGANIZATIONTYPE.trim().toLowerCase())
+        ).size;
+
+        if (uniqueCount !== current.length) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Organization Types must be unique.",
+            }));
+            return;
+        }
+
+        const items: MasterDataItem[] = [];
+
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.ORGANIZATIONTYPEID === row.ORGANIZATIONTYPEID);
+
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: row.ORGANIZATIONTYPE.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Description: "",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId: 1,
+                    orgId: 1
+                });
+            }
+            else if (
+                originalRow.ORGANIZATIONTYPE !== row.ORGANIZATIONTYPE ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.ORGANIZATIONTYPEID,
+                    OperationType: "update",
+                    Name: row.ORGANIZATIONTYPE.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Description: "",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId: 0
+                });
+            }
+        });
+
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
+        }
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "Organization Type",
+            Items: items,
+        };
+        try {
+            const response = await EasaListService.addMasterDataType(payload);
+            if (response?.data === -1) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error saving the Organization Type"
+                }));
+                return;
+            }
+            setDirtyFlag(false);
+            fetchOrganizationType();
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Organization Type saved successfully.",
+            }));
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Organization Type.",
+            }));
+        }
+    };
+    const fetchOrganizationType = () => {
+        let masterdataType = 0;
+        EasaListService.getAdminMasterDetailsType(masterdataType)
+            .then((response) => {
+                let result: OrganizationTypeMasterTable[] = response?.data.map(x => ({
+                    ORGANIZATIONTYPEID: x.ORGANIZATIONTYPEID,
+                    ORGANIZATIONTYPE: x.ORGANIZATIONTYPE,
+                    SORT_ORDER: x.SORT_ORDER,
+                    ISACTIVE: x.ISACTIVE === "Y"
+                }));
+
+                setOrganizationTypeData([...result].reverse());
+                setOriginalOrganizationTypeData([...result].reverse());
+            })
+            .catch((err) => console.error(err));
+    };
+    const organizationtypeDragStart = (dataItem: OrganizationTypeMasterTable) => {
+        setChecklistTypeActiveItem(dataItem);
+    };
+    const organizationTypeReorder = (dataItem: OrganizationTypeMasterTable) => {
+        if (checklistTypeActiveItem === dataItem) return;
+
+        let reorderData = [...organizationTypeData];
+        let prevIndex = reorderData.findIndex((p) => p === checklistTypeActiveItem);
+        let nextIndex = reorderData.findIndex((p) => p === dataItem);
+        reorderData.splice(prevIndex, 1);
+        reorderData.splice(nextIndex, 0, checklistTypeActiveItem || reorderData[0]);
+        let sorOrderIndex: number = 1;
+        reorderData.forEach((row) => {
+            row.SORT_ORDER = sorOrderIndex;
+            sorOrderIndex++;
+        });
+        setOrganizationTypeData(reorderData);
+        setDirtyFlag(true);
+    };
+    //organization handlers
+    function organizationDragStart(dataItem: OrganizationTableData) {
+        setOrganizationActiveItem(dataItem);
+    }
+    function organizationMasteReorder(dataItem: OrganizationTableData) {
+        if (selectedPage === "Organization") {
+            if (organizationActiveItem === dataItem) return;
+            let reorderData = [...organizationData];
+            let prevIndex = reorderData.findIndex((p) => p === organizationActiveItem);
+            let nextIndex = reorderData.findIndex((p) => p === dataItem);
+            reorderData.splice(prevIndex, 1);
+            reorderData.splice(nextIndex, 0, organizationActiveItem || reorderData[0]);
+            let sorOrderIndex: number = 1;
+            reorderData.forEach((row) => {
+                row.SORT_ORDER = sorOrderIndex;
+                sorOrderIndex++;
+            });
+            setOrganizationData(reorderData);
+        }
+
+        setDirtyFlag(true);
+    }
+    const organizationItemChange = (event: GridItemChangeEvent) => {
+
+        const newData = organizationData.map(item => {
+
+            if (item.ORGANIZATIONID === event.dataItem.ORGANIZATIONID) {
+
+                return {
+                    ...item,
+                    [event.field as string]: event.value
+                };
+            }
+
+            return item;
+        });
+
+        setOrganizationData(newData);
+        setDirtyFlag(true);
+    };
+    const CreateOrganization = () => {
+        const newOrganization: OrganizationTableData = {
+            ORGANIZATIONID: new Date().getTime(),
+            newFlag: true,
+            SORT_ORDER: organizationData.length + 1,
+            NOTES: "",
+            ORGANIZATIONNAME: "",
+            ORGANIZATIONDESCRIPTION: "",
+            ISACTIVE: true,
+
+        };
+        setOrganizationData([newOrganization, ...organizationData]);
+        setDirtyFlag(true);
+
+    };
+    const saveOrganization = async () => {
+
+        if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
+            return;
+        }
+
+        const current = [...organizationData];
+        const original = [...originalOrganizationData];
+
+        // validation
         if (
-          result.data[0]["PARENT_RPT_ID"] != null &&
-          result.data[0]["PARENT_RPT_ID"] > 0
+            current.some(
+                (i) =>
+                    !i.ORGANIZATIONNAME ||
+                    i.ORGANIZATIONNAME.trim() === ""
+            )
         ) {
-          rev = result.data[0]["REVISION"];
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Please fill details.",
+            }));
+            return;
         }
-        let groupID = result.data[0]["GroupId"];
-        let groupBU = result.data[0]["BusinessUnitTitle"];
-        let regProjectId = result.data[0]["ProjectRegisterId"]?.toString();
-        let checkRegisterId = regProjectId;
-        if (currentBUId == 2 && checkRegisterId != 0) {
-          // check for EASA workspace
-          CSRListService.getEasaReportType(
-            Number(groupID),
-            checkRegisterId
-          ).then((easaResponse) => {
-            if (easaResponse && easaResponse.data) {
-              sendBreadcrumbDataToShell(
-                docNumber,
-                projectId,
-                rev,
-                groupID,
-                groupBU,
-                regProjectId,
-                easaResponse.data[0]?.Revision
-              );
+
+        // unique validation
+        const uniqueCombinationCount = new Set(
+            current.map(
+                (i) =>
+                    `${i.ORGANIZATIONNAME.trim().toLowerCase()}__${i.ORGANIZATIONDESCRIPTION?.trim().toLowerCase()}`
+            )
+        ).size;
+
+        if (uniqueCombinationCount !== current.length) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage:
+                    "Organization Name + Description must be unique.",
+            }));
+            return;
+        }
+
+        const items: MasterDataItem[] = [];
+
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.ORGANIZATIONID === row.ORGANIZATIONID);
+            if (!originalRow) {
+
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: row.ORGANIZATIONNAME.trim(),
+                    Description: row.ORGANIZATIONDESCRIPTION?.trim() || "",
+                    Notes: row.NOTES?.trim() || "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId: selectedOrgId as number
+                });
             }
-          });
-        } else {
-          sendBreadcrumbDataToShell(
-            docNumber,
-            projectId,
-            rev,
-            groupID,
-            groupBU,
-            regProjectId,
-            ""
-          );
+
+            // UPDATE
+            else if (
+                originalRow.ORGANIZATIONNAME !== row.ORGANIZATIONNAME ||
+                originalRow.ORGANIZATIONDESCRIPTION !== row.ORGANIZATIONDESCRIPTION ||
+                originalRow.NOTES !== row.NOTES ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+
+                items.push({
+                    Id: row.ORGANIZATIONID,
+                    OperationType: "update",
+                    Name: row.ORGANIZATIONNAME.trim(),
+                    Description: row.ORGANIZATIONDESCRIPTION?.trim() || "",
+                    Notes: row.NOTES?.trim() || "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId: 0
+                });
+            }
+
+        });
+
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
         }
-        if (csrWorkAppFlag) {
-          new StorageService().setApplicationDataByKey(
-            `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-            "CsrPmdbProjectId",
-            projectId
-          );
-        } else {
-          new StorageService().setApplicationDataByKey(
-            `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-            "ProjectId",
-            projectId
-          );
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "Organization",
+            Items: items,
+        };
+
+        try {
+            const response = await EasaListService.addMasterDataType(payload);
+            if (response?.data === -1) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error saving the Organization"
+                }));
+                return;
+            }
+
+            setDirtyFlag(false);
+
+            if (selectedOrgId !== "") {
+                fetchOrganization(selectedOrgId);
+            }
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Organization saved successfully.",
+            }));
+
+        } catch (error) {
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Organization.",
+            }));
         }
-        // setdisableProjIdDrpdown(true);
-        // setSelectedPmdbProjectId(projectId);
-      }
-    });
-  };
-
-  //Handle Row Checkbox Selection Change
-// Handle Row Checkbox Selection Change (multiple selection)
-const onSelectionChange = (e) => {
-  const { dataItem } = e;
- 
-  const checked =
-    e?.nativeEvent?.target?.checked ??
-    !Boolean(dataItem?.[SELECTED_FIELD]);
-  setResultState(prev =>
-    prev.map(item => {
-      if (!item) return item; // avoid crash
-      return item[DATA_ITEM_KEY] === dataItem?.[DATA_ITEM_KEY]
-        ? { ...item, [SELECTED_FIELD]: checked }
-        : item;
-    })
-  );
-}; 
-
-  //Handle HeaderCheckbox Selection Change
-  const onHeaderSelectionChange = (event) => {
-    const checked = event.syntheticEvent.target.checked;
-    setResultState((prev) =>
-      prev.map((item) => ({ ...item, [SELECTED_FIELD]: checked }))
-    );
-  };
-
-  //Handle Create Revision button Click
-  const handleOpenRevision = () => {
-    setOpenRevisionModelPopup(true);
-  };
-
-  //Handle Close revison popup and navigation on click of create for revision
-  const handleCloseRevisionPopup = () => {
-    setOpenRevisionModelPopup(false);
-  };
-
-  const handleEasaDetails = (newRegisterTitle) => {
-    // find the selected register config
-    const matched = registerTypes.find(
-      (rt) => rt.TemplateTitle === newRegisterTitle
-    );
-    const newMasterType = matched?.TemplateTitle ?? "";
-    const newGroupId = matched?.GroupId ?? null;
-    const newReportTemplate = {
-      TemplateId: matched?.TemplateId,
-      TemplateTitle: matched?.TemplateTitle,
-      DocFormat: matched?.DocFormat,
-      TemplateSequence: matched?.TemplateSequence,
-      ItarFlag: matched?.ItarFlag,
-      GroupId: matched?.GroupId,
     };
+    const fetchOrganization = (orgTypeId: number) => {
+        let masterdataType = 1;
+        EasaListService.getAdminMasterDetailsOrgType(masterdataType, orgTypeId)
+            .then((response) => {
+                let result: OrganizationTableData[] = response?.data.map(org => ({
+                    ORGANIZATIONID: org.ORGANIZATIONID,
+                    ORGANIZATIONNAME: org.ORGANIZATIONNAME,
+                    ORGANIZATIONDESCRIPTION: org.ORGANIZATIONDESCRIPTION,
+                    NOTES: org.NOTES,
+                    SORT_ORDER: org.SORT_ORDER,
+                    ISACTIVE: org.ISACTIVE === "Y"
+                }));
+                setOrganizationData([...result].toReversed());
+                setOriginalOrganizationData([...result].toReversed());
+            })
+            .catch((err) => console.error(err));
+    };
+    const onOrganizationDatastateChange = (event: GridDataStateChangeEvent) => {
+        let temp = { filter: event.dataState.filter, sort: event.dataState.sort, take: undefined, skip: 0 }
+        setOrganizationDataState(temp)
+    };
+    const OrganizationColumnPropsBuilder = (field) => {
+        return {
+            field: field,
+            columnMenu: ColumnMenuBuilder,
+            headerClassName: isColumnActive(field, supplierCategoryDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
+        };
+    };
+    // Supplier Activity handlers
+    const CreateSupplierActivity = () => {
+        const newSupplierActivity: SupplierActivityMasterTable = {
+            ACTIVITYID: new Date().getTime(),
+            ACTIVITYDESCRIPTION: "",
+            ACTIVITYCATEGORY: "",
+            newFlag: true,
+            SORT_ORDER: supplierActivityData.length + 1,
+            ISACTIVE: true,
+        };
+        setSupplierActivityData([newSupplierActivity, ...supplierActivityData]);
+        setDirtyFlag(true);
+    };
+    const supplierActivityColumnPropsBuilder = (field) => {
+        return {
+            field: field,
+            columnMenu: ColumnMenuBuilder,
+            headerClassName: isColumnActive(field, supplierActivityDataState) ? "active kgrid-oss-admin-table-errorCode1-header" : "kgrid-oss-admin-table-errorCode1-header",
+        };
+    };
+    const onSupplierActivityDataStateChange = (event: GridDataStateChangeEvent) => {
+        setSupplierActivityDataState(event.dataState);
+    };
+    const supplierActivityItemChange = async (event: GridItemChangeEvent) => {
+        let tempErrorCodes = [...supplierActivityData];
+        const match = tempErrorCodes.findIndex((i) => i.ACTIVITYID === event.dataItem.ACTIVITYID);
 
-    storageService.setApplicationDataByKey(
-      `${EnvDetail.ParentAppName}-EasaRegisterWorkApp`,
-      `easaRegisterDetails`,
-      {
-        isEasaRegister: true,
-        registerType: newRegisterTitle,
-        selectedReportTemplate: {
-          TemplateId: matched?.TemplateId,
-          TemplateTitle: matched?.TemplateTitle,
-          DocFormat: matched?.DocFormat,
-          TemplateSequence: matched?.TemplateSequence,
-          ItarFlag: matched?.ItarFlag,
-          GroupId: matched?.GroupId,
-        },
-        selectedReportGroup: {
-          GroupId: matched?.GroupId,
-          GroupTitle: matched?.GroupDesc,
-          GroupDesc: matched?.GroupDesc,
-          GroupSequence: 0,
-          ItarFlag: matched?.ItarFlag,
-          BuId: 0,
-          DisciplineId: 0,
-        },
-      }
-    );
+        if (match !== -1 && event.field) {
+            tempErrorCodes[match] = event.dataItem;
 
-    setSelectedRegisterType(newRegisterTitle);
-    setSelectedMasterType(newMasterType);
-    setSelectedGroupId(newGroupId);
-    setSelectedReportTemplate(newReportTemplate);
-  };
+            setSupplierActivityData(tempErrorCodes);
+            setDirtyFlag(true);
+        }
+    };
+    const onSaveSupplierActivity = async () => {
+        if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
+            return;
+        }
 
-  //Handle RegisterType Change
-  const handleRegisterChange = (event) => {
-    const newRegisterTitle = event.target.value;
-    handleEasaDetails(newRegisterTitle);
-  };
+        const current = [...supplierActivityData];
+        const original = [...originalSupplierActivityData];
 
-  //Function to set attibutes on dataStateChange
-  const datastatechange = (event: GridDataStateChangeEvent) => {
-    //---adobe Analytics
-    logFilterAction(event);
-    event.dataState?.filter?.filters[0]["filters"]?.forEach((item, index) => {
-      if (item.value != undefined && item.field == "RELEASE_DATE") {
-        const dateObject = new Date(item.value);
-        item.value = new Date(item.value);
-      } else if (item.value != undefined && item.field == "CreationDateStr") {
-        const dateObject = new Date(item.value);
-        item.value = new Date(item.value);
-      } else if (
-        item.value != undefined &&
-        item.field == "ModificationDateStr"
-      ) {
-        const dateObject = new Date(item.value);
-        item.value = new Date(item.value);
-      }
-    });
-    setDataState(event.dataState);
-    fetchData(event.dataState);
-  };
+        if (
+            current.some(
+                (i) =>
+                    !i.ACTIVITYCATEGORY ||
+                    i.ACTIVITYCATEGORY.trim() === "" ||
+                    !i.ACTIVITYDESCRIPTION ||
+                    i.ACTIVITYDESCRIPTION.trim() === ""
+            )
+        ) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Please fill details.",
+                })
+            );
+            return;
+        }
 
-  const handleCloseCreateNew = () => {
-    setAnchorElCreate(null);
-  };
+        const uniqueCombinationCount = new Set(
+            current.map(
+                (i) =>
+                    `${i.ACTIVITYCATEGORY.trim().toLowerCase()}__${i.ACTIVITYDESCRIPTION.trim().toLowerCase()}`
+            )
+        ).size;
 
-  const handleCreateNewReport = () => {
-    handleCloseCreateNew();
-    if (!csrWorkAppFlag) {
-      new StorageService().setApplicationDataByKey(
-        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-        "ProjectId",
-        projectId
-      );
-    }
+        if (uniqueCombinationCount !== current.length) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage:
+                        "Activity Category + Description  must be unique.",
+                })
+            );
+            return;
+        }
 
-    new StorageService().setApplicationDataByKey(
-      `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-      "DocNumber",
-      ""
-    );
+        const items: MasterDataItem[] = [];
 
-    new StorageService().setApplicationDataByKey(
-      `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-      `DocRev`,
-      ""
-    );
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.ACTIVITYID === row.ACTIVITYID);
 
-    new StorageService().setApplicationDataByKey(
-      `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-      `ReportTemplate`,
-      selectedReportTemplate
-    );
-
-    new StorageService().setApplicationDataByKey(
-      `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-      "TemplateTitle",
-      selectedRegisterType
-    );
-
-    dispatchCreateNewBreadcrumbEvent(
-      "",
-      projectId,
-      "New",
-      selectedGroupId,
-      "EASA",
-      "0",
-      "",
-      selectedRegisterType
-    );
-
-    navigate(
-      PathConstants.DYNAMIC_TAB.replace(":reportId", "0").replace(
-        ":tabIndex",
-        "-1"
-      ),
-      { state: null }
-    );
-  };
-
-  //Handle onClick of Lookup Value for updating selected supplier details
-  const handleLookupValueClick = (reportId: any, project_id: any) => {
-    console.log("handleLookupValueClick:", reportId, project_id);
-
-    if (!csrWorkAppFlag) {
-      storageService.setApplicationDataByKey(
-        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-        "CsrPmdbProjectId",
-        project_id
-      );
-    }
-    new StorageService().setApplicationDataByKey(
-      `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-      "TemplateTitle",
-      selectedRegisterType
-    );
-    //navigate(PathConstants.DYNAMIC_TAB.replace(":reportId", (reportId.toString() || "0")).replace(":tabIndex", ""));
-    navigate(
-      PathConstants.COMPLIANCE_REPORT_BASE.replace(":reportId", reportId),
-      {}
-    );
-    //navigate(PathConstants.GENERAL_TAB.replace(":reportId", reportId));
-  };
-
-  //Handle onClick of DMA Number for updating selected mro details
-  const handleDMANumberClick = (selectedMasterId) => {
-    // navigate(
-    // PathConstants.MRO_DETAILS.replace(
-    //   ":masterId",
-    //   selectedMasterId.toString()
-    // )
-    // );
-  };
-  //Handle onClick of DMA Number for updating selected mro details
-  const handleWANumberClick = (selectedMasterId) => {
-    // navigate(
-    // PathConstants.WA_DETAILS.replace(":masterId", selectedMasterId.toString())
-    // );
-  };
-
-  //Handle click of Create New button
-  const handleCreateNewRegister = () => {
-    // if (selectedRegisterType.toLowerCase() == "supplier")
-    // navigate(PathConstants.SUPPLIER_DETAILS.replace(":masterId", "0"));
-    // if (selectedRegisterType.toLowerCase() == "mro")
-    // navigate(PathConstants.MRO_DETAILS.replace(":masterId", "0"));
-    // if (selectedRegisterType.toLowerCase() == "working arrangement")
-    // navigate(PathConstants.WA_DETAILS.replace(":masterId", "0"));
-  };
-
-  // Handle click of Delete button to delete registers (with confirm)
-  const handleDeleteRegister = async () => {
-    const toDeleteMasterIds = Array.from(selectedRowsMap?.keys() ?? []).map(
-      (id) => String(id)
-    );
-    if (toDeleteMasterIds.length === 0) {
-      dispatch(
-        showSnackbar({
-          snackbarOpen: true,
-          snackbarType: "info",
-          snackbarMessage: `Please select ${selectedRegisterType} Detail(s).`,
-        })
-      );
-      return;
-    }
-
-    try {
-      const result = await userDefinedConfirm({
-        message: `Are you sure want to delete selected ${selectedRegisterType} Detail(s)?`,
-        okBtnText: "Yes",
-        cancelBtnText: "Cancel",
-      });
-
-      if (result?.button) {
-        await CSRListService.DeleteCSRListDetails(toDeleteMasterIds);
-        // refetch grid data
-        await fetchData(dataState);
-
-        // show success snackbar (adjust message as needed)
-        dispatch(
-          showSnackbar({
-            snackbarOpen: true,
-            snackbarType: "success",
-            snackbarMessage: `Selected ${selectedRegisterType} Detail(s) deleted successfully.`,
-          })
-        );
-      }
-    } catch (err) {
-      // user cancelled or confirm rejected — do nothing
-      // Optionally handle explicit cancel rejection differently if your userDefinedConfirm rejects on cancel
-      dispatch(
-        showSnackbar({
-          snackbarOpen: true,
-          snackbarType: "error",
-          snackbarMessage: `Unable to Delete ${selectedRegisterType} Detail(s) . Please connect with Administrator.`,
-        })
-      );
-    }
-  };
-
-  //Memoized selectedRowsMap to store the selected Rows on change of resultState
-  const selectedRowsMap = useMemo(() => {
-    const map = new Map();
-    resultState.forEach((item) => {
-      if (item[SELECTED_FIELD]) {
-        map.set(item[DATA_ITEM_KEY], item);
-      }
-    });
-    return map;
-  }, [resultState]);
-
-  //Identifying the first selected row and extraction the MasterId as
-  const firstSelectedKey = useMemo(() => {
-    const it = selectedRowsMap.keys().next();
-    return it.done ? undefined : it.value;
-  }, [selectedRowsMap]);
-
-  const firstSelectedItem = useMemo((): CreateRevisionDataItem | undefined => {
-    if (firstSelectedKey === undefined) return undefined;
-    return selectedRowsMap.get(firstSelectedKey) as
-      | CreateRevisionDataItem
-      | undefined;
-  }, [firstSelectedKey, selectedRowsMap]);
-
-  const docId = useMemo(() => {
-    if (!firstSelectedItem) return undefined;
-
-    const regType = selectedRegisterType?.trim().toLowerCase();
-    return regType === "supplier"
-      ? firstSelectedItem.LookUpValue
-      : firstSelectedItem.DmaNumber;
-  }, [firstSelectedItem, selectedRegisterType]);
-const handleRowClickSelection = (e) => {
-  const { dataItem } = e;
- 
-  setResultState(prev =>
-    prev.map(item =>
-      item && item[DATA_ITEM_KEY] === dataItem[DATA_ITEM_KEY]
-        ? { ...item, [SELECTED_FIELD]: !Boolean(item[SELECTED_FIELD]) }
-        : item
-    )
-  );
-};
-  //Logic for the toolbarElement
-  const toolbarElement = useMemo(() => {
-    return (
-      <GridToolbar key="grid-toolbar" className="topbarmain-height-grid">
-        {
-          <Button
-            className="easalist-marginLeft10"
-            id="createBtn"
-            title="Create New"
-            onClick={handleCreateNewReport}
-            size={"small"}
-            color={"inherit"}
-            variant={"outlined"}
-            disabled={
-              selectedRowsMap.size > 0
-                ? true
-                : false || selectedRegisterType === "DO MO Arrangement"
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: row.ACTIVITYCATEGORY.trim(),
+                    Description: row.ACTIVITYDESCRIPTION?.trim() || "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId: 0
+                });
             }
-          >
-            <LibraryAddOutlinedIcon className="iconClass" />
-            <Typography
-              variant={"button"}
-              sx={{ textTransform: "none", fontSize: "14px" }}
-            >
-              Create New
-            </Typography>
-          </Button>
-        }
-        {
-          <Button
-            disabled={selectedRowsMap.size == 1 ? false : true}
-            className="easalist-marginLeft10"
-            id="craeteRevBtn"
-            variant={"outlined"}
-            title="Create Revision"
-            onClick={handleOpenRevision}
-            size={"small"}
-            color={"inherit"}
-          >
-            <LibraryAddOutlinedIcon className="iconClass" />
-            <Typography
-              variant={"button"}
-              sx={{ textTransform: "none", fontSize: "14px" }}
-            >
-              Create Revision
-            </Typography>
-          </Button>
-        }
-        {
-          <Button
-            className="easalist-marginLeft10"
-            id="deleteBtn"
-            title="Delete"
-            onClick={handleDeleteRegister}
-            variant={"outlined"}
-            size={"small"}
-            color={"inherit"}
-            disabled={selectedRowsMap.size <= 0 ? true : false}
-          >
-            <DeleteSharpIcon className="iconClass" />
-            <Typography
-              variant={"button"}
-              sx={{ textTransform: "none", fontSize: "14px" }}
-            >
-              Delete
-            </Typography>
-          </Button>
-        }
-        {
-          <FormControl
-            className="register-type-form"
-            style={{
-              // display: "flex",
-              alignItems: "center",
-              flexDirection: "row",
-              // marginLeft: "auto",
-              right: "60px",
-              float: "right",
-              position: "absolute",
-            }}
-            variant="outlined"
-          >
-            <Select
-              id="register-type-select-dropdown"
-              labelId="register-type-select-label"
-              className="text-normal"
-              // className="easalist-marginLeft10"
-              style={{
-                width: "200px",
-                height: "32px",
-                fontSize: "14px !important",
-                color: "#253746 !important",
-              }}
-              value={selectedRegisterType}
-              onChange={handleRegisterChange}
-              displayEmpty
-              disabled={registerTypes.length === 0}
-            >
-              {registerTypes.map((registerType) => (
-                <MenuItem
-                  key={registerType.TemplateId}
-                  value={registerType.TemplateTitle}
-                  className="text-normal"
-                >
-                  {registerType.TemplateTitle}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        }
-      </GridToolbar>
-    );
-  }, [selectedRowsMap, selectedRegisterType, registerTypes]);
+            else if (
+                originalRow.ACTIVITYCATEGORY !== row.ACTIVITYCATEGORY ||
+                originalRow.ACTIVITYDESCRIPTION !== row.ACTIVITYDESCRIPTION ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.ACTIVITYID,
+                    OperationType: "update",
+                    Name: row.ACTIVITYCATEGORY.trim(),
+                    Description: row.ACTIVITYDESCRIPTION?.trim() || "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId: 0
+                });
+            }
+        });
 
-  //Memoised isAllSelected to set the checkbox state for the Header Checkbox
-  const isAllSelected = useMemo(() => {
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
+        }
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "Supplier Activity Authorised",
+            Items: items,
+        };
+
+        try {
+            const response = await EasaListService.addMasterDataType(payload);
+            if (response?.data === -1) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error saving the Supplier Activity"
+                }));
+                return;
+            }
+            setDirtyFlag(false);
+            fetchSupplierActivity();
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Supplier Activity saved successfully.",
+            }));
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Supplier Activity.",
+            }));
+        }
+    };
+    const fetchSupplierActivity = () => {
+        let masterdataType = 3;
+        EasaListService.getAdminMasterDetailsType(masterdataType)
+            .then((response) => {
+                let result: SupplierActivityMasterTable[] = response?.data.map(x => ({
+                    ACTIVITYID: x.ACTIVITYID,
+                    ACTIVITYCATEGORY: x.ACTIVITYCATEGORY,
+                    ACTIVITYDESCRIPTION: x.ACTIVITYDESCRIPTION,
+                    ISACTIVE: x.ISACTIVE === "Y"
+                }));
+
+                setSupplierActivityData([...result].reverse());
+                setOriginalSupplierActivityData([...result].reverse());
+            })
+            .catch((err) => console.error(err));
+    };
+    function supplierActivityMasterTableDragStart(dataItem: SupplierActivityMasterTable) {
+        setErrorCodeMasterActiveItem(dataItem);
+    }
+    function supplierActivityMastereorder(dataItem: SupplierActivityMasterTable) {
+        if (selectedPage === "Supplier Activity Authorised") {
+            if (errorCodeMasterActiveItem === dataItem) return;
+            let reorderData = [...supplierActivityData];
+            let prevIndex = reorderData.findIndex((p) => p === errorCodeMasterActiveItem);
+            let nextIndex = reorderData.findIndex((p) => p === dataItem);
+            reorderData.splice(prevIndex, 1);
+            reorderData.splice(nextIndex, 0, errorCodeMasterActiveItem || reorderData[0]);
+            let sorOrderIndex: number = 1;
+            reorderData.forEach((row) => {
+                row.SORT_ORDER = sorOrderIndex;
+                sorOrderIndex++;
+            });
+            setSupplierActivityData(reorderData);
+        }
+        setDirtyFlag(true);
+    }
+
+    //supplier category Handles
+    function supplierCategoryMasterTableDragStart(dataItem: SupplierCategoryMasterTable) {
+        setSupplierCategoryActiveItem(dataItem);
+    }
+    function supplierCategoryMasterReorder(dataItem: SupplierCategoryMasterTable) {
+        if (selectedPage === "Supplier Category") {
+            if (supplierCategoryActiveItem === dataItem) return;
+            let reorderData = [...supplierCategoryData];
+            let prevIndex = reorderData.findIndex((p) => p === supplierCategoryActiveItem);
+            let nextIndex = reorderData.findIndex((p) => p === dataItem);
+            reorderData.splice(prevIndex, 1);
+            reorderData.splice(nextIndex, 0, supplierCategoryActiveItem || reorderData[0]);
+            let sorOrderIndex: number = 1;
+            reorderData.forEach((row) => {
+                row.SORT_ORDER = sorOrderIndex;
+                sorOrderIndex++;
+            });
+            setSupplierCategoryData(reorderData);
+        }
+
+        setDirtyFlag(true);
+    }
+    const supplierCategoryTypeItemChange = async (event: GridItemChangeEvent) => {
+        let tempSupplierCategoryType = [...supplierCategoryData];
+        const match = tempSupplierCategoryType.findIndex((i) => i.CATEGORYID === event.dataItem.CATEGORYID);
+
+        if (match !== -1 && event.field) {
+            tempSupplierCategoryType[match] = event.dataItem;
+            setSupplierCategoryData(tempSupplierCategoryType);
+            setDirtyFlag(true);
+        }
+    };
+    const CreateSupplierCategory = () => {
+        const newSupplierCategory: SupplierCategoryMasterTable = {
+            CATEGORYID: new Date().getTime(),
+            CATEGORYDESCRIPTION: "",
+            newFlag: true,
+            SORT_ORDER: supplierActivityData.length + 1,
+            ISACTIVE: true,
+
+        };
+        setSupplierCategoryData([newSupplierCategory, ...supplierCategoryData]);
+        setDirtyFlag(true);
+
+    };
+    const saveSupplierCategory = async () => {
+        if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
+            return;
+        }
+
+        const current = [...supplierCategoryData];
+        const original = [...originalSupplierCategoryData];
+
+        // Validation
+        if (current.some((i) => !i.CATEGORYDESCRIPTION || i.CATEGORYDESCRIPTION.trim() === "")) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Please fill details.",
+            }));
+            return;
+        }
+
+        const uniqueCount = new Set(
+            current.map((i) => i.CATEGORYDESCRIPTION.trim().toLowerCase())
+        ).size;
+
+        if (uniqueCount !== current.length) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Supplier Type must be unique.",
+            }));
+            return;
+        }
+
+        const items: MasterDataItem[] = [];
+
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.CATEGORYID === row.CATEGORYID);
+
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: "",
+                    Description: row.CATEGORYDESCRIPTION.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId: 0
+                });
+            }
+            else if (
+                originalRow.CATEGORYDESCRIPTION !== row.CATEGORYDESCRIPTION ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.CATEGORYID,
+                    OperationType: "update",
+                    Name: "",
+                    Description: row.CATEGORYDESCRIPTION.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId: 0
+                });
+            }
+        });
+
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
+        }
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "Supplier Category",
+            Items: items,
+        };
+
+        try {
+            const response = await EasaListService.addMasterDataType(payload);
+            if (response?.data === -1) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error saving the Supplier Category"
+                }));
+                return;
+            }
+            setDirtyFlag(false);
+            fetchSupplierCategory();
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Supplier Category saved successfully.",
+            }));
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Supplier Category.",
+            }));
+        }
+    };
+    const fetchSupplierCategory = () => {
+        let masterdataType = 2;
+        EasaListService.getAdminMasterDetailsType(masterdataType)
+            .then((response) => {
+                let result: SupplierCategoryMasterTable[] = response?.data.map(category => ({
+                    CATEGORYID: category.CATEGORYID,
+                    CATEGORYDESCRIPTION: category.CATEGORYDESCRIPTION,
+                    ISACTIVE: category.ISACTIVE === "Y",
+                }));
+                setSupplierCategoryData([...result].reverse());
+                setOriginalSupplierCategoryData([...result].reverse());
+            })
+            .catch((err) => console.error(err));
+    };
+    const onSupplierCategoryDatastateChange = (event: GridDataStateChangeEvent) => {
+        setSupplierCategoryDataState(event.dataState)
+    };
+    const supplierCategoryColumnPropsBuilder = (field) => {
+        return {
+            field: field,
+            columnMenu: ColumnMenuBuilder,
+            headerClassName: isColumnActive(field, supplierCategoryDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
+        };
+    };
+    // Focal Handlers
+    const CreateFocal = () => {
+        const newFocal: FocalMasterTable = {
+            ID: new Date().getTime(),
+            NAME: "",
+            PHONE: "",
+            ADDRESS: "",
+            EMAIL: "",
+            DEPARTMENT: "",
+            TITLE: "",
+            newFlag: true,
+            SORT_ORDER: focalData.length + 1,
+            ISACTIVE: true,
+        };
+        setFocalData([newFocal, ...focalData]);
+    };
+    const focalColumnPropsBuilder = (field) => {
+        return {
+            field: field,
+            columnMenu: ColumnMenuBuilder,
+            headerClassName: isColumnActive(field, focalDataState) ? "active kgrid-oss-admin-table-errorCode1-header" : "kgrid-oss-admin-table-errorCode1-header",
+        };
+    };
+    const onFocalDataStateChange = (event: GridDataStateChangeEvent) => {
+        setFocalDataState(event.dataState);
+    };
+    const focalItemChange = async (event: GridItemChangeEvent) => {
+        let tempErrorCodes = [...focalData];
+        const match = tempErrorCodes.findIndex((i) => i.ID === event.dataItem.ID);
+
+        if (match !== -1 && event.field) {
+            tempErrorCodes[match] = event.dataItem;
+
+            setFocalData(tempErrorCodes);
+            setDirtyFlag(true);
+        }
+    };
+    const onSaveFocal = async () => {
+        if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
+            return;
+        }
+
+        const current = [...focalData];
+        const original = [...originalFocalData];
+        const items: MasterDataItem[] = [];
+
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.ID === row.ID);
+
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: row.NAME?.trim(),
+                    Description: "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: row.ADDRESS ?? "",
+                    Department: "",
+                    Phone: row.PHONE ?? 0,
+                    Email: "",
+                    Title: "",
+                    orgTypeId: 0
+                });
+            }
+            else if (
+                originalRow.NAME !== row.NAME ||
+                originalRow.PHONE !== row.PHONE ||
+                originalRow.ADDRESS !== row.ADDRESS ||
+                originalRow.EMAIL !== row.EMAIL ||
+                originalRow.DEPARTMENT !== row.DEPARTMENT ||
+                originalRow.TITLE !== row.TITLE ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.ID,
+                    OperationType: "update",
+                    Name: row.NAME,
+                    Description: "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: row.ADDRESS ?? "",
+                    Department: row.DEPARTMENT ?? "",
+                    Phone: row.PHONE ?? "",
+                    Email: row.EMAIL ?? "",
+                    Title: row.TITLE ?? "",
+                    orgTypeId: 0
+                });
+            }
+        });
+
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
+        }
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "Focal Management",
+            Items: items,
+        };
+
+        try {
+            await EasaListService.addMasterDataType(payload);
+
+            setDirtyFlag(false);
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Focal saved successfully.",
+            }));
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Focal.",
+            }));
+        }
+    };
+    const handleCreateFocalFromOrg = async (orgId: number, orgTypeId: number) => {
+        setSelectedOrgId(orgTypeId);
+        setSelectedOrganizationId(orgId);
+        setSelectedPage("Focal Management");
+        setFocalData([]);
+        setOriginalFocalData([]);
+        setFocalDataState({})
+
+        try {
+            const response = await EasaListService.getAdminMasterDetailsTypeFocals(4, orgTypeId, orgId);
+
+            let result: FocalMasterTable[] = response?.data.map(x => ({
+                ID: x.ID,
+                NAME: x.NAME,
+                PHONE: x.PHONE,
+                ADDRESS: x.ADDRESS,
+                EMAIL: x.EMAIL,
+                DEPARTMENT: x.DEPARTMENT,
+                TITLE: x.TITLE,
+                ISACTIVE: x.ISACTIVE === "Y",
+            }));
+
+            setFocalData([...result].reverse());
+            setOriginalFocalData([...result].reverse());
+            setShouldAutoCreateFocal(true);
+
+        } catch (err) {
+            console.error(err);
+        }
+    };
+    const fetchFocal = async (orgName: number, orgTypeId: number) => {
+        let masterdataType = 4;
+        EasaListService.getAdminMasterDetailsTypeFocals(masterdataType, orgName, orgTypeId)
+            .then((response) => {
+                let result: FocalMasterTable[] = response?.data.map(x => ({
+                    ID: x.ID,
+                    NAME: x.NAME,
+                    PHONE: x.PHONE,
+                    ADDRESS: x.ADDRESS,
+                    EMAIL: x.EMAIL,
+                    DEPARTMENT: x.DEPARTMENT,
+                    TITLE: x.TITLE,
+                    ISACTIVE: x.ISACTIVE === "Y",
+                }));
+
+                setFocalData([...result].reverse());
+                setOriginalFocalData([...result].reverse());
+            })
+            .catch((err) => console.error(err));
+    };
+    function focalMasterTableDragStart(dataItem: FocalMasterTable) {
+        setFocalActiveItem(dataItem);
+    }
+    function focalMastereorder(dataItem: FocalMasterTable) {
+        if (selectedPage === "Focal Management") {
+            if (focalActiveItem === dataItem) return;
+            let reorderData = [...focalData];
+            let prevIndex = reorderData.findIndex((p) => p === focalActiveItem);
+            let nextIndex = reorderData.findIndex((p) => p === dataItem);
+            reorderData.splice(prevIndex, 1);
+            reorderData.splice(nextIndex, 0, focalActiveItem || reorderData[0]);
+            let sorOrderIndex: number = 1;
+            reorderData.forEach((row) => {
+                row.SORT_ORDER = sorOrderIndex;
+                sorOrderIndex++;
+            });
+            setFocalData(reorderData);
+        }
+        setDirtyFlag(true);
+    }
+    //sorting functionality
+    const handleSortByChange = (key: keyof SortByData, value: 'custom' | 'asc' | 'desc', setScreenDirty: boolean = true) => {
+        if (key === 'organization') {
+            let ascChecklistData: OrganizationTableData[] = [...organizationData];
+
+            if (value === 'asc' || value === 'desc') {
+                ascChecklistData = _.orderBy(ascChecklistData, ["ORGANIZATIONNAME"], [value]);
+
+                let i = 1;
+                ascChecklistData = ascChecklistData.map(x => ({ ...x, Sorting: i++ }));
+                setOrganizationData(ascChecklistData);
+            }
+        }
+
+        if (key === 'organizationType') {
+            let ascChecklistData: OrganizationTypeMasterTable[] = [...organizationTypeData];
+
+            if (value === 'asc' || value === 'desc') {
+                ascChecklistData = _.orderBy(ascChecklistData, ["ORGANIZATIONTYPE"], [value]);
+
+                let i = 1;
+                ascChecklistData = ascChecklistData.map(x => ({ ...x, SORT_ORDER: i++ }));
+                setOrganizationTypeData(ascChecklistData);
+            }
+        }
+
+        if (key === 'supplierCategory') {
+            let ascChecklistData: SupplierCategoryMasterTable[] = [...supplierCategoryData];
+
+            if (value === 'asc' || value === 'desc') {
+                ascChecklistData = _.orderBy(ascChecklistData, ["CATEGORYDESCRIPTION"], [value]);
+
+                let i = 1;
+                ascChecklistData = ascChecklistData.map(x => ({ ...x, SORT_ORDER: i++ }));
+                setSupplierCategoryData(ascChecklistData);
+            }
+        }
+
+        if (key === 'supplierActivity') {
+            let ascErrorCodeData: SupplierActivityMasterTable[] = [...supplierActivityData];
+
+            if (value === 'asc' || value === 'desc') {
+                ascErrorCodeData = _.orderBy(ascErrorCodeData, ["ACTIVITYCATEGORY"], [value]);
+
+                let i = 1;
+                ascErrorCodeData = ascErrorCodeData.map(x => ({ ...x, SORT_ORDER: i++ }));
+                setSupplierActivityData(ascErrorCodeData);
+            }
+        }
+        if (key === 'focal') {
+            let ascErrorCodeData: FocalMasterTable[] = [...focalData];
+
+            if (value === 'asc' || value === 'desc') {
+                ascErrorCodeData = _.orderBy(ascErrorCodeData, ["NAME"], [value]);
+
+                let i = 1;
+                ascErrorCodeData = ascErrorCodeData.map(x => ({ ...x, SORT_ORDER: i++ }));
+                setFocalData(ascErrorCodeData);
+            }
+        }
+
+        setSortBy({ ...sortBy, [key]: value });
+        if (setScreenDirty) {
+            setDirtyFlag(true);
+        }
+    }
+
+    //Handle fetching Register Types Asynchronously
+    const fetchMasterDataTypes = async () => {
+        const result = await EasaListService.getAdminMasterData();
+        const data = result?.data ?? [];
+        setMasterDataOptions(data);
+    };
+    const handleOrg = async (event) => {
+        const orgTypeId = event.target.value;
+        setSelectedOrgId(orgTypeId);
+        setSelectedOrganizationId("");
+
+        try {
+            const response = await EasaListService.getAdminMasterDetailsOrgType(1, orgTypeId);
+
+            let result: OrganizationTableData[] = response?.data.map(org => ({
+                ORGANIZATIONID: org.ORGANIZATIONID,
+                ORGANIZATIONNAME: org.ORGANIZATIONNAME,
+                ORGANIZATIONDESCRIPTION: org.ORGANIZATIONDESCRIPTION,
+                NOTES: org.NOTES,
+                SORT_ORDER: org.SORT_ORDER,
+                ISACTIVE: org.ISACTIVE === "Y"
+            }));
+
+            const reversedResult = [...result];
+
+            setOrganizationData(reversedResult);
+            setOriginalOrganizationData(reversedResult);
+
+            if (reversedResult.length > 0) {
+                setSelectedOrganizationId(reversedResult[0].ORGANIZATIONID);
+            } else {
+                setSelectedOrganizationId("");
+                setFocalData([]);
+                setOriginalFocalData([]);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    const handleOrganization = (event) => {
+        const orgId = event.target.value;
+        setSelectedOrganizationId(orgId);
+        fetchFocal(selectedOrgId as number, orgId)
+    }
+    useEffect(() => {
+        if (selectedOrgId !== "") {
+            fetchOrganization(selectedOrgId);
+        }
+    }, [selectedOrgId])
+    useEffect(() => {
+        if (shouldAutoCreateFocal) {
+            CreateFocal();
+            setShouldAutoCreateFocal(false);
+        }
+    }, [focalData, shouldAutoCreateFocal]);
+    useEffect(() => {
+        var storageService = new StorageService();
+        let isItarApp = storageService.getIsItarApp();
+        setIsItarAppFlag(isItarApp == "Y" ? true : false);
+        fetchOrganizationType();
+        fetchSupplierCategory();
+        fetchSupplierActivity();
+    }, []);
+
+    useEffect(() => {
+        if (organizationTypeData.length > 0 && selectedOrgId === "") {
+            setSelectedOrgId(organizationTypeData[0]?.ORGANIZATIONTYPEID);
+        }
+    }, [organizationTypeData, selectedOrgId]);
+    useEffect(() => {
+        if (organizationData.length > 0 && selectedOrganizationId === "") {
+            setSelectedOrganizationId(organizationData[0].ORGANIZATIONID);
+        }
+    }, [organizationData, selectedOrganizationId]);
+    useEffect(() => {
+        if (selectedOrgId !== "" && selectedOrganizationId !== "") {
+            fetchFocal(selectedOrgId, selectedOrganizationId);
+        }
+    }, [selectedOrgId, selectedOrganizationId]);
+
+    useEffect(() => {
+        const storageService = new StorageService();
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, dirtyFlag);
+
+        return () => {
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
+        };
+    }, [dirtyFlag]);
+    useEffect(() => {
+        fetchMasterDataTypes();
+    }, []);
     return (
-      resultState.length > 0 &&
-      resultState.every((item) => item[SELECTED_FIELD])
+        <div className="EASA-Admin-table-maintenance">
+            <div className="EASA-Admin-table-maintenance-topbar">
+                <div>Master Data</div>
+                <Select id="admin-table-page-selector" style={{ maxWidth: isItarAppFlag ? 280 : 210, minWidth: isItarAppFlag ? 280 : 210 }} value={selectedPage} onChange={handlePageChange} size="medium">
+                    {masterDataOptions.map(({ MasterDataId, MasterData }) => (
+                        <MenuItem
+                            key={MasterDataId}
+                            value={MasterData}
+                            className="text-normal"
+                        >
+                            {MasterData}
+                        </MenuItem>
+                    ))}
+                </Select>
+                {(selectedPage === "Organization" || selectedPage === "Focal Management") && (
+                    <div style={{ marginLeft: 16, display: "flex", gap: 8, justifyContent: "flex-start", alignItems: "center", fontSize: 14 }}>
+                        Organization Type
+                        <Select
+                            id="admin-table-page-selector"
+                            style={{ maxWidth: 280, minWidth: 250 }}
+                            value={selectedOrgId}
+                            onChange={handleOrg}
+                            size="medium"
+                            MenuProps={{
+                                PaperProps: {
+                                    sx: {
+                                        height: 170,
+                                        overflowY: "auto"
+                                    }
+                                }
+                            }}
+                        >
+                            {(organizationTypeData.toReversed()).map(item => (
+                                <MenuItem
+                                    key={item.ORGANIZATIONTYPEID}
+                                    value={item.ORGANIZATIONTYPEID}
+                                    className="text-normal"
+                                >
+                                    {item.ORGANIZATIONTYPE}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </div>
+                )}
+                {(selectedPage === "Focal Management") && (
+                    <div style={{ marginLeft: 16, display: "flex", gap: 8, justifyContent: "flex-start", alignItems: "center", fontSize: 14 }}>
+                        Organization
+                        <Select
+                            id="admin-table-page-selector"
+                            value={selectedOrganizationId}
+                            onChange={handleOrganization}
+                            size="medium"
+                            sx={{ minWidth: 250, maxWidth: 250 }}
+                            MenuProps={{
+                                PaperProps: {
+                                    sx: {
+                                        minHeight: 30,
+                                        maxHeight: 170,
+                                        maxWidth: 250,
+                                        width: 250,
+                                    }
+                                }
+                            }}
+                        >
+                            {organizationData.map(item => (
+                                <MenuItem
+                                    key={item.ORGANIZATIONID}
+                                    value={item.ORGANIZATIONID}
+                                    sx={{
+                                        maxWidth: 250,
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        display: "block"
+                                    }}
+                                >
+                                    {item.ORGANIZATIONNAME}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </div>
+                )}
+            </div>
+
+            <div className="EASA-Admin-table-maintenance-section">
+                {selectedPage === "Supplier Category" && (
+                    <>
+                        <SupplierCategoryTable
+                            key="kgrid-oss-admin-table-checklistType-comp"
+                            columnPropsBuilder={supplierCategoryColumnPropsBuilder}
+                            KEY={SUPPLIER_CATEGORY_DATA_ITEM_KEY}
+                            supplierCategoryData={supplierCategoryData}
+                            dataState={supplierCategoryDataState}
+                            dataStateChange={onSupplierCategoryDatastateChange}
+                            itemChange={supplierCategoryTypeItemChange}
+                            createSupplierCategory={CreateSupplierCategory}
+                            saveSupplierCategory={saveSupplierCategory}
+                            dragStart={supplierCategoryMasterTableDragStart}
+                            reorder={supplierCategoryMasterReorder}
+                            sortBy={sortBy.supplierCategory}
+                            handleSortByChange={handleSortByChange}
+                        />
+                    </>
+                )}
+
+                {
+                    selectedPage === "Organization" && (
+                        <OrganizationTable
+                            key="kgrid-oss-admin-table-errorCode-comp-1"
+                            KEY={ORGANIZATION_DATA_ITEM_KEY}
+                            columnPropsBuilder={OrganizationColumnPropsBuilder}
+                            organizationData={organizationData}
+                            dataState={organizationDataState}
+                            dataStateChange={onOrganizationDatastateChange}
+                            itemChange={organizationItemChange}
+                            createOrganization={CreateOrganization}
+                            onCreateFocal={handleCreateFocalFromOrg}
+                            saveOrganization={saveOrganization}
+                            dragStart={organizationDragStart}
+                            reorder={organizationMasteReorder}
+                            selectedOrgId={selectedOrgId as number}
+                            sortBy={sortBy.supplierActivity}
+                            handleSortByChange={handleSortByChange}
+                        />
+                    )
+                }
+
+                {selectedPage === "Organization Type" && (
+                    <OrganizationTypeTable
+                        key="kgrid-oss-admin-table-checklistType-comp"
+                        KEY={ORGANIZATION_TYPE_DATA_ITEM_KEY}
+                        columnPropsBuilder={organizationTypeColumnPropsBuilder}
+                        organizationTypeData={organizationTypeData}
+                        dataState={organizationTypeDataState}
+                        dataStateChange={onOrganizationTypeDatastateChange}
+                        itemChange={organizationTypeItemChange}
+                        createOrganizationType={CreateOrganizationType}
+                        saveOrganizationType={saveOrganizationType}
+                        dragStart={organizationtypeDragStart}
+                        reorder={organizationTypeReorder}
+                        sortBy={sortBy.organizationType}
+                        handleSortByChange={handleSortByChange}
+                    />
+                )}
+
+                {selectedPage === "Supplier Activity Authorised" && (
+                    <SupplierActivityTable
+                        key="kgrid-oss-admin-table-errorCode-comp-1"
+                        KEY={SUPPLIER_ACTIVITY_DATA_ITEM_KEY}
+                        columnPropsBuilder={supplierActivityColumnPropsBuilder}
+                        supplierActivityData={supplierActivityData}
+                        dataState={supplierActivityDataState}
+                        dataStateChange={onSupplierActivityDataStateChange}
+                        itemChange={supplierActivityItemChange}
+                        createSupplierActivity={CreateSupplierActivity}
+                        saveSupplierActivity={onSaveSupplierActivity}
+                        dragStart={supplierActivityMasterTableDragStart}
+                        reorder={supplierActivityMastereorder}
+                        sortBy={sortBy.supplierActivity}
+                        handleSortByChange={handleSortByChange}
+                    />
+                )}
+                {selectedPage === "Focal Management" && (
+                    <FocalTable
+                        key="kgrid-oss-admin-table-errorCode-comp-1"
+                        KEY={FOCAL_DATA_ITEM_KEY}
+                        columnPropsBuilder={focalColumnPropsBuilder}
+                        focalData={focalData}
+                        expandFocalId={expandFocalId}
+                        dataState={focalDataState}
+                        dataStateChange={onFocalDataStateChange}
+                        itemChange={focalItemChange}
+                        createFocal={CreateFocal}
+                        saveFocal={onSaveFocal}
+                        selectedOrgId={selectedOrgId as number}
+                        selectedOrganizationId={selectedOrganizationId as number}
+                        fetchFocal={fetchFocal}
+                        dragStart={focalMasterTableDragStart}
+                        reorder={focalMastereorder}
+                        sortBy={sortBy.focal}
+                        handleSortByChange={handleSortByChange}
+                        setDirtyFlag={setDirtyFlag}
+                    />
+                )}
+            </div>
+        </div>
     );
-  }, [resultState]);
-
-  //MRO Column Configuration
-  const mroColumnConfig: ColumnConfig[] = [
-    // {
-    //   key: "select",
-    //   field: SELECTED_FIELD,
-    //   title: "Select/Deselect all rows",
-    //   filterable: false,
-    //   width: "45px",
-    //   headerSelectionValue: isAllSelected,
-    // },
-
-    {
-      key: "AssessmentRef",
-      field: "AssessmentRef",
-      title: "DMA Number",
-      width: setPercentage(undefined, 0, 210) ?? 210,
-      cells: {
-        data: (props) => (
-          <td title={props.dataItem.AssessmentRef}>
-            <Button
-              variant={"text"}
-              color={"primary"}
-              onClick={(e) => {
-                handleLookupValueClick(
-                  props.dataItem.RPT_ID,
-                  props.dataItem.PROJECT_ID
-                );
-              }}
-              sx={{
-                textTransform: "none",
-                fontSize: "14px",
-                padding: 0,
-                justifyContent: "flex-start",
-                "&:hover": { backgroundColor: "transparent" },
-                color: "#0078B8",
-                width: "100%",
-              }}
-            >
-              <span
-                style={{
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {props.dataItem.AssessmentRef}
-              </span>
-            </Button>
-          </td>
-        ),
-      },
-      extraProps: { ...columnProps("AssessmentRef") },
-    },
-
-    {
-      key: "DOCUMENT_NAME",
-      field: "DOCUMENT_NAME",
-      title: "Document Name",
-      width: setPercentage(undefined, 0, 190) ?? 190,
-      cell: (props) => (
-        <td title={props.dataItem.DOCUMENT_NAME}>
-          {props.dataItem.DOCUMENT_NAME}
-        </td>
-      ),
-      extraProps: { ...columnProps("DOCUMENT_NAME") },
-    },
-
-    {
-      key: "Report_Description",
-      field: "Report_Description",
-      title: "Report Description",
-      width: setPercentage(180, 0, 200) ?? 200,
-      cell: (props) => (
-        <td title={props.dataItem.Report_Description}>
-          {props.dataItem.Report_Description}
-        </td>
-      ),
-      extraProps: { ...columnProps("Report_Description") },
-    },
-
-    {
-      key: "REVISION",
-      field: "REVISION",
-      title: "Revision",
-      width: setPercentage(100, 0, 130) ?? 130,
-      cell: (props) => (
-        <td title={props.dataItem.REVISION}>{props.dataItem.REVISION}</td>
-      ),
-      extraProps: { ...columnProps("REVISION") },
-    },
-
-    {
-      key: "STATE",
-      field: "STATE",
-      title: "Stage",
-      width: "120px",
-      cells: {
-        data: (prop) => (
-          <td
-            className="statusCol"
-            title={prop.dataItem.STATE}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "14px",
-            }}
-          >
-            <Button
-              variant={"text"}
-              color={"primary"}
-              onClick={() => onStatusClick(prop.dataItem)}
-              sx={{
-                textTransform: "none",
-                fontSize: "14px",
-                padding: 0,
-                justifyContent: "flex-start",
-                "&:hover": {
-                  backgroundColor: "transparent", // Set the background color to transparent on hover
-                },
-                color: "#0078B8",
-              }}
-            >
-              {prop.dataItem.STATE}
-            </Button>
-            {/* <CircleIcon className="statusIcon" fontSize="small" style={{ fill }} /> */}
-          </td>
-        ),
-      },
-      extraProps: { ...columnProps("STATE") },
-    },
-
-    {
-      key: "CreatedByName",
-      field: "CreatedByName",
-      title: "Created By",
-      width: "154px",
-      cell: (props) => (
-        <td title={props.dataItem.CreatedByName}>
-          {props.dataItem.CreatedByName}
-        </td>
-      ),
-      extraProps: { ...columnProps("CreatedByName") },
-    },
-
-    {
-      key: "MroDate",
-      field: "MroDate",
-      title: "MRO Date",
-      width: "160px",
-      filter: "date",
-      cells: {
-        data: (props) => {
-          const mroDate = props.dataItem.MroDate
-            ? new Date(props.dataItem.MroDate)
-            : null;
-          return (
-            <td
-              title={
-                mroDate
-                  ? mroDate.toLocaleDateString(undefined, {
-                      month: "2-digit",
-                      day: "2-digit",
-                      year: "numeric",
-                    })
-                  : ""
-              }
-            >
-              {mroDate &&
-                mroDate.toLocaleDateString(undefined, {
-                  month: "2-digit",
-                  day: "2-digit",
-                  year: "numeric",
-                })}
-            </td>
-          );
-        },
-        filterCell: dateFilterCell,
-      },
-      extraProps: { ...columnProps("MroDate") },
-    },
-
-    {
-      key: "CreationDate",
-      field: "CreationDate",
-      title: "Creation Date",
-      width: "160px",
-      filter: "date",
-      cells: {
-        data: (props) => {
-          const creationDate = props.dataItem.CreationDateStr
-            ? new Date(props.dataItem.CreationDateStr)
-            : null;
-          return (
-            <td
-              title={
-                creationDate
-                  ? creationDate.toLocaleDateString(undefined, {
-                      month: "2-digit",
-                      day: "2-digit",
-                      year: "numeric",
-                    })
-                  : ""
-              }
-            >
-              {creationDate &&
-                creationDate.toLocaleDateString(undefined, {
-                  month: "2-digit",
-                  day: "2-digit",
-                  year: "numeric",
-                })}
-            </td>
-          );
-        },
-        filterCell: dateFilterCell,
-      },
-      extraProps: { ...columnProps("CreationDate") },
-    },
-
-    {
-      key: "ModifiedByName",
-      field: "ModifiedByName",
-      title: "Modified By",
-      width: "154px",
-      cell: (props) => (
-        <td title={props.dataItem.ModifiedByName}>
-          {props.dataItem.ModifiedByName}
-        </td>
-      ),
-      extraProps: { ...columnProps("ModifiedByName") },
-    },
-
-    {
-      key: "ModificationDate",
-      field: "ModificationDate",
-      title: "Modification Date",
-      width: "190px",
-      filter: "date",
-      cells: {
-        data: (props) => {
-          const modificationDate = props.dataItem.ModificationDateStr
-            ? new Date(props.dataItem.ModificationDateStr)
-            : null;
-          return (
-            <td
-              title={
-                modificationDate
-                  ? modificationDate.toLocaleDateString(undefined, {
-                      month: "2-digit",
-                      day: "2-digit",
-                      year: "numeric",
-                    })
-                  : ""
-              }
-            >
-              {modificationDate &&
-                modificationDate.toLocaleDateString(undefined, {
-                  month: "2-digit",
-                  day: "2-digit",
-                  year: "numeric",
-                })}
-            </td>
-          );
-        },
-        filterCell: dateFilterCell,
-      },
-      extraProps: { ...columnProps("ModificationDate") },
-    },
-  ];
-
-  //Supplier Column Configuration
-  const supplierColumnConfig: ColumnConfig[] = [
-    // {
-    //   key: "select",
-    //   field: SELECTED_FIELD,
-    //   title: "Select/Deselect all rows",
-    //   filterable: false,
-    //   width: "45px",
-    //   headerSelectionValue: isAllSelected,
-    // },
-    {
-      key: "AssessmentRef",
-      field: "AssessmentRef",
-      title: "Supplier Audit Reference",
-      width: setPercentage(180, 0, 240) ?? 240,
-      cells: {
-        data: (props) => (
-          <td title={props.dataItem.AssessmentRef}>
-            <Button
-              variant={"text"}
-              color={"primary"}
-              onClick={(e) => {
-                handleLookupValueClick(
-                  props.dataItem.RPT_ID,
-                  props.dataItem.PROJECT_ID
-                );
-              }}
-              sx={{
-                textTransform: "none",
-                fontSize: "14px",
-                padding: 0,
-                justifyContent: "flex-start",
-                "&:hover": { backgroundColor: "transparent" },
-                color: "#0078B8",
-                width: "100%",
-              }}
-            >
-              <span
-                style={{
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {props.dataItem.AssessmentRef}
-              </span>
-            </Button>
-          </td>
-        ),
-      },
-      extraProps: { ...columnProps("AssessmentRef") },
-    },
-
-    {
-      key: "SupplierName",
-      field: "SupplierName",
-      title: "Supplier Name",
-      width: setPercentage(180, 0, 190) ?? 190,
-      cell: (props) => (
-        <td title={props.dataItem.SupplierName}>
-          {props.dataItem.SupplierName}
-        </td>
-      ),
-      extraProps: { ...columnProps("SupplierName") },
-    },
-    {
-      key: "SupplierStatus",
-      field: "SupplierStatus",
-      title: "Supplier Status",
-      width: setPercentage(180, 0, 180) ?? 180,
-      cell: (props) => (
-        <td title={props.dataItem.SupplierStatus}>
-          {props.dataItem.SupplierStatus}
-        </td>
-      ),
-      extraProps: { ...columnProps("SupplierStatus") },
-    },
-
-    {
-      key: "SupplierActivity",
-      field: "SupplierActivity",
-      title: "Supplier Activity Authorised",
-      width: setPercentage(180, 0, 260) ?? 260,
-      cell: (props) => (
-        <td title={props.dataItem.SupplierActivity}>
-          {props.dataItem.SupplierActivity}
-        </td>
-      ),
-      extraProps: { ...columnProps("SupplierActivity") },
-    },
-    {
-      key: "SupplierCategory",
-      field: "SupplierCategory",
-      title: "Supplier Category",
-      width: setPercentage(180, 0, 190) ?? 190,
-      cell: (props) => (
-        <td title={props.dataItem.SupplierCategory}>
-          {props.dataItem.SupplierCategory}
-        </td>
-      ),
-      extraProps: { ...columnProps("SupplierCategory") },
-    },
-    {
-      key: "SupplierCapabilities",
-      field: "SupplierCapabilities",
-      title: "Supplier Capabilities",
-      width: setPercentage(180, 0, 220) ?? 220,
-      cell: (props) => (
-        <td title={props.dataItem.SupplierCapabilities}>
-          {props.dataItem.SupplierCapabilities}
-        </td>
-      ),
-      extraProps: { ...columnProps("SupplierCapabilities") },
-    },
-    {
-      key: "CHANGE_DESCRIPTION",
-      field: "CHANGE_DESCRIPTION",
-      title: "Description",
-      width: setPercentage(160, 0, 160) ?? 160,
-      cell: (props) => (
-        <td title={props.dataItem.CHANGE_DESCRIPTION}>
-          {props.dataItem.CHANGE_DESCRIPTION}
-        </td>
-      ),
-      extraProps: { ...columnProps("CHANGE_DESCRIPTION") },
-    },
-    {
-      key: "ScaStatus",
-      field: "ScaStatus",
-      title: "SCA Status",
-      width: setPercentage(170, 0, 170) ?? 170,
-      cell: (props) => (
-        <td title={props.dataItem.ScaStatus}>{props.dataItem.ScaStatus}</td>
-      ),
-      extraProps: { ...columnProps("ScaStatus") },
-    },
-
-    {
-      key: "AssessmentType",
-      field: "AssessmentType",
-      title: "Assessment Type",
-      width: setPercentage(190, 0, 190) ?? 180,
-      cell: (props) => (
-        <td title={props.dataItem.AssessmentType}>
-          {props.dataItem.AssessmentType}
-        </td>
-      ),
-      extraProps: { ...columnProps("AssessmentType") },
-    },
-    {
-      key: "REVISION",
-      field: "REVISION",
-      title: "Revision",
-      width: "130px",
-      cell: (props) => (
-        <td title={props.dataItem.REVISION}>{props.dataItem.REVISION}</td>
-      ),
-      extraProps: { ...columnProps("REVISION") },
-    },
-
-    {
-      key: "STATE",
-      field: "STATE",
-      title: "Stage",
-      width: "120px",
-      cells: {
-        data: (prop) => (
-          <td
-            className="statusCol"
-            title={prop.dataItem.STATE}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "14px",
-            }}
-          >
-            <Button
-              variant={"text"}
-              color={"primary"}
-              onClick={() => onStatusClick(prop.dataItem)}
-              sx={{
-                textTransform: "none",
-                fontSize: "14px",
-                padding: 0,
-                justifyContent: "flex-start",
-                "&:hover": {
-                  backgroundColor: "transparent", // Set the background color to transparent on hover
-                },
-                color: "#0078B8",
-              }}
-            >
-              {prop.dataItem.STATE}
-            </Button>
-            {/* <CircleIcon className="statusIcon" fontSize="small" style={{ fill }} /> */}
-          </td>
-        ),
-      },
-      extraProps: { ...columnProps("STATE") },
-    },
-
-    {
-      key: "AuditDate",
-      field: "AuditDate",
-      title: "Last Audit Date",
-      width: "190px",
-      filter: "date",
-      cells: {
-        data: (props) => {
-          const auditDate = props.dataItem.AuditDate
-            ? new Date(props.dataItem.AuditDate)
-            : null;
-          return (
-            <td
-              title={
-                auditDate
-                  ? auditDate.toLocaleDateString(undefined, {
-                      month: "2-digit",
-                      day: "2-digit",
-                      year: "numeric",
-                    })
-                  : ""
-              }
-            >
-              {auditDate &&
-                auditDate.toLocaleDateString(undefined, {
-                  month: "2-digit",
-                  day: "2-digit",
-                  year: "numeric",
-                })}
-            </td>
-          );
-        },
-        filterCell: dateFilterCell,
-      },
-      extraProps: { ...columnProps("AuditDate") },
-    },
-
-    {
-      key: "NextAuditDate",
-      field: "NextAuditDate",
-      title: "Next Audit Due",
-      width: "190px",
-      filter: "date",
-      cells: {
-        data: (props) => {
-          const nextAuditDate = props.dataItem.NextAuditDate
-            ? new Date(props.dataItem.NextAuditDate)
-            : null;
-          return (
-            <td
-              title={
-                nextAuditDate
-                  ? nextAuditDate.toLocaleDateString(undefined, {
-                      month: "2-digit",
-                      day: "2-digit",
-                      year: "numeric",
-                    })
-                  : ""
-              }
-            >
-              {nextAuditDate &&
-                nextAuditDate.toLocaleDateString(undefined, {
-                  month: "2-digit",
-                  day: "2-digit",
-                  year: "numeric",
-                })}
-            </td>
-          );
-        },
-        filterCell: dateFilterCell,
-      },
-      extraProps: { ...columnProps("NextAuditDate") },
-    },
-    // {
-    //   key: "AuditDtStatus",
-    //   field: "AuditDtStatus",
-    //   title: "Audit Status",
-    //   width: setPercentage(180, 0, 180) ?? 180,
-    //   cell: (props) => (
-    //     <td title={props.dataItem.AuditDtStatus}>
-    //       {props.dataItem.AuditDtStatus}
-    //     </td>
-    //   ),
-    //   extraProps: { ...columnProps("AuditDtStatus") },
-    // },
-    {
-      key: "SupplierAuditType",
-      field: "SupplierAuditType",
-      title: "Audit Type",
-      width: setPercentage(160, 0, 160) ?? 160,
-      cell: (props) => (
-        <td title={props.dataItem.SupplierAuditType}>
-          {props.dataItem.SupplierAuditType}
-        </td>
-      ),
-      extraProps: { ...columnProps("SupplierAuditType") },
-    },
-
-    {
-      key: "AuditOutcome",
-      field: "AuditOutcome",
-      title: "Audit Outcome",
-      width: setPercentage(180, 0, 180) ?? 180,
-      cell: (props) => (
-        <td title={props.dataItem.AuditOutcome}>
-          {props.dataItem.AuditOutcome}
-        </td>
-      ),
-      extraProps: { ...columnProps("AuditOutcome") },
-    },
-
-    {
-      key: "SupplierStatus",
-      field: "SupplierStatus",
-      title: "Status",
-      width: setPercentage(180, 0, 180) ?? 180,
-      cell: (props) => (
-        <td title={props.dataItem.SupplierStatus}>
-          {props.dataItem.SupplierStatus}
-        </td>
-      ),
-      extraProps: { ...columnProps("SupplierStatus") },
-    },
-
-    {
-      key: "ApprovedBy",
-      field: "ApprovedBy",
-      title: "Approved By",
-      width: "150px",
-      cell: (props) => (
-        <td title={props.dataItem.ApprovedBy}>{props.dataItem.ApprovedBy}</td>
-      ),
-      extraProps: { ...columnProps("ApprovedBy") },
-    },
-    {
-      key: "CreatedByName",
-      field: "CreatedByName",
-      title: "Created By",
-      width: "154px",
-      cell: (props) => (
-        <td title={props.dataItem.CreatedByName}>
-          {props.dataItem.CreatedByName}
-        </td>
-      ),
-      extraProps: { ...columnProps("CreatedByName") },
-    },
-
-    {
-      key: "CreationDate",
-      field: "CreationDate",
-      title: "Creation Date",
-      width: "160px",
-      filter: "date",
-      cells: {
-        data: (props) => {
-          const creationDate = props.dataItem.CreationDateStr
-            ? new Date(props.dataItem.CreationDateStr)
-            : null;
-          return (
-            <td
-              title={
-                creationDate
-                  ? creationDate.toLocaleDateString(undefined, {
-                      month: "2-digit",
-                      day: "2-digit",
-                      year: "numeric",
-                    })
-                  : ""
-              }
-            >
-              {creationDate &&
-                creationDate.toLocaleDateString(undefined, {
-                  month: "2-digit",
-                  day: "2-digit",
-                  year: "numeric",
-                })}
-            </td>
-          );
-        },
-        filterCell: dateFilterCell,
-      },
-      extraProps: { ...columnProps("CreationDate") },
-    },
-
-    {
-      key: "ModifiedByName",
-      field: "ModifiedByName",
-      title: "Modified By",
-      width: "160px",
-      cell: (props) => (
-        <td title={props.dataItem.ModifiedByName}>
-          {props.dataItem.ModifiedByName}
-        </td>
-      ),
-      extraProps: { ...columnProps("ModifiedByName") },
-    },
-
-    {
-      key: "ModificationDate",
-      field: "ModificationDate",
-      title: "Modification Date",
-      width: "2200px",
-      filter: "date",
-      cells: {
-        data: (props) => {
-          const modificationDate = props.dataItem.ModificationDateStr
-            ? new Date(props.dataItem.ModificationDateStr)
-            : null;
-          return (
-            <td
-              title={
-                modificationDate
-                  ? modificationDate.toLocaleDateString(undefined, {
-                      month: "2-digit",
-                      day: "2-digit",
-                      year: "numeric",
-                    })
-                  : ""
-              }
-            >
-              {modificationDate &&
-                modificationDate.toLocaleDateString(undefined, {
-                  month: "2-digit",
-                  day: "2-digit",
-                  year: "numeric",
-                })}
-            </td>
-          );
-        },
-        filterCell: dateFilterCell,
-      },
-      extraProps: { ...columnProps("ModificationDate") },
-    },
-  ];
-
-  // WA column configuration
-
-  const waColumnConfig: ColumnConfig[] = [
-    // {
-    //   key: "select",
-    //   field: SELECTED_FIELD,
-    //   title: "Select/Deselect all rows",
-    //   filterable: false,
-    //   width: "45px",
-    //   headerSelectionValue: isAllSelected,
-    // },
-
-    {
-      key: "AssessmentRef",
-      field: "AssessmentRef",
-      title: "WA Number",
-      width: setPercentage(undefined, 0, 150) ?? 150,
-      cells: {
-        data: (props) => (
-          <td title={props.dataItem.AssessmentRef}>
-            <Button
-              variant={"text"}
-              color={"primary"}
-              onClick={(e) => {
-                handleLookupValueClick(
-                  props.dataItem.RPT_ID,
-                  props.dataItem.PROJECT_ID
-                );
-              }}
-              sx={{
-                textTransform: "none",
-                fontSize: "14px",
-                padding: 0,
-                justifyContent: "flex-start",
-                "&:hover": { backgroundColor: "transparent" },
-                color: "#0078B8",
-                width: "100%",
-              }}
-            >
-              <span
-                style={{
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {props.dataItem.AssessmentRef}
-              </span>
-            </Button>
-          </td>
-        ),
-      },
-      extraProps: { ...columnProps("AssessmentRef") },
-    },
-
-    {
-      key: "DOCUMENT_NAME",
-      field: "DOCUMENT_NAME",
-      title: "Document Name",
-      width: setPercentage(undefined, 0, 190) ?? 190,
-      cell: (props) => (
-        <td title={props.dataItem.DOCUMENT_NAME}>
-          {props.dataItem.DOCUMENT_NAME}
-        </td>
-      ),
-      extraProps: { ...columnProps("DOCUMENT_NAME") },
-    },
-
-    {
-      key: "SupplierName",
-      field: "SupplierName",
-      title: "Supplier Name",
-      width: setPercentage(undefined, 0, 170) ?? 170,
-      cell: (props) => (
-        <td title={props.dataItem.SupplierName}>
-          {props.dataItem.SupplierName}
-        </td>
-      ),
-      extraProps: { ...columnProps("Supplier Name") },
-    },
-
-    // {
-    //   key: "Ident",
-    //   field: "Ident",
-    //   title: "Ident",
-    //   width: setPercentage(180, 0, 110) ?? 110,
-    //   cell: (props) => (
-    //     <td title={props.dataItem.Ident}>{props.dataItem.Ident}</td>
-    //   ),
-    //   extraProps: { ...columnProps("Ident") },
-    // },
-
-    {
-      key: "REVISION",
-      field: "REVISION",
-      title: "Revision",
-      width: setPercentage(100, 0, 130) ?? 130,
-      cell: (props) => (
-        <td title={props.dataItem.REVISION}>{props.dataItem.REVISION}</td>
-      ),
-      extraProps: { ...columnProps("REVISION") },
-    },
-
-    {
-      key: "STATE",
-      field: "STATE",
-      title: "Stage",
-      width: "120px",
-      cells: {
-        data: (prop) => (
-          <td
-            className="statusCol"
-            title={prop.dataItem.STATE}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "14px",
-            }}
-          >
-            <Button
-              variant={"text"}
-              color={"primary"}
-              onClick={() => onStatusClick(prop.dataItem)}
-              sx={{
-                textTransform: "none",
-                fontSize: "14px",
-                padding: 0,
-                justifyContent: "flex-start",
-                "&:hover": {
-                  backgroundColor: "transparent", // Set the background color to transparent on hover
-                },
-                color: "#0078B8",
-              }}
-            >
-              {prop.dataItem.STATE}
-            </Button>
-            {/* <CircleIcon className="statusIcon" fontSize="small" style={{ fill }} /> */}
-          </td>
-        ),
-      },
-      extraProps: { ...columnProps("STATE") },
-    },
-
-    // {
-    //   key: "SupplierStatus",
-    //   field: "SupplierStatus",
-    //   title: "Supplier Status",
-    //   width: setPercentage(100, 0, 180) ?? 180,
-    //   cell: (props) => (
-    //     <td title={props.dataItem.SupplierStatus}>
-    //       {props.dataItem.SupplierStatus}
-    //     </td>
-    //   ),
-    //   extraProps: { ...columnProps("SupplierStatus") },
-    // },
-    // {
-    //   key: "ProjectNumber",
-    //   field: "ProjectNumber",
-    //   title: "Project Number",
-    //   width: setPercentage(100, 0, 180) ?? 180,
-    //   cell: (props) => (
-    //     <td title={props.dataItem.ProjectNumber}>
-    //       {props.dataItem.ProjectNumber}
-    //     </td>
-    //   ),
-    //   extraProps: { ...columnProps("Project Number") },
-    // },
-    // {
-    //   key: "ApprovalStatus",
-    //   field: "ApprovalStatus",
-    //   title: "Approval Status",
-    //   width: setPercentage(100, 0, 180) ?? 180,
-    //   cell: (props) => (
-    //     <td title={props.dataItem.ApprovalStatus}>
-    //       {props.dataItem.ApprovalStatus}
-    //     </td>
-    //   ),
-    //   extraProps: { ...columnProps("ApprovalStatus") },
-    // },
-    // {
-    //   key: "ApprovalDate",
-    //   field: "ApprovalDate",
-    //   title: "Approval Date",
-    //   width: "180px",
-    //   filter: "date",
-    //   filterCell: dateFilterCell,
-    //   cell: (props) => {
-    //     const approvalDate = props.dataItem.ApprovalDate
-    //       ? new Date(props.dataItem.ApprovalDate)
-    //       : null;
-    //     return (
-    //       <td
-    //         title={
-    //           approvalDate
-    //             ? approvalDate.toLocaleDateString(undefined, {
-    //                 month: "2-digit",
-    //                 day: "2-digit",
-    //                 year: "numeric",
-    //               })
-    //             : ""
-    //         }
-    //       >
-    //         {approvalDate &&
-    //           approvalDate.toLocaleDateString(undefined, {
-    //             month: "2-digit",
-    //             day: "2-digit",
-    //             year: "numeric",
-    //           })}
-    //       </td>
-    //     );
-    //   },
-    //   extraProps: { ...columnProps("ApprovalDate") },
-    // },
-
-    // {
-    //   key: "ApprovedBy",
-    //   field: "ApprovedBy",
-    //   title: "Approved By",
-    //   width: setPercentage(100, 0, 160) ?? 160,
-    //   cell: (props) => (
-    //     <td title={props.dataItem.ApprovedBy}>{props.dataItem.ApprovedBy}</td>
-    //   ),
-    //   extraProps: { ...columnProps("ApprovedBy") },
-    // },
-    {
-      key: "CHANGE_DESCRIPTION",
-      field: "CHANGE_DESCRIPTION",
-      title: "Notes",
-      width: "180px",
-      cell: (props) => (
-        <td title={props.dataItem.CHANGE_DESCRIPTION}>
-          {props.dataItem.CHANGE_DESCRIPTION}
-        </td>
-      ),
-      extraProps: { ...columnProps("CHANGE_DESCRIPTION") },
-    },
-
-    {
-      key: "CreatedByName",
-      field: "CreatedByName",
-      title: "Created By",
-      width: "154px",
-      cell: (props) => (
-        <td title={props.dataItem.CreatedByName}>
-          {props.dataItem.CreatedByName}
-        </td>
-      ),
-      extraProps: { ...columnProps("CreatedByName") },
-    },
-
-    {
-      key: "CreationDate",
-      field: "CreationDate",
-      title: "Creation Date",
-      width: "180px",
-      filter: "date",
-      cells: {
-        data: (props) => {
-          const creationDate = props.dataItem.CreationDateStr
-            ? new Date(props.dataItem.CreationDateStr)
-            : null;
-          return (
-            <td
-              title={
-                creationDate
-                  ? creationDate.toLocaleDateString(undefined, {
-                      month: "2-digit",
-                      day: "2-digit",
-                      year: "numeric",
-                    })
-                  : ""
-              }
-            >
-              {creationDate &&
-                creationDate.toLocaleDateString(undefined, {
-                  month: "2-digit",
-                  day: "2-digit",
-                  year: "numeric",
-                })}
-            </td>
-          );
-        },
-        filterCell: dateFilterCell,
-      },
-      extraProps: { ...columnProps("CreationDate") },
-    },
-
-    {
-      key: "ModifiedByName",
-      field: "ModifiedByName",
-      title: "Modified By",
-      width: "164px",
-      cell: (props) => (
-        <td title={props.dataItem.ModifiedByName}>
-          {props.dataItem.ModifiedByName}
-        </td>
-      ),
-      extraProps: { ...columnProps("ModifiedByName") },
-    },
-
-    {
-      key: "ModificationDate",
-      field: "ModificationDate",
-      title: "Modification Date",
-      width: "200px",
-      filter: "date",
-      cells: {
-        data: (props) => {
-          const modificationDate = props.dataItem.ModificationDateStr
-            ? new Date(props.dataItem.ModificationDateStr)
-            : null;
-          return (
-            <td
-              title={
-                modificationDate
-                  ? modificationDate.toLocaleDateString(undefined, {
-                      month: "2-digit",
-                      day: "2-digit",
-                      year: "numeric",
-                    })
-                  : ""
-              }
-            >
-              {modificationDate &&
-                modificationDate.toLocaleDateString(undefined, {
-                  month: "2-digit",
-                  day: "2-digit",
-                  year: "numeric",
-                })}
-            </td>
-          );
-        },
-        filterCell: dateFilterCell,
-      },
-      extraProps: { ...columnProps("ModificationDate") },
-    },
-  ];
-
-  // compute columnConfig based on selectedRegisterType using useMemo
-  const columnConfig: ColumnConfig[] = useMemo(() => {
-    // choose mode-specific columns
-    const modeSpecific =
-      selectedRegisterType === "Supplier Assessment"
-        ? supplierColumnConfig
-        : selectedRegisterType === "DO MO Arrangement"
-          ? mroColumnConfig
-          : waColumnConfig;
-
-    // return concatenated array; you can control order here
-    return [...modeSpecific];
-  }, [
-    selectedRegisterType,
-    mroColumnConfig,
-    supplierColumnConfig,
-    waColumnConfig,
-  ]);
-
-  //gridChildren to create the Toolbar and GridColumns in single entity
-  const gridChildren = useMemo(() => {
-    const columnElements = columnConfig.map((col) => {
-      // ensure we don't spread 'key' into the element props
-      const { key: colKey, extraProps, ...rest } = col as any;
-
-      return (
-        <GridColumn key={colKey} {...(rest as any)} {...(extraProps as any)} />
-      );
-    });
-
-    return [...columnElements];
-  }, [columnConfig]);
-
-  const card = (
-    <div
-      style={{
-        height:
-          gridHeight >= window.innerHeight ||
-          shellWorkAppContainerMaxHeight != 0
-            ? "100%"
-            : "",
-        width: "100%",
-      }}
-    >
-      <GridHelper
-        toolbarSettings={{
-          showColumnsConfigurator: true,
-        }}
-        style={{
-          // height:
-          //   gridHeight >= window.innerHeight ||
-          //   shellWorkAppContainerMaxHeight != 0
-          //     ? "100%"
-          //     : "",
-          width: "100%",
-        }}
-        dataItemKey={DATA_ITEM_KEY}
-        groupable={false}
-        data={resultState}
-      >
-        <AnyGrid
-          id="kgrid-oss-easa-list"
-          ref={gridRef}
-          style={{
-            height:
-              gridHeight >= window.innerHeight ||
-              shellWorkAppContainerMaxHeight != 0
-                ? "100%"
-                : "",
-            width: "100%",
-          }}
-          {...dataState}
-          onDataStateChange={datastatechange}
-          onRowClick={handleRowClickSelection}
-          resizable={true}
-          sortable={true}
-          columnMenuIcon={filterIcon}
-          scrollable={"scrollable"}
-          rowHeight={gridRowHeight}
-          selectable={{
-            enabled: true,
-            drag: false,
-            cell: false,
-            mode: "multiple",
-          }}
-          dataItemKey={DATA_ITEM_KEY}
-          onHeaderSelectionChange={onHeaderSelectionChange}
-          onSelectionChange={onSelectionChange}
-          selectedField={SELECTED_FIELD}
-        >
-          {toolbarElement}
-          <GridColumn
-            field={SELECTED_FIELD}
-            width="50px"
-            title="Select/Deselect all rows"
-            columnType="checkbox"
-            headerSelectionValue={isAllSelected}
-          />
-          {gridChildren}
-        </AnyGrid>
-      </GridHelper>
-    </div>
-  );
-  return (
-    <>
-      {openRevisionModelPopup && (
-        <CreateRevisionPopup
-          isOpen={openRevisionModelPopup}
-          DocId={
-            selectedRowsMap.size > 0
-              ? selectedRowsMap.values().next().value.AssessmentRef
-              : undefined
-          }
-          onCloseRevisionModelPopup={handleCloseRevisionPopup}
-          rptId={
-            selectedRowsMap.size > 0
-              ? selectedRowsMap.values().next().value.RPT_ID
-              : undefined
-          }
-        />
-      )}
-      {isPopupOpen && (
-        <WorkFlowPopup
-          isOpen={isPopupOpen}
-          handleClose={handleClosePopup}
-          dataList={popupData}
-          userData={userStateData}
-        />
-      )}
-      <Container
-        fixed
-        style={{
-          height:
-            gridHeight >= window.innerHeight
-              ? "100vh"
-              : `${window.innerHeight}px`,
-          maxHeight:
-            shellWorkAppContainerMaxHeight != 0
-              ? shellWorkAppContainerMaxHeight
-              : `${window.innerHeight}px`,
-          width: `${window.innerWidth}px`,
-          overflowY: "hidden",
-          marginTop: "6px",
-        }}
-        className="adobe-FINDEASA-EASAListGrid"
-      >
-        <Card
-          key={selectedRegisterType}
-          style={{
-            height:
-              shellWorkAppContainerMaxHeight != 0
-                ? gridHeight >= shellWorkAppContainerMaxHeight
-                  ? "100%"
-                  : ""
-                : gridHeight >= window.innerHeight
-                  ? "100%"
-                  : "",
-            borderLeft: "5px solid rgb(227, 150, 78)",
-          }}
-        >
-          {card}
-        </Card>
-      </Container>
-    </>
-  );
 };
 
-export default EasaListRegister;
+export default TableMaintenance;
