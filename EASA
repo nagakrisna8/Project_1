@@ -1,16 +1,15 @@
 export const StyledEditorWrapper = styled.div<EditorWrapperProps>`
-  .ProseMirror tr:first-child td {
-    font-weight: 600; 
-  }
-
-  /* ✅ ADD THIS BLOCK */
-  .ProseMirror td,
-  .ProseMirror th {
+  .k-editor .ProseMirror table,
+  .k-editor .ProseMirror table tbody,
+  .k-editor .ProseMirror table tr,
+  .k-editor .ProseMirror table td,
+  .k-editor .ProseMirror table th {
     border: 1px solid #000 !important;
+    border-collapse: collapse !important;
   }
 
-  .ProseMirror table {
-    border-collapse: collapse;
+  .ProseMirror tr:first-child td {
+    font-weight: 600;
   }
 
   ${({ easa }) =>
