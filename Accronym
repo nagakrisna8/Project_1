@@ -1208,13 +1208,14 @@ const TableMaintenance: React.FC = () => {
                 ISACTIVE: org.ISACTIVE === "Y"
             }));
 
-            const reversedResult = [...result];
-
+            const finalResult = [...result];
+            const reversedResult = [...result].toReversed();
+            
             setOrganizationData(reversedResult);
             setOriginalOrganizationData(reversedResult);
 
-            if (reversedResult.length > 0) {
-                setSelectedOrganizationId(reversedResult[0].ORGANIZATIONID);
+              if (reversedResult.length > 0) {
+                setSelectedOrganizationId(finalResult[0].ORGANIZATIONID);
             } else {
                 setSelectedOrganizationId("");
                 setFocalData([]);
@@ -1255,13 +1256,13 @@ const TableMaintenance: React.FC = () => {
             setSelectedOrgId(revOrgTypeData[0]?.ORGANIZATIONTYPEID);
         }
     }, [organizationTypeData, selectedOrgId]);
-    useEffect(() => {
+     useEffect(() => {
         if (organizationData.length > 0 && selectedOrganizationId === "") {
             const revOrgData = organizationData.toReversed();
             setSelectedOrganizationId(revOrgData[0].ORGANIZATIONID);
         }
     }, [organizationData, selectedOrganizationId]);
-    useEffect(() => {
+   useEffect(() => {
         if (selectedOrgId !== "" && selectedOrganizationId !== "") {
             fetchFocal(selectedOrgId, selectedOrganizationId);
         }
