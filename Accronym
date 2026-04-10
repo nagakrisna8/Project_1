@@ -1,20 +1,43 @@
-<div className="form-row">
-    <label>Active</label>
-    <input
-        type="checkbox"
-        name="isActive"
-        checked={!!formData.isActive}
-        onChange={(e) => {
-            const updated = {
-                ...formData,
-                isActive: e.target.checked
-            };
-            setFormData(updated);
+const handleCancel = async () => {
+    const storageService = new StorageService();
 
-            // mark dirty
-            setDirtyFlag?.(true);
+    // ✅ Show popup only if unsaved changes exist
+    const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
+    if (!dirtyResponse) return; // ❌ User clicked NO → do nothing
 
-            onFormChange?.(updated);
-        }}
-    />
-</div>
+    clearFormData?.();
+    setDirtyFlag?.(false);
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    if ((focalData as any)?.newFlag) {
+        setFormData({
+            id: 0,
+            name: "",
+            address: "",
+            phone: "",
+            email: "",
+            position: "",
+            title: "",
+            isActive: false,
+            isBemsRecord: false
+        });
+    } else {
+        setFormData({
+            id: focalData?.ID ?? 0,
+            name: focalData?.NAME ?? "",
+            address: focalData?.ADDRESS ?? "",
+            phone: String(focalData?.PHONE ?? ""),
+            email: focalData?.EMAIL ?? "",
+            position: focalData?.DEPARTMENT ?? "",
+            title: focalData?.TITLE ?? "",
+            isActive: focalData?.ISACTIVE ?? false,
+            isBemsRecord: formData.isBemsRecord ?? false
+        });
+    }
+
+    // ✅ Row will disappear ONLY after confirmation
+    if (cancelFocal && focalData?.ID !== undefined) {
+        cancelFocal(focalData.ID);
+    }
+};
