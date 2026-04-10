@@ -1,14 +1,49 @@
-const handleOrganization = async (event) => {
+const handleCancel = async () => {
     const storageService = new StorageService();
 
-    // ✅ Show popup if unsaved changes
-    const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
-    if (!dirtyResponse) return;
+    // ✅ Only show popup if form is dirty
+    const isDirty = storageService.getApplicationDataByKey(
+        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+        `IsTabDirty`
+    );
 
-    const orgId = event.target.value;
-    setSelectedOrganizationId(orgId);
+    if (isDirty) {
+        const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
+        if (!dirtyResponse) return; // ❌ user clicked NO
+    }
 
-    fetchFocal(selectedOrgId as number, orgId);
+    clearFormData?.();
+    setDirtyFlag?.(false);
 
-    setDirtyFlag(false); // ✅ reset after switching
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    if ((focalData as any)?.newFlag) {
+        setFormData({
+            id: 0,
+            name: "",
+            address: "",
+            phone: "",
+            email: "",
+            position: "",
+            title: "",
+            isActive: false,
+            isBemsRecord: false
+        });
+    } else {
+        setFormData({
+            id: focalData?.ID ?? 0,
+            name: focalData?.NAME ?? "",
+            address: focalData?.ADDRESS ?? "",
+            phone: String(focalData?.PHONE ?? ""),
+            email: focalData?.EMAIL ?? "",
+            position: focalData?.DEPARTMENT ?? "",
+            title: focalData?.TITLE ?? "",
+            isActive: focalData?.ISACTIVE ?? false,
+            isBemsRecord: formData.isBemsRecord ?? false
+        });
+    }
+
+    if (cancelFocal && focalData?.ID !== undefined) {
+        cancelFocal(focalData.ID);
+    }
 };
