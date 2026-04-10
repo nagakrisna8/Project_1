@@ -1,15 +1,18 @@
 const handleCancel = async () => {
     const storageService = new StorageService();
 
-    // ✅ Only show popup if form is dirty
-    const isDirty = storageService.getApplicationDataByKey(
-        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-        `IsTabDirty`
-    );
+    // ✅ Check ONLY if user entered anything
+    const hasChanges =
+        formData.name?.trim() ||
+        formData.address?.trim() ||
+        formData.phone?.trim() ||
+        formData.email?.trim() ||
+        formData.position?.trim() ||
+        formData.title?.trim();
 
-    if (isDirty) {
+    if (hasChanges) {
         const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
-        if (!dirtyResponse) return; // ❌ user clicked NO
+        if (!dirtyResponse) return;
     }
 
     clearFormData?.();
