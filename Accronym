@@ -1,22 +1,20 @@
-let isDuplicate = false;
-const isNewRecord = (focalData as any)?.newFlag;
+<div className="form-row">
+    <label>Active</label>
+    <input
+        type="checkbox"
+        name="isActive"
+        checked={!!formData.isActive}
+        onChange={(e) => {
+            const updated = {
+                ...formData,
+                isActive: e.target.checked
+            };
+            setFormData(updated);
 
-if (formData.email && formData.email.trim() !== "") {
-    isDuplicate = focalList?.some((item: FocalData) => {
-        const sameEmail =
-            (item.EMAIL ?? "").trim().toLowerCase() === formData.email.trim().toLowerCase();
+            // mark dirty
+            setDirtyFlag?.(true);
 
-        return isNewRecord
-            ? sameEmail
-            : sameEmail && item.ID !== formData.id;
-    });
-} else {
-    isDuplicate = focalList?.some((item: FocalData) => {
-        const sameName =
-            (item.NAME ?? "").trim().toLowerCase() === formData.name.trim().toLowerCase();
-
-        return isNewRecord
-            ? sameName
-            : sameName && item.ID !== formData.id;
-    });
-}
+            onFormChange?.(updated);
+        }}
+    />
+</div>
