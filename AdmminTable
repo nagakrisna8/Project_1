@@ -1,4 +1,6 @@
 useEffect(() => {
+    if (initializedRef.current) return; // ✅ prevent re-run
+
     if ((focalData as any)?.newFlag) {
         if (userData && userData?.length > 0) {
             const user = userData[0];
@@ -15,7 +17,7 @@ useEffect(() => {
                 isBemsRecord: true
             };
 
-            setFormData(updatedData); // ✅ KEEP THIS
+            setFormData(updatedData);
         } else {
             const emptyData = {
                 id: 0,
@@ -29,7 +31,9 @@ useEffect(() => {
                 isBemsRecord: false
             };
 
-            setFormData(emptyData); // ✅ KEEP THIS
+            setFormData(emptyData);
         }
     }
+
+    initializedRef.current = true; // ✅ mark as initialized
 }, [userData, focalData]);
