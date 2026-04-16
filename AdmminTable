@@ -1,10 +1,39 @@
-InsertSupportingDetailData = (response.data.GridResult || []).map((item) => {
-  return {
-    ...item,
-    PURPOSE: item.PURPOSE || "",
-    STATUS: item.STATUS || ""
+const CustomDropDown = (props, getPurposeList) => {
+  const { dataItem, field = '' } = props;
+
+  const value = dataItem[field] || "";
+
+  const handleMultiChange = (event) => {
+    const newVal = event.target.value;
+
+    if (props.onChange) {
+      props.onChange({
+        dataItem,
+        field,
+        syntheticEvent: event,
+        value: newVal || "",
+      });
+    }
   };
-});
 
-
-setData(InsertSupportingDetailData || []);
+  return (
+    <td className="purpose-dropdown">
+      <Select
+        className="supp-inputSelect-Box"
+        value={value}
+        title={value}
+        sx={{ fontSize: '14px', backgroundColor: '#FFFFFF' }}
+        input={<OutlinedInput />}
+        onChange={handleMultiChange}
+        disabled={dataItem.Disable}
+        renderValue={() => value || "No option selected"}
+      >
+        {getPurposeList?.map((option) => (
+          <MenuItem key={option.MasterId} value={option.MasterValue}>
+            <ListItemText primary={option.MasterValue} />
+          </MenuItem>
+        ))}
+      </Select>
+    </td>
+  );
+};
