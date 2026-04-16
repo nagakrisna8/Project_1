@@ -1,16 +1,11 @@
-useEffect(() => {
-  if (getPurposeList.length > 0 && getData.length > 0) {
-    setData(prev =>
-      prev.map(item => ({
-        ...item,
-        PURPOSE: item.PURPOSE || ""
-      }))
-    );
-  }
-}, [getPurposeList]);
+if (duplicateValue.length > 0) {
+  InsertSupportingDetailData[i].Disable = true;
 
-// ✅ ADD THIS BLOCK (after for-loop)
-InsertSupportingDetailData = InsertSupportingDetailData.map(item => ({
-  ...item,
-  PURPOSE: item.PURPOSE || ""
-}));
+  InsertSupportingDetailData[i].PURPOSE =
+    duplicateValue[0].Purpose ||
+    InsertSupportingDetailData[i].PURPOSE ||
+    "";
+} else {
+  InsertSupportingDetailData[i].PURPOSE =
+    InsertSupportingDetailData[i].PURPOSE || "";
+}
