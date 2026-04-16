@@ -1,15 +1,11 @@
 useEffect(() => {
-    if (getPurposeList.length > 0 && getRowWiseRefData?.Purpose) {
-        const matched = getPurposeList.find(
-            (item) => item.MasterValue === getRowWiseRefData.Purpose
-        );
-
-        setSelectedValue(matched || null);
-    }
-}, [getPurposeList, getRowWiseRefData]);
-
-
-isOptionEqualToValue={(option, value) =>
-        option.MasterValue === value.MasterValue
-    }
-
+  if (getPurposeList.length > 0 && selectedValue) {
+    getSearchData(
+      searchId || 0,
+      selectedValue,
+      dataState,
+      getPurposeList,
+      selectedItem
+    );
+  }
+}, [getPurposeList]);
