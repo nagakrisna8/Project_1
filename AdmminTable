@@ -1,11 +1,1 @@
-if (duplicateValue.length > 0) {
-  InsertSupportingDetailData[i].Disable = true;
-
-  InsertSupportingDetailData[i].PURPOSE =
-    duplicateValue[0].Purpose ||
-    InsertSupportingDetailData[i].PURPOSE ||
-    "";
-} else {
-  InsertSupportingDetailData[i].PURPOSE =
-    InsertSupportingDetailData[i].PURPOSE || "";
-}
+I had to attend to some urgent personal matters and was unable to inform you in advance. I sincerely apologize for the inconvenience caused.I will ensure better communication going forward and this will not be repeated.
