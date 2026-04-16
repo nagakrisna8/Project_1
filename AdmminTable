@@ -1,41 +1,15 @@
 useEffect(() => {
-    if (initializedRef.current) return;
+    if (getPurposeList.length > 0 && getRowWiseRefData?.Purpose) {
+        const matched = getPurposeList.find(
+            (item) => item.MasterValue === getRowWiseRefData.Purpose
+        );
 
-    if ((focalData as any)?.newFlag) {
-        if (userData && userData?.length > 0) {
-            const user = userData[0];
+        setSelectedValue(matched || null);
+    }
+}, [getPurposeList, getRowWiseRefData]);
 
-            const updatedData = {
-                id: user.Bemsid ?? 0,
-                name: user.Name ?? "",
-                address: "",
-                phone: String(user.Phone ?? ""),
-                email: user.Email ?? "",
-                position: "",
-                title: "",
-                isActive: user.ActiveFlag === "Y",
-                isBemsRecord: true
-            };
 
-            setFormData(updatedData);
-            onFormChange?.(updatedData);
-        } else {
-            const emptyData = {
-                id: 0,
-                name: "",
-                address: "",
-                phone: "",
-                email: "",
-                position: "",
-                title: "",
-                isActive: true,
-                isBemsRecord: false
-            };
-
-            setFormData(emptyData);
-            onFormChange?.(emptyData);
-        }
+isOptionEqualToValue={(option, value) =>
+        option.MasterValue === value.MasterValue
     }
 
-    initializedRef.current = true;
-}, [userData, focalData]);
