@@ -1,3 +1,11 @@
-useEffect(() => {
-  setInputValue(dataItem[field] || "");
-}, [dataItem, field]);
+const updatedData = (response.data.GridResult || []).map((item) => {
+  const existing = getData.find(d => d.DOCUMENTID === item.DOCUMENTID);
+
+  return {
+    ...item,
+    PURPOSE: item.PURPOSE ?? existing?.PURPOSE ?? "",
+    STATUS: item.STATUS ?? existing?.STATUS ?? ""
+  };
+});
+
+setData(updatedData);
