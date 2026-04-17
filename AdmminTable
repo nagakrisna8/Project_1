@@ -1,5 +1,5 @@
-else {
-  if (checkIsDCPresent.length > 0 && new CommonFunction().IsEASAReport() && selectedValue == 6) {
-    InsertSupportingDetailData[i].PURPOSE = InsertSupportingDetailData[i].PURPOSE || "";
-  }
-}
+ useEffect(() => {
+    if (dataItem && dataItem[field] !== undefined && dataItem[field] !== inputValue) {
+      setInputValue(dataItem[field]);
+    }
+  }, [dataItem[field]]);
