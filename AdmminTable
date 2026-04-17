@@ -1,8 +1,7 @@
-useEffect(() => {
-  const newValue = dataItem[field];
-
-  // ✅ only update if API gives valid value
-  if (newValue !== undefined && newValue !== null && newValue !== "") {
-    setInputValue(newValue);
-  }
-}, [dataItem, field]);
+getSearchData(
+  searchId,
+  getSelectedSourceName(dataSource) === "Others" ? 9 : dataSource,
+  dataState,
+  getPurposeList,
+  selectedItem
+);
