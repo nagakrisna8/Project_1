@@ -1,50 +1,6 @@
-const InsertOtherdata = (existingData: RefDocGridDetails | null = null) => {
-  const newdata: InsertSupportingDetails = {
-    FORMATTEDDOCNUMBER: "",
-    ATTACHMENTCOUNT: 0,
-    COLUMNINDEX: getRandomNegativeNumber(),
-    DOCUMENTCONTENT: "",
-    DOCUMENTID: getRandomNegativeNumber(),
-    DOCUMENTNUMBER: existingData ? existingData.DocumentNumber : "",
-    ESPECRELDATE: "",
-    GRREASON: "",
-    ITARFLAG: false,
-    NOTES: "",
-    PMDBPROJECTTITLE: "",
-    PROJECTNUMBER: "",
-    REVISIONDESC: "",
-    REVLEVEL: existingData ? existingData.RevLevel : "",
-    SOURCENAME: "",
-    TITLE: "",
-    DOCFILENAME: "",
-    SDRLSTATUS: "",
-    inEdit: true,
-    Disable: false,
-    DOCUMENTTITLE: existingData ? existingData.DocumentTitle : "",
-    SOURCE: existingData ? existingData.Source : "",
-    RefDocId: existingData ? existingData.RefDocId : 0,
-    PURPOSE: "",
-    STATUS: ""
-  };
+setData(prev => {
+  const manualRows = prev.filter(item => item.inEdit); // keep Add New row
+  const apiRows = response.data.GridResult || [];
 
-  // ✅ ADD THIS (replace existing setData logic)
-  setData(prev => [...prev, newdata]);
-
-  // ✅ ADD THIS (API call)
-  const dataSource =
-    getSelectedSourceName(selectedValue) === "Others" ? 9 : selectedValue;
-
-  getSearchData(
-    null,
-    dataSource,
-    dataState,
-    getPurposeList,
-    selectedItem
-  );
-
-  // KEEP EXISTING BELOW
-  InsertSupportingCheckedDetail.push(newdata);
-  const newSelectedState = { ...selectedState, [idGetter(newdata)]: true };
-  setSelectedState(newSelectedState);
-  setSelectedSupState(newSelectedState);
-};
+  return [...apiRows, ...manualRows];
+});
