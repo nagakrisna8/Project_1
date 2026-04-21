@@ -1,6 +1,20 @@
-setData(prev => {
-  const manualRows = prev.filter(item => item.inEdit); // keep Add New row
-  const apiRows = response.data.GridResult || [];
+.custom-select {
+  background-color: transparent !important;
 
-  return [...apiRows, ...manualRows];
-});
+  .MuiSelect-select {
+    background-color: transparent !important;
+  }
+
+  .MuiOutlinedInput-notchedOutline {
+    border: none !important;
+  }
+
+  &:hover .MuiOutlinedInput-notchedOutline {
+    border: none !important;
+  }
+
+  &.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border: none !important;
+  }
+}
+
