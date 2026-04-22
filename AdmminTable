@@ -1,87 +1,51 @@
- <Autocomplete
-                                                                                        multiple
-                                                                                        id={`orgtype-multi-${index}`}
-                                                                                        className="dropdowns gen-inputBox-height gen-custom-dropdown"
-                                                                                        options={ddtlOrganizationTypes || []}
-                                                                                        noOptionsText="No option available"
-                                                                                        disableCloseOnSelect
-                                                                                        openOnFocus
-                                                                                        getOptionLabel={(opt: orgtype) => opt.OrgType}
-                                                                                        value={
-                                                                                            Array.isArray(tab?.OrganizationTypeList)
-                                                                                                ? ddtlOrganizationTypes.filter(option =>
-                                                                                                    (tab.OrganizationTypeList ?? []).map((r: string) => r.trim()).includes(option.OrgType)
-                                                                                                )
-                                                                                                : []
-                                                                                        }
-                                                                                        onChange={(_event, selectedOptions) => {
-                                                                                            // selectedOptions is array of OrgType objects
-                                                                                            OrganizationTypeMultiSelectChange(index, selectedOptions as orgtype[] | null);
-                                                                                        }}
-                                                                                        disabled={disableField(false)}
-                                                                                        renderTags={(value: orgtype[]) => {
-                                                                                            const selected = value.map(v => v.OrgType).join(", ");
-                                                                                            return (
-                                                                                                <span
-                                                                                                    style={{
-                                                                                                        fontSize: "14px",
-                                                                                                        color: "#253746",
-                                                                                                        borderRadius: "4px",
-                                                                                                        whiteSpace: "nowrap",
-                                                                                                        overflow: "hidden",
-                                                                                                        textOverflow: "ellipsis",
-                                                                                                    }}
-                                                                                                    title={selected}
-                                                                                                >
-                                                                                                    {selected.length === 0 ? "No options selected" : selected}
-                                                                                                </span>
-                                                                                            );
-                                                                                        }}
-                                                                                        sx={{
-                                                                                            "& .MuiOutlinedInput-root": { height: "32px" },
-                                                                                            "& .MuiAutocomplete-inputRoot": { flexWrap: "initial" },
-                                                                                        }}
-                                                                                        renderOption={(props, option: orgtype, { selected }) => (
-                                                                                            <li
-                                                                                                {...props}
-                                                                                                style={{
-                                                                                                    padding: 0,
-                                                                                                    height: 32,
-                                                                                                    fontSize: "14px",
-                                                                                                    color: "#253746",
-                                                                                                    display: "flex",
-                                                                                                    alignItems: "center",
-                                                                                                }}
-                                                                                            >
-                                                                                                <Checkbox size="small" checked={selected} color="default" />
-                                                                                                <ListItemText
-                                                                                                    primary={option.OrgType}
-                                                                                                    primaryTypographyProps={{
-                                                                                                        fontSize: "14px",
-                                                                                                        color: "#253746",
-                                                                                                        fontWeight: "normal",
-                                                                                                        noWrap: true,
-                                                                                                        style: { overflow: "hidden", textOverflow: "ellipsis" },
-                                                                                                    }}
-                                                                                                    style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                                                                                                />
-                                                                                            </li>
-                                                                                        )}
-                                                                                        disablePortal
-                                                                                        componentsProps={{ paper: { style: { minWidth: "100%" } } }}
-                                                                                        renderInput={(params) => (
-                                                                                            <TextField {...params} InputProps={{ ...params.InputProps, inputProps: { ...params.inputProps } }} />
-                                                                                        )}
-                                                                                        ListboxProps={{
-                                                                                            sx: {
-                                                                                                "&& .Mui-selected": {
-                                                                                                    backgroundColor: "#EFF4FA",
-                                                                                                    padding: "0",
-                                                                                                    fontSize: 14,
-                                                                                                    color: "#253746",
-                                                                                                    fontWeight: "normal",
-                                                                                                },
-                                                                                                "& .MuiMenuItem-root.Mui-selected:hover": { backgroundColor: "#F5F5F5" },
-                                                                                            },
-                                                                                        }}
-                                                                                    />
+<Autocomplete<GetReasonCodeData>
+    multiple
+    options={getReasonList}
+    getOptionLabel={(opt) => opt.ReasonCode || ""}
+    forcePopupIcon={true}
+    disableCloseOnSelect
+    ListboxProps={{ sx: { fontSize: 14 } }}
+    id="txt_auto_reason"
+    value={
+        Array.isArray(selectedReason)
+            ? selectedReason
+            : []
+    }
+    onChange={(_event, newValue) => {
+        handleReasonChange(newValue as GetReasonCodeData[]);
+    }}
+    renderTags={(value) => {
+        const selected = value.map(v => v.ReasonCode).join(", ");
+        return (
+            <span
+                style={{
+                    fontSize: "14px",
+                    color: "#253746",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                }}
+                title={selected}
+            >
+                {selected || "Select Reason"}
+            </span>
+        );
+    }}
+    renderInput={(params) => (
+        <TextField
+            {...params}
+            size="small"
+            placeholder="Select Reason"
+            InputProps={{
+                ...params.InputProps,
+                style: { color: "#253746" }
+            }}
+        />
+    )}
+    renderOption={(props, item, { selected }) => (
+        <li {...props} key={item.ReasonCodeId}>
+            <Checkbox size="small" checked={selected} />
+            <ListItemText>{item.ReasonCode}</ListItemText>
+        </li>
+    )}
+/>
