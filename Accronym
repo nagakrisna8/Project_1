@@ -1,25 +1,10 @@
-const handleReasonChange = (newValue: GetReasonCodeData[]) => {
-    const updates: Partial<SupportingRowWiseDetails> = {};
-
-    setSelectedReason(newValue);
-
-    // ✅ convert multiple → string (same backend contract)
-    updates.ReasonCode = newValue.map(r => r.ReasonCode).join(",");
-
-    setRowWiseRefData((prev) => {
-        if (prev) {
-            return {
-                ...prev,
-                ...updates
-            };
-        }
-        return null;
-    });
-
-    storageService.setApplicationDataByKey(
-        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-        `IsTabDirty`,
-        true
-    );
-    setIsTabDirty(true);
-};
+sx={{
+  "& .MuiOutlinedInput-root": {
+    height: "32px",              // ✅ fix height
+    alignItems: "center"         // ✅ keep cursor centered
+  },
+  "& .MuiAutocomplete-inputRoot": {
+    flexWrap: "nowrap",          // 🔥 MAIN FIX
+    overflow: "hidden"
+  }
+}}
