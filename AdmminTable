@@ -3,10 +3,8 @@
     options={getReasonList}
     getOptionLabel={(opt) => opt.ReasonCode || ""}
     id="txt_auto_reason"
-    value={selectedReason || []}  // must be array
-    onChange={(event, newValue) => {
-        handleReasonChange(newValue); // update accordingly
-    }}
+    value={selectedReason || []}
+    onChange={(event, newValue) => handleReasonChange(newValue)}
     forcePopupIcon={true}
     ListboxProps={{ sx: { fontSize: 14 } }}
     renderInput={(params) => (
@@ -29,29 +27,10 @@
             />
         ))
     }
-    renderOption={(props, item) => (
-        <li
-            {...props}
-            key={item.ReasonCodeId}
-            style={{
-                height: 'auto',
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                color: "#253746",
-                padding: '2px 16px'
-            }}
-        >
+    renderOption={(props, item, { selected }) => (
+        <li {...props} key={item.ReasonCodeId}>
+            <Checkbox checked={selected} />
             <ListItemText>{item.ReasonCode}</ListItemText>
         </li>
     )}
 />
-
-
-
-
-
-const [selectedReason, setSelectedReason] = useState<GetReasonCodeData[]>([]);
-
-const handleReasonChange = (newValue: GetReasonCodeData[]) => {
-    setSelectedReason(newValue);
-};
