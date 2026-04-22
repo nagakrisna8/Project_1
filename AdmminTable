@@ -1,20 +1,24 @@
-.custom-select {
-  background-color: transparent !important;
-
-  .MuiSelect-select {
-    background-color: transparent !important;
-  }
-
-  .MuiOutlinedInput-notchedOutline {
-    border: none !important;
-  }
-
-  &:hover .MuiOutlinedInput-notchedOutline {
-    border: none !important;
-  }
-
-  &.Mui-focused .MuiOutlinedInput-notchedOutline {
-    border: none !important;
-  }
-}
-
+ <Autocomplete<GetReasonCodeData>
+                                            options={getReasonList}
+                                            getOptionLabel={(opt) => opt.ReasonCode || ""}
+                                            forcePopupIcon={true}
+                                            ListboxProps={{ sx: { fontSize: 14 } }}
+                                            id="txt_auto_reason"
+                                            value={selectedReason}
+                                            onChange={handleReasonChange}
+                                            //  disabled={props.headerData?.EditEnabledFlag == "N"}
+                                            renderInput={(params) => <TextField
+                                                {...params}
+                                                size="small"
+                                                placeholder={'Select Reason'}
+                                                InputProps={{
+                                                    ...params.InputProps,
+                                                    style: { color: "#253746" }
+                                                }}
+                                            />}
+                                            renderOption={(props, item) => (
+                                                <li {...props} key={item.ReasonCodeId} style={{ height: 'auto', whiteSpace: "normal", wordBreak: "break-word", color: "#253746", padding: '2px 16px' }}>
+                                                    <ListItemText>{item.ReasonCode}</ListItemText>
+                                                </li>
+                                            )}
+                                        />
