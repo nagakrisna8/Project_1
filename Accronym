@@ -1,3 +1,11 @@
-isOptionEqualToValue={(option, value) =>
-    option.ReasonCode === value.ReasonCode
-}
+useEffect(() => {
+    if (getReasonList.length > 0 && getRowWiseRefData?.ReasonCode) {
+        const reasonCodes = getRowWiseRefData.ReasonCode.split(",");
+
+        const selected = getReasonList.filter(r =>
+            reasonCodes.includes(r.ReasonCode)
+        );
+
+        setSelectedReason(selected);
+    }
+}, [getReasonList, getRowWiseRefData?.ReasonCode]);
