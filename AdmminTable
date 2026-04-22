@@ -1,16 +1,23 @@
-renderTags={(value, getTagProps) =>
-    value.map((option, index) => (
-        <span
-            {...getTagProps({ index })}   // 🔥 IMPORTANT
-            style={{
-                fontSize: "12px",
-                background: "#EFF4FA",
-                padding: "2px 6px",
-                borderRadius: "4px",
-                marginRight: "4px"
-            }}
-        >
-            {option.ReasonCode}
-        </span>
-    ))
-}
+renderTags={(value) => {
+  const labels = value.map(v => v.ReasonCode);
+
+  let displayText = "";
+
+  if (labels.length <= 2) {
+    displayText = labels.join(", ");
+  } else {
+    displayText = `${labels[0]}, ${labels[1]} +${labels.length - 2} more`;
+  }
+
+  return (
+    <span
+      style={{
+        width: "100%",
+        overflow: "hidden"
+      }}
+      title={labels.join(", ")} // full text on hover
+    >
+      {displayText}
+    </span>
+  );
+}}
