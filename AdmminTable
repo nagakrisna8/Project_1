@@ -1,51 +1,51 @@
-<Autocomplete<GetReasonCodeData>
-    multiple
-    options={getReasonList}
-    getOptionLabel={(opt) => opt.ReasonCode || ""}
-    forcePopupIcon={true}
-    disableCloseOnSelect
-    ListboxProps={{ sx: { fontSize: 14 } }}
-    id="txt_auto_reason"
-    value={
-        Array.isArray(selectedReason)
-            ? selectedReason
-            : []
-    }
-    onChange={(_event, newValue) => {
-        handleReasonChange(newValue as GetReasonCodeData[]);
-    }}
-    renderTags={(value) => {
-        const selected = value.map(v => v.ReasonCode).join(", ");
-        return (
-            <span
-                style={{
-                    fontSize: "14px",
-                    color: "#253746",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                }}
-                title={selected}
-            >
-                {selected || "Select Reason"}
-            </span>
-        );
-    }}
-    renderInput={(params) => (
-        <TextField
-            {...params}
-            size="small"
-            placeholder="Select Reason"
-            InputProps={{
-                ...params.InputProps,
-                style: { color: "#253746" }
-            }}
-        />
-    )}
-    renderOption={(props, item, { selected }) => (
-        <li {...props} key={item.ReasonCodeId}>
-            <Checkbox size="small" checked={selected} />
-            <ListItemText>{item.ReasonCode}</ListItemText>
-        </li>
-    )}
-/>
+  <Grid md={10} className="editSupportingContentLeft">
+                                        <Autocomplete
+                                            multiple
+                                            options={getReasonList}
+                                            getOptionLabel={(opt) => opt.ReasonCode || ""}
+                                            disableCloseOnSelect
+                                            openOnFocus
+                                            id="txt_auto_reason"
+                                            value={
+                                                Array.isArray(selectedReason)
+                                                    ? selectedReason
+                                                    : []
+                                            }
+                                            onChange={(_event, newValue) => {
+                                                handleReasonChange(newValue as GetReasonCodeData[]);
+                                            }}
+                                            renderTags={(value) => {
+                                                const selected = value.map(v => v.ReasonCode).join(", ");
+                                                return (
+                                                    <span
+                                                        style={{
+                                                            fontSize: "14px",
+                                                            color: "#253746",
+                                                            whiteSpace: "nowrap",
+                                                            overflow: "hidden",
+                                                            textOverflow: "ellipsis",
+                                                        }}
+                                                        title={selected}
+                                                    >
+                                                        {selected || "Select Reason"}
+                                                    </span>
+                                                );
+                                            }}
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    size="small"
+                                                    InputProps={{
+                                                        ...params.InputProps,
+                                                        style: { color: "#253746" }
+                                                    }}
+                                                />
+                                            )}
+                                            renderOption={(props, item, { selected }) => (
+                                                <li {...props} key={item.ReasonCodeId}>
+                                                    <Checkbox size="small" checked={selected} />
+                                                    <ListItemText>{item.ReasonCode}</ListItemText>
+                                                </li>
+                                            )}
+                                        />
+                                    </Grid>
