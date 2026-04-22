@@ -1,70 +1,77 @@
- <Autocomplete
-                                            multiple
-                                            options={getReasonList}
-                                            getOptionLabel={(opt) => opt.ReasonCode || ""}
-                                            disableCloseOnSelect
-                                            openOnFocus
-                                            isOptionEqualToValue={(option, value) =>
-                                                option.ReasonCode === value.ReasonCode
-                                            }
-                                            id="txt_auto_reason"
-                                            sx={{
-                                                "& .MuiOutlinedInput-root": {
-                                                    height: "32px",
-                                                    alignItems: "center"
-                                                },
-                                                "& .MuiAutocomplete-inputRoot": {
-                                                    flexWrap: "nowrap",
-                                                    overflow: "hidden"
-                                                },
-                                                "& .MuiAutocomplete-input": {
-                                                    width: "0px !important",
-                                                    minWidth: "0px !important"
-                                                },
-                                                "& .MuiAutocomplete-endAdornment": {
-                                                    right: "8px"
-                                                }
-                                            }}
-                                            value={
-                                                Array.isArray(selectedReason)
-                                                    ? selectedReason
-                                                    : []
-                                            }
-                                            onChange={(_event, newValue) => {
-                                                handleReasonChange(newValue as GetReasonCodeData[]);
-                                            }}
-                                            renderTags={(value) => {
-                                                const selected = value.map(v => v.ReasonCode).join(", ");
-                                                return (
-                                                    <span
-                                                        style={{
-                                                            fontSize: "14px",
-                                                            color: "#253746",
-                                                            whiteSpace: "nowrap",
-                                                            overflow: "hidden",
-                                                            textOverflow: "ellipsis",
-                                                        }}
-                                                        title={selected}
-                                                    >
-                                                        {selected || "Select Reason"}
-                                                    </span>
-                                                );
-                                            }}
-                                            renderInput={(params) => (
-                                                <TextField
-                                                    {...params}
-                                                    size="small"
-                                                    InputProps={{
-                                                        ...params.InputProps,
-                                                        readOnly:true,
-                                                        style: { color: "#253746" }
-                                                    }}
-                                                />
-                                            )}
-                                            renderOption={(props, item, { selected }) => (
-                                                <li {...props} key={item.ReasonCodeId}>
-                                                    <Checkbox size="small" checked={selected} />
-                                                    <ListItemText>{item.ReasonCode}</ListItemText>
-                                                </li>
-                                            )}
-                                        />
+<Autocomplete<GetReasonCodeData>
+    multiple
+    options={getReasonList}
+    getOptionLabel={(opt) => opt.ReasonCode || ""}
+    disableCloseOnSelect
+    openOnFocus
+    isOptionEqualToValue={(option, value) =>
+        option.ReasonCode === value.ReasonCode
+    }
+    id="txt_auto_reason"
+
+    sx={{
+        "& .MuiOutlinedInput-root": {
+            minHeight: "32px",
+            alignItems: "flex-start"   // ✅ supports wrapping
+        },
+        "& .MuiAutocomplete-inputRoot": {
+            flexWrap: "wrap"           // ✅ allow wrapping
+        },
+        "& .MuiAutocomplete-endAdornment": {
+            right: "8px"
+        }
+    }}
+
+    value={Array.isArray(selectedReason) ? selectedReason : []}
+
+    onChange={(_event, newValue) => {
+        handleReasonChange(newValue as GetReasonCodeData[]);
+    }}
+
+    renderTags={(value) => (
+        <div
+            style={{
+                display: "flex",
+                flexWrap: "wrap",      // ✅ wrap values
+                gap: "4px",
+                maxHeight: "60px",     // optional scroll control
+                overflowY: "auto"
+            }}
+        >
+            {value.map((v, i) => (
+                <span
+                    key={i}
+                    style={{
+                        fontSize: "12px",
+                        background: "#EFF4FA",
+                        padding: "2px 6px",
+                        borderRadius: "4px",
+                        whiteSpace: "normal",
+                        wordBreak: "break-word"
+                    }}
+                >
+                    {v.ReasonCode}
+                </span>
+            ))}
+        </div>
+    )}
+
+    renderInput={(params) => (
+        <TextField
+            {...params}
+            size="small"
+            placeholder="Select Reason"
+            InputProps={{
+                ...params.InputProps,
+                style: { color: "#253746" }
+            }}
+        />
+    )}
+
+    renderOption={(props, item, { selected }) => (
+        <li {...props} key={item.ReasonCodeId}>
+            <Checkbox size="small" checked={selected} />
+            <ListItemText>{item.ReasonCode}</ListItemText>
+        </li>
+    )}
+/>
