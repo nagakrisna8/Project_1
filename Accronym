@@ -1,92 +1,11 @@
- <Grid item xs={8} className='grid-item-spacing' style={{ display: 'flex' }}>
-                            <Grid item md={12}>
-                                <Grid md={12} style={{ display: 'flex' }}>
-                                    <label>Reason Code</label>
-                                </Grid>
-                                <Grid md={12} style={{ display: 'flex' }}>
-                                    {/* <Grid md={11} className="editSupportingContentLeft"> */}
-                                    <Grid md={10} className="editSupportingContentLeft">
-                                        <Autocomplete
-                                            multiple
-                                            options={getReasonList}
-                                            getOptionLabel={(opt) => opt.ReasonCode || ""}
-                                            disableCloseOnSelect
-                                            openOnFocus
-                                            isOptionEqualToValue={(option, value) =>
-                                                option.ReasonCode === value.ReasonCode
-                                            }
-                                            id="txt_auto_reason"
-                                            className="ReasonCode_Multi_Select_dropdown"
-                                            value={
-                                                Array.isArray(selectedReason)
-                                                    ? selectedReason
-                                                    : []
-                                            }
-                                            onChange={(_event, newValue) => {
-                                                handleReasonChange(newValue as GetReasonCodeData[]);
-                                            }}
-                                            renderTags={(value) => {
-                                                const selected = value.map(v => v.ReasonCode).join(", ");
-                                                return (
-                                                    <span
-                                                        style={{
-                                                            display:"block",
-                                                            width:"100%",
-                                                            fontSize: "14px",
-                                                            color: "#253746",
-                                                            whiteSpace: "nowrap",
-                                                            overflow: "hidden",
-                                                            textOverflow: "ellipsis",
-                                                        }}
-                                                        title={selected}
-                                                    >
-                                                        {selected || "Select Reason"}
-                                                    </span>
-                                                );
-                                            }}                                        
-                                            renderInput={(params) => (
-                                                <TextField
-                                                    {...params}
-                                                    size="small"
-                                                    placeholder={'Select Reason'}
-                                                    InputProps={{
-                                                        ...params.InputProps,
-                                                        readOnly: true,
-                                                        style: { color: "#253746" }
-                                                    }}
-                                                />
-                                            )}
-                                            renderOption={(props, item, { selected }) => (
-                                                <li {...props} key={item.ReasonCodeId}
-                                                    style={{
-                                                        padding: 0,
-                                                        height: 42,
-                                                        fontSize: "14px",
-                                                        color: "#253746",
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                    }}>
-                                                    <Checkbox size="small" checked={selected} />
-                                                    <ListItemText>{item.ReasonCode}</ListItemText>
-                                                </li>
-                                            )}
-                                        />
-                                    </Grid>
-                                    {/* </Grid> */}
-                                    <Grid item md={2} className="manageSupportingComment">
-                                        <Badge
-                                            id="badge2"
-                                            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                            style={{ color: '#737373' }}
-                                            badgeContent={getCommentCount('Reason')}
-                                            color={handleCommentStatus('Reason')}
-                                        >
-                                            <IconButton onClick={() => handleOpenHistoryPopup('Reason', 0, true)}>
-                                                <SpeakerNotesOutlinedIcon />
-                                            </IconButton>
-                                        </Badge>
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-                            {/* </Grid> */}
-                        </Grid>)
+<Grid
+  item
+  xs={12}
+  className='grid-item-spacing'
+  sx={{
+    display: 'flex',
+    flex: "0 0 68.75%",   // ✅ 8.25 / 12
+    maxWidth: "68.75%",
+    minWidth: 0           // ✅ important
+  }}
+>
