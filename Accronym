@@ -1,16 +1,3 @@
-sx={{
-  "& .MuiOutlinedInput-root": {
-    height: "32px",
-    alignItems: "center"
-  },
-  "& .MuiAutocomplete-inputRoot": {
-    flexWrap: "nowrap",
-    overflow: "hidden"
-  },
-  "& .MuiAutocomplete-input": {
-    minWidth: "0px !important"  
-  },
-  "& .MuiAutocomplete-endAdornment": {
-    right: "8px"               
-  }
-}}
+isOptionEqualToValue={(option, value) =>
+    option.ReasonCode === value.ReasonCode
+}
