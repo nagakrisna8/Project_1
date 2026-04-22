@@ -1,24 +1,57 @@
- <Autocomplete<GetReasonCodeData>
-                                            options={getReasonList}
-                                            getOptionLabel={(opt) => opt.ReasonCode || ""}
-                                            forcePopupIcon={true}
-                                            ListboxProps={{ sx: { fontSize: 14 } }}
-                                            id="txt_auto_reason"
-                                            value={selectedReason}
-                                            onChange={handleReasonChange}
-                                            //  disabled={props.headerData?.EditEnabledFlag == "N"}
-                                            renderInput={(params) => <TextField
-                                                {...params}
-                                                size="small"
-                                                placeholder={'Select Reason'}
-                                                InputProps={{
-                                                    ...params.InputProps,
-                                                    style: { color: "#253746" }
-                                                }}
-                                            />}
-                                            renderOption={(props, item) => (
-                                                <li {...props} key={item.ReasonCodeId} style={{ height: 'auto', whiteSpace: "normal", wordBreak: "break-word", color: "#253746", padding: '2px 16px' }}>
-                                                    <ListItemText>{item.ReasonCode}</ListItemText>
-                                                </li>
-                                            )}
-                                        />
+<Autocomplete<GetReasonCodeData, true>
+    multiple
+    options={getReasonList}
+    getOptionLabel={(opt) => opt.ReasonCode || ""}
+    id="txt_auto_reason"
+    value={selectedReason || []}  // must be array
+    onChange={(event, newValue) => {
+        handleReasonChange(newValue); // update accordingly
+    }}
+    forcePopupIcon={true}
+    ListboxProps={{ sx: { fontSize: 14 } }}
+    renderInput={(params) => (
+        <TextField
+            {...params}
+            size="small"
+            placeholder="Select Reason"
+            InputProps={{
+                ...params.InputProps,
+                style: { color: "#253746" }
+            }}
+        />
+    )}
+    renderTags={(value, getTagProps) =>
+        value.map((option, index) => (
+            <Chip
+                label={option.ReasonCode}
+                {...getTagProps({ index })}
+                size="small"
+            />
+        ))
+    }
+    renderOption={(props, item) => (
+        <li
+            {...props}
+            key={item.ReasonCodeId}
+            style={{
+                height: 'auto',
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                color: "#253746",
+                padding: '2px 16px'
+            }}
+        >
+            <ListItemText>{item.ReasonCode}</ListItemText>
+        </li>
+    )}
+/>
+
+
+
+
+
+const [selectedReason, setSelectedReason] = useState<GetReasonCodeData[]>([]);
+
+const handleReasonChange = (newValue: GetReasonCodeData[]) => {
+    setSelectedReason(newValue);
+};
