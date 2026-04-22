@@ -1,23 +1,89 @@
-renderTags={(value) => {
-  const labels = value.map(v => v.ReasonCode);
+#manage-supporting-data {
+    p {
+        //margin: 0;
+        color: #253746;
+    }
 
-  let displayText = "";
+    label {
+        margin-bottom: 8px;
+    }
 
-  if (labels.length <= 2) {
-    displayText = labels.join(", ");
-  } else {
-    displayText = `${labels[0]}, ${labels[1]} +${labels.length - 2} more`;
+    .grid-item-spacing {
+        padding-top: 24px;
+    }
+
+    .buttonRows {
+        gap: 8px;
+    }
+    
+    #txt_auto_search_Doc_Number{
+        padding-left: 8px;
+    }
+
+    .editSupportingContent {
+        padding-bottom: 20px;
+        // overflow-x: hidden;
+
+        .k-editor .k-toolbar .k-button-group:first-child {
+            margin-left: 4px;
+        }
+        .k-editor .k-toolbar .k-button-group>.k-button:first-child:not(:only-child) {
+            margin-left: 4px !important;
+        }
+        .k-editor .k-toolbar .k-button-group {
+            margin-right: 4px !important;
+        }
+    }
+
+    .MuiInputBase-formControl .MuiInputBase-input {
+        padding: 6.5px 14px;
+    }
+    .editSupportingContentLeft {
+        max-width: 90%;
+        flex-basis: 90%;
+    }
+    .manageSupportingComment {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        //max-width: 5%;
+        flex-basis: 5%;
+        padding: 5px 2px;
+    }
+
+    .manageSupportingComment button {
+        padding-right: 14px;
+        padding-top: 0px;
+        svg {
+            margin-top: -2px;
+        }
+    }
+    .MuiInputBase-multiline {
+        padding: 4.5px 0;
+        height:32px;
+    }   
+    .MuiSelect-select.Mui-disabled {
+        padding: 6.5px 14px !important;
+    }
+.ReasonCode_Multi_Select_dropdown {
+  .MuiOutlinedInput-root {
+    height: 32px;
+    align-items: center;
   }
 
-  return (
-    <span
-      style={{
-        width: "100%",
-        overflow: "hidden"
-      }}
-      title={labels.join(", ")} // full text on hover
-    >
-      {displayText}
-    </span>
-  );
-}}
+  .MuiAutocomplete-inputRoot {
+    flex-wrap: nowrap !important;
+    overflow: hidden;
+  }
+
+  .MuiAutocomplete-input {
+    width: 0 !important;
+    min-width: 0 !important;
+    flex-grow: 1;
+  }
+
+  .MuiAutocomplete-endAdornment {
+    right: 8px;
+  }
+   }
+}
