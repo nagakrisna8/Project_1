@@ -1,36 +1,25 @@
-<Autocomplete<GetReasonCodeData, true>
-    multiple
-    options={getReasonList}
-    getOptionLabel={(opt) => opt.ReasonCode || ""}
-    id="txt_auto_reason"
-    value={selectedReason || []}
-    onChange={(event, newValue) => handleReasonChange(newValue)}
-    forcePopupIcon={true}
-    ListboxProps={{ sx: { fontSize: 14 } }}
-    renderInput={(params) => (
-        <TextField
-            {...params}
-            size="small"
-            placeholder="Select Reason"
-            InputProps={{
-                ...params.InputProps,
-                style: { color: "#253746" }
-            }}
-        />
-    )}
-    renderTags={(value, getTagProps) =>
-        value.map((option, index) => (
-            <Chip
-                label={option.ReasonCode}
-                {...getTagProps({ index })}
-                size="small"
-            />
-        ))
-    }
-    renderOption={(props, item, { selected }) => (
-        <li {...props} key={item.ReasonCodeId}>
-            <Checkbox checked={selected} />
-            <ListItemText>{item.ReasonCode}</ListItemText>
-        </li>
-    )}
-/>
+const handleReasonChange = (newValue: GetReasonCodeData[]) => {
+    setSelectedReason(newValue);
+
+    const updates: Partial<SupportingRowWiseDetails> = {};
+
+    // convert to comma-separated string (IMPORTANT)
+    updates.ReasonCode = newValue.map(r => r.ReasonCode).join(",");
+
+    setRowWiseRefData((prev) => {
+        if (prev) {
+            return {
+                ...prev,
+                ...updates
+            };
+        }
+        return null;
+    });
+
+    storageService.setApplicationDataByKey(
+        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+        `IsTabDirty`,
+        true
+    );
+    setIsTabDirty(true);
+};
