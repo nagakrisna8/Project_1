@@ -1,10 +1,16 @@
 sx={{
   "& .MuiOutlinedInput-root": {
-    height: "32px",              // ✅ fix height
-    alignItems: "center"         // ✅ keep cursor centered
+    height: "32px",
+    alignItems: "center"
   },
   "& .MuiAutocomplete-inputRoot": {
-    flexWrap: "nowrap",          // 🔥 MAIN FIX
+    flexWrap: "nowrap",
     overflow: "hidden"
+  },
+  "& .MuiAutocomplete-input": {
+    minWidth: "0px !important"  
+  },
+  "& .MuiAutocomplete-endAdornment": {
+    right: "8px"               
   }
 }}
