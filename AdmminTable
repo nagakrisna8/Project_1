@@ -1,12 +1,21 @@
-if (!csrHeaderData[0]?.OrganizationTypeList || csrHeaderData[0].OrganizationTypeList.length === 0) {
-    newErrors.OrganizationType = "* Organization type is required";
-    validationFlag = false;
-} else {
-    newErrors.OrganizationType = "";
-}
+const template = selectedTemplate?.TemplateTitle;
 
-{errors.OrganizationType && (
-    <div style={{ color: "red", fontSize: "12px", marginTop: "4px" }}>
-        {errors.OrganizationType}
-    </div>
-)}
+// ✅ Only for DDTL / DQN
+if (template === ReportType.DDTL || template === ReportType.DQN) {
+
+    // Organization Name
+    if (!csrHeaderData[0]?.SupplierName?.trim()) {
+        newErrors.SupplierName = "* Organization name is required";
+        validationFlag = false;
+    } else {
+        newErrors.SupplierName = "";
+    }
+
+    // Organization Type (multi checkbox)
+    if (!csrHeaderData[0]?.OrganizationTypeList?.length) {
+        newErrors.OrganizationType = "* Organization type is required";
+        validationFlag = false;
+    } else {
+        newErrors.OrganizationType = "";
+    }
+}
