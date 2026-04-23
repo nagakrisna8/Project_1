@@ -1,23 +1,14 @@
-renderTags={(value) => {
-  const labels = value.map(v => v.ReasonCode);
+useEffect(() => {
+  if (getReasonList.length > 0 && getRowWiseRefData?.ReasonCode) {
 
-  let displayText = "";
+    const reasonCodes = getRowWiseRefData.ReasonCode
+      .split(",")
+      .map(code => code.trim());
 
-  if (labels.length <= 2) {
-    displayText = labels.join(", ");
-  } else {
-    displayText = `${labels[0]}, ${labels[1]} +${labels.length - 2} more`;
+    const selected = getReasonList.filter(r =>
+      reasonCodes.includes(r.ReasonCode?.trim())
+    );
+
+    setSelectedReason(selected);
   }
-
-  return (
-    <span
-      style={{
-        width: "100%",
-        overflow: "hidden"
-      }}
-      title={labels.join(", ")} // full text on hover
-    >
-      {displayText}
-    </span>
-  );
-}}
+}, [getReasonList, getRowWiseRefData?.ReasonCode]);
