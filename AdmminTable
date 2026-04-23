@@ -1,14 +1,8 @@
-useEffect(() => {
-  if (getReasonList.length > 0 && getRowWiseRefData?.ReasonCode) {
 
-    const reasonCodes = getRowWiseRefData.ReasonCode
-      .split(",")
-      .map(code => code.trim());
-
-    const selected = getReasonList.filter(r =>
-      reasonCodes.includes(r.ReasonCode?.trim())
-    );
-
-    setSelectedReason(selected);
-  }
-}, [getReasonList, getRowWiseRefData?.ReasonCode]);
+                if (!csrHeaderData[0].SupplierName?.trim()) {
+                    newErrors.SupplierName = "* Organization name is required"; // ✅ changed message
+                    validationFlag = validationFlag && false;
+                } else {
+                    newErrors.SupplierName = "";
+                    validationFlag = validationFlag && true;
+                }
