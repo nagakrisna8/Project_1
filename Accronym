@@ -1,4 +1,4 @@
-// Step 1: go to list page
+// Step 1: navigate to list page
 singleSpa.navigateToUrl(
   WorkAppRoutes.FIND_CSR.APP_ROUTE +
   "/#" +
@@ -7,10 +7,13 @@ singleSpa.navigateToUrl(
     .replace(":registerId", projectRegisterId)
 );
 
-// Step 2: auto click create new
+// Step 2: trigger Create New button
 setTimeout(() => {
-  const btn = document.querySelector('[data-testid="create-new-btn"]');
+  const btn = document.getElementById("createNewBtn"); // 👈 your actual id
+
   if (btn) {
-    (btn as HTMLElement).click();
+    btn.click();
+  } else {
+    console.warn("Create New button not found");
   }
-}, 300);
+}, 400);
