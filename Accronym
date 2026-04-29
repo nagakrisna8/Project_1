@@ -1,16 +1,31 @@
-(() => {
-  const observer = new MutationObserver(() => {
-    const btn = document.getElementById("createNewBtn");
+singleSpa.navigateToUrl(
+  WorkAppRoutes.FIND_CSR.APP_ROUTE +
+  "/#" +
+  WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH
+    .replace(":groupId", groupId)
+    .replace(":registerId", projectRegisterId)
+);
+
+// wait + reliably click
+setTimeout(() => {
+
+  let attempts = 0;
+
+  const interval = setInterval(() => {
+    const btn = document.getElementById("createBtn");
 
     if (btn) {
-      console.log("Found button");
+      console.log("Create button found ✅");
       btn.click();
-      observer.disconnect();
+      clearInterval(interval);
     }
-  });
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
-})();
+    attempts++;
+    if (attempts > 25) { // ~5 seconds
+      clearInterval(interval);
+      console.warn("Create button NOT found ❌");
+    }
+
+  }, 200);
+
+}, 1000);
