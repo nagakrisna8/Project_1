@@ -1,8 +1,16 @@
+// Step 1: go to list page
 singleSpa.navigateToUrl(
   WorkAppRoutes.FIND_CSR.APP_ROUTE +
-  "/#/csr-report/" +
-  groupId +
-  "/" +
-  projectRegisterId +
-  "/0/tab/-1"
+  "/#" +
+  WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH
+    .replace(":groupId", groupId)
+    .replace(":registerId", projectRegisterId)
 );
+
+// Step 2: auto click create new
+setTimeout(() => {
+  const btn = document.querySelector('[data-testid="create-new-btn"]');
+  if (btn) {
+    (btn as HTMLElement).click();
+  }
+}, 300);
