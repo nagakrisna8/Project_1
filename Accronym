@@ -1,11 +1,16 @@
-const observer = new MutationObserver(() => {
-  const btn = document.getElementById("createNewBtn");
-  if (btn) {
-    console.log("Button appeared!", btn);
-  }
-});
+(() => {
+  const observer = new MutationObserver(() => {
+    const btn = document.getElementById("createNewBtn");
 
-observer.observe(document.body, {
-  childList: true,
-  subtree: true
-});
+    if (btn) {
+      console.log("Found button");
+      btn.click();
+      observer.disconnect();
+    }
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+})();
