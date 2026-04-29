@@ -1,14 +1,11 @@
 const observer = new MutationObserver(() => {
-  const btn = document.getElementById("createNewBtn"); // 👈 your real id
-
+  const btn = document.getElementById("createNewBtn");
   if (btn) {
-    btn.click();
-    observer.disconnect(); // stop observing
+    console.log("Button appeared!", btn);
   }
 });
 
-// start observing whole DOM
 observer.observe(document.body, {
   childList: true,
-  subtree: true,
+  subtree: true
 });
