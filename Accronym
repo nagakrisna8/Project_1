@@ -1,19 +1,14 @@
-// Step 1: navigate to list page
-singleSpa.navigateToUrl(
-  WorkAppRoutes.FIND_CSR.APP_ROUTE +
-  "/#" +
-  WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH
-    .replace(":groupId", groupId)
-    .replace(":registerId", projectRegisterId)
-);
-
-// Step 2: trigger Create New button
-setTimeout(() => {
-  const btn = document.getElementById("createNewBtn"); // 👈 your actual id
+const observer = new MutationObserver(() => {
+  const btn = document.getElementById("createNewBtn"); // 👈 your real id
 
   if (btn) {
     btn.click();
-  } else {
-    console.warn("Create New button not found");
+    observer.disconnect(); // stop observing
   }
-}, 400);
+});
+
+// start observing whole DOM
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
