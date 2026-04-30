@@ -1,31 +1,11 @@
-singleSpa.navigateToUrl(
-  WorkAppRoutes.FIND_CSR.APP_ROUTE +
-  "/#" +
-  WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH
-    .replace(":groupId", groupId)
-    .replace(":registerId", projectRegisterId)
+const storageService = new StorageService();
+
+const reportTemplate = storageService.getApplicationDataByKey(
+    `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`,
+    "reportTemplate"
 );
 
-// wait + reliably click
-setTimeout(() => {
+templateIdDetail = reportTemplate?.TemplateId;
+groupIdDetail = reportTemplate?.GroupId;
 
-  let attempts = 0;
-
-  const interval = setInterval(() => {
-    const btn = document.getElementById("createBtn");
-
-    if (btn) {
-      console.log("Create button found ✅");
-      btn.click();
-      clearInterval(interval);
-    }
-
-    attempts++;
-    if (attempts > 25) { // ~5 seconds
-      clearInterval(interval);
-      console.warn("Create button NOT found ❌");
-    }
-
-  }, 200);
-
-}, 1000);
+if (!templateIdDetail) return "";
