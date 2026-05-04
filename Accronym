@@ -871,12 +871,11 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
     };
 
     const fectReportNumberData = async () => {
-        const storageService = new StorageService();
-        const reportTemplate = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,"reportTemplate");
-        templateIdDetail = reportTemplate?.TemplateId;
-        groupIdDetail = reportTemplate?.GroupId;
-        if (!templateIdDetail) return "";
-        console.log(templateIdDetail,reportTemplate,storageService,'templateIdDetail');
+        // const storageService = new StorageService();
+        // const reportTemplate = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,"reportTemplate");
+        // templateIdDetail = reportTemplate?.TemplateId;
+        // groupIdDetail = reportTemplate?.GroupId;
+        // if (!templateIdDetail) return "";
         if (!isTemplateHandleFlag) {
             await fetchTemplatesForGroup(groupIdDetail);
         }
