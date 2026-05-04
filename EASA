@@ -1,4 +1,43 @@
-.k-editor .ProseMirror table td,
-.k-editor .ProseMirror table th {
-  border: unset !important;
-}
+storageServ.setApplicationDataByKey(
+  `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`,
+  "selectedTemplateId",
+  templateId
+);
+
+storageServ.setApplicationDataByKey(
+  `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`,
+  "selectedGroupId",
+  groupId
+);
+
+
+useEffect(() => {
+  const templateId = storageService.getApplicationDataByKey(
+    `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+    "selectedTemplateId"
+  );
+
+  const groupId = storageService.getApplicationDataByKey(
+    `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+    "selectedGroupId"
+  );
+
+  if (groupId) {
+    setSelectedReportGroup({ GroupId: groupId } as any);
+  }
+
+  if (templateId && groupTemplates.length > 0) {
+    const matchedTemplate = groupTemplates.find(
+      (t) => t.TemplateId === templateId
+    );
+
+    if (matchedTemplate) {
+      setSelectedTemplate(matchedTemplate);
+    }
+  }
+}, [groupTemplates]);
+useEffect(() => {
+  if (selectedReportGroup?.GroupId) {
+    fetchTemplatesForGroup(selectedReportGroup.GroupId);
+  }
+}, [selectedReportGroup]);
