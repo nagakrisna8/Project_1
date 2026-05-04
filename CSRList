@@ -1,13 +1,10 @@
 useEffect(() => {
-    if (selectedTemplate && Object.keys(selectedTemplate).length > 0) {
-        const storageService = new StorageService();
+  const template = storageService.getApplicationDataByKey(
+    `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+    "ReportTemplate"
+  );
 
-        storageService.setApplicationDataByKey(
-            `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-            "reportTemplate",
-            selectedTemplate   // ✅ FULL OBJECT stored
-        );
-
-        console.log("✅ Stored FULL reportTemplate:", selectedTemplate);
-    }
-}, [selectedTemplate]);
+  if (template) {
+    setSelectedTemplate(template);
+  }
+}, []);
