@@ -1,43 +1,135 @@
-storageServ.setApplicationDataByKey(
-  `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`,
-  "selectedTemplateId",
-  templateId
-);
-
-storageServ.setApplicationDataByKey(
-  `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`,
-  "selectedGroupId",
-  groupId
-);
-
-
-useEffect(() => {
-  const templateId = storageService.getApplicationDataByKey(
-    `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-    "selectedTemplateId"
-  );
-
-  const groupId = storageService.getApplicationDataByKey(
-    `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-    "selectedGroupId"
-  );
-
-  if (groupId) {
-    setSelectedReportGroup({ GroupId: groupId } as any);
-  }
-
-  if (templateId && groupTemplates.length > 0) {
-    const matchedTemplate = groupTemplates.find(
-      (t) => t.TemplateId === templateId
-    );
-
-    if (matchedTemplate) {
-      setSelectedTemplate(matchedTemplate);
+[
+    {
+        "RPT_ID": null,
+        "REPORT_TYPE": null,
+        "PROJECT_ID": "00338",
+        "ProjectNumber": null,
+        "DOCUMENT_NUMBER": "00338-A-AFM-001",
+        "EnvelopeId": null,
+        "DOCUMENT_NAME": "Doc_Test",
+        "RELEASE_DATE": null,
+        "RELEASE_DATE_SORT": null,
+        "AUTHOR": null,
+        "MODEL": "737-900ER",
+        "ModelList": [
+            "737-900ER"
+        ],
+        "STATE": null,
+        "STATUS": null,
+        "CERTIFICATION": "",
+        "CERT_TYPE": "",
+        "ECCN": "9E991",
+        "ECCNList": [
+            "9E991"
+        ],
+        "SubSystems": "174",
+        "SubSystemsList": [
+            "EASA Sub System"
+        ],
+        "CONTENT_OWNER": null,
+        "ContentOwnerList": [
+            "EMM AP&S Electrical (76-PE-5579)",
+            "Avionics Electrical (76-PE-5549)",
+            "Connectivity Electrical (76-PE-5539)",
+            "Electrical Sys-Interiors  (76-PE-5519)",
+            "Elec E-UM / Subsystem (76-PE-5535) "
+        ],
+        "CHANGE_DESCRIPTION": null,
+        "REVISION": "NEW",
+        "ActiveFlag": null,
+        "NEW_REVNAME": null,
+        "PARENT_RPT_ID": 0,
+        "CreatedBy": null,
+        "CreatedByName": null,
+        "CreationDate": null,
+        "CreationDateStr": null,
+        "ModifiedBy": null,
+        "ModifiedByName": null,
+        "ModificationDate": null,
+        "ModificationDateStr": null,
+        "RevCommentNumber": 0,
+        "RevCommentResolveStatus": 0,
+        "UsrDescription": null,
+        "CurrentState": null,
+        "PendingWith": null,
+        "HasApproved": null,
+        "BemsId": 0,
+        "PendingWithBemsId": [],
+        "SelectedBU": null,
+        "SelectedDiscipline": null,
+        "DisciplineId": null,
+        "DisciplineTitle": null,
+        "BusinessUnitId": null,
+        "BusinessUnitTitle": null,
+        "GroupId": 19,
+        "TemplateId": 19,
+        "TemplateTitle": "Classification Record",
+        "ControlVisibilityDtls": [],
+        "DefaultRefDocTypeList": [],
+        "fAAReportFlag": null,
+        "ProjectRegisterId": 1589,
+        "FixedTableRefCodeFlag": false,
+        "FixedTableRegCodeFlag": false,
+        "WorkFlowCycle": 0,
+        "WorkFlowStep": 0,
+        "WorkFlowId": 0,
+        "AuthorBemsId": 0,
+        "WFButtonTitle": null,
+        "EditEnabledFlag": null,
+        "SignEnabledFlag": null,
+        "CommentEnabledFlag": null,
+        "ReportDescription": "This report demonstrates compliance to relevant sections of XXXX for the Airworthiness introduced to test.",
+        "ConfirmationMsg": null,
+        "SupplierName": "",
+        "AssessmentRef": "",
+        "MRO_Name": "",
+        "MOA_Number": "",
+        "MasterType": null,
+        "DrawingFile": null,
+        "DrawingFileName": null,
+        "FirstUsedOn": null,
+        "ATASubsystem": null,
+        "DrawingType": null,
+        "SupplierDescription": null,
+        "AuditDtStatus": null,
+        "SupplierStatus": null,
+        "ApprovedBy": null,
+        "AuditOutcome": null,
+        "AuditDate": null,
+        "NextAuditDate": null,
+        "AssessmentType": null,
+        "ScaStatus": null,
+        "SupplierActivity": null,
+        "SupplierCategory": null,
+        "SupplierActivityAuthorisedList": null,
+        "SupplierCategoryList": null,
+        "SupplierCapabilitesList": null,
+        "SupplierCapabilities": null,
+        "SupplierAuditType": null,
+        "MroDate": null,
+        "IsEasaRegister": false,
+        "OrganizationType": null,
+        "OrganizationTypeList": [],
+        "ProjectTitle": null,
+        "AircraftType": null,
+        "TemplateVersion": null,
+        "ShowButtonFlag": null,
+        "AllFocalSignedFlag": null,
+        "ResequenceSectionFlag": null,
+        "SignatureStatus": {},
+        "Designation": null,
+        "MinorRevision": null,
+        "Workapp": null,
+        "RevisionOperator": null,
+        "PendingWithUserDtl": null,
+        "DDTLReference": null,
+        "FlammabiltyDescription": null,
+        "FlammabilityId": null,
+        "ArrangementReferenceList": [],
+        "ArrangementReference": null,
+        "FocalRecipientList": [],
+        "FocalRecipient": null,
+        "DefaultSubDocTypeList": [],
+        "DuplicateFlag": "N"
     }
-  }
-}, [groupTemplates]);
-useEffect(() => {
-  if (selectedReportGroup?.GroupId) {
-    fetchTemplatesForGroup(selectedReportGroup.GroupId);
-  }
-}, [selectedReportGroup]);
+]
