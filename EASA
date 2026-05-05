@@ -4,3 +4,10 @@ storageServ.setApplicationDataByKey(
   "isFromNavigation",
   isFromNavigation
 );
+
+
+
+const isFromNavigation = storageService.getApplicationDataByKey(
+  `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+  "isFromNavigation"
+);
