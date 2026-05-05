@@ -1,3 +1,68 @@
+ else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CCL_CSR_Create_New_Navigation") {
+        let projectRegisterId = tempWorkAppData["Detail"]["projectRegisterId"];
+        let groupId = tempWorkAppData["Detail"]["groupId"];
+        const templateName = tempWorkAppData["Detail"]["templateName"];
+        let templateId = tempWorkAppData["Detail"]["templateId"];
+        let storageServ = new StorageService();
+        const reportTemplate = {
+            "TemplateId": templateId,
+            "GroupId": groupId,
+            "TemplateTitle": templateName,
+            "MasterType": templateName,
+            "TempVersion": "0",
+            "DocFormat": "BIL-XXXXX-M-CCN-nnn",
+            "TemplateSequence": 0,
+            "ItarFlag": "N",
+            "DocFormatWithProjNo": null,
+            "GroupDesc": null,
+            "Designation": "CCN"
+        };
+        const isFromNavigation = tempWorkAppData["Detail"]["isFromNavigation"];
+        storageServ.setApplicationDataByKey(
+            `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`,
+            "isFromNavigation",
+            isFromNavigation
+        );
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "reportTemplate", reportTemplate);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, 'selectedeasareporttype', templateName);
+        new easaMenuSubmenu().setMenuSectionVisibility(true);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', groupId);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+        const userTokenTemp = new UserToken();
+        userTokenTemp.setGroupBU(GroupBU.EASA);
+        singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + '0' + '/tab/' + '-1');
+    }
+}
+
+
+const navigateToCSRCreateNew = (templateName:string, templateId:number) => {
+    const storageServiceTemp = new StorageService();
+    const projectRegisterId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+    const groupId = 19;
+    let dataToShare = {
+        Action: "CCL_CSR_Create_New_Navigation",
+        Detail: {
+            projectRegisterId,
+            groupId,
+            templateName,
+            templateId,
+            isFromNavigation: true
+        }
+    };
+    let appDataEvent = new ShellEventRegister().getShellEvent();
+    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
+    window.dispatchEvent(appDataEvent);
+};
+export default function Overview() {
+    const { ccnData, cclData, cpData, refreshDrawerData } = useOutletContext<OverallDataContext>();
+    return (
+        <>
+            {
+                (!ccnData.status || ccnData.status === "") ?
+                    (<NoCCNExists />)
+
+
+
 import React, { useImperativeHandle, useEffect, useState, useRef } from "react";
 import Grid from "@mui/material/Grid";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -880,6 +945,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
             const reportTemplate = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, "reportTemplate");
             templateIdDetail = reportTemplate?.TemplateId;
             groupIdDetail = reportTemplate?.GroupId;
+            setSelectedTemplate({...reportTemplate});
             if (!templateIdDetail) return "";
         }
         if (!isTemplateHandleFlag) {
@@ -2599,6 +2665,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
                     newErrors.ReportGroup = "";
                     validationFlag = validationFlag && true;
                 }
+                console.log(csrHeaderData[0], 'csrHeaderData');
                 if (!csrHeaderData[0].TemplateTitle) {
                     newErrors.ReportTemplate = "* Report Type is required";
                     validationFlag = validationFlag && false;
