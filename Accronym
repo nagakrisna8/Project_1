@@ -1,1 +1,1 @@
-updatedCsrHeaderData[0].REPORT_TYPE = selectedTemplate?.TemplateTitle || "";
+ setErrors(prev => ({ ...prev, ReportType: "" }));
