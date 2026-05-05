@@ -1,6 +1,7 @@
-useEffect(() => {
-  if (isFromNavigation) {
-    const reportTemplate = storageService.getApplicationDataByKey(..., "reportTemplate");
-    setSelectedTemplate(reportTemplate);
+  if (reportTemplate?.GroupId) {
+    storageService.setApplicationDataByKey(
+      `${process.env.REACT_PARENT_APP_NAME}-Shell`,
+      "selectedgroup",
+      reportTemplate.GroupId
+    );
   }
-}, []);
