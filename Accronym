@@ -1,1 +1,6 @@
- setErrors(prev => ({ ...prev, ReportType: "" }));
+useEffect(() => {
+  if (isFromNavigation) {
+    const reportTemplate = storageService.getApplicationDataByKey(..., "reportTemplate");
+    setSelectedTemplate(reportTemplate);
+  }
+}, []);
