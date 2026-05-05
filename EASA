@@ -1,34 +1,51 @@
-useEffect(() => {
-  const templateId = storageService.getApplicationDataByKey(
-    `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-    "selectedTemplateId"
-  );
-
-  const groupId = storageService.getApplicationDataByKey(
-    `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-    "selectedGroupId"
-  );
-
-  // ✅ SET GROUP (with GroupTitle from API, no hardcoding)
-  if (groupId && defaultReportGroups?.length > 0) {
-    const matchedGroup = defaultReportGroups.find(
-      (g) => g.GroupId === groupId
-    );
-
-    if (matchedGroup) {
-      setSelectedReportGroup(matchedGroup);
+else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CCL_CSR_Create_New_Navigation") {
+        let projectRegisterId = tempWorkAppData["Detail"]["projectRegisterId"];
+        let groupId = tempWorkAppData["Detail"]["groupId"];
+        const templateName = tempWorkAppData["Detail"]["templateName"];
+        let templateId = tempWorkAppData["Detail"]["templateId"];
+        let storageServ = new StorageService();
+        const reportTemplate = {
+            "TemplateId": templateId,
+            "GroupId": groupId,
+            "TemplateTitle": templateName,
+            "MasterType": templateName,
+            "TempVersion": "0",
+            "DocFormat": "BIL-XXXXX-M-CCN-nnn",
+            "TemplateSequence": 0,
+            "ItarFlag": "N",
+            "DocFormatWithProjNo": null,
+            "GroupDesc": null,
+            "Designation": "CCN"
+        };
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "reportTemplate", reportTemplate);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, 'selectedeasareporttype', templateName);
+        new easaMenuSubmenu().setMenuSectionVisibility(true);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', groupId);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+        const userTokenTemp = new UserToken();
+        userTokenTemp.setGroupBU(GroupBU.EASA);
+        singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + '0' + '/tab/' + '-1');
     }
-  }
+}
 
-  // ✅ SET TEMPLATE (already correct)
-  if (templateId && groupTemplates?.length > 0) {
-    const matchedTemplate = groupTemplates.find(
-      (t) => t.TemplateId === templateId
-    );
 
-    if (matchedTemplate) {
-      setSelectedTemplate(matchedTemplate);
-    }
-  }
+const navigateToCSRCreateNew = (templateName:string, templateId:number) => {
+    const storageServiceTemp = new StorageService();
+    const projectRegisterId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+    const groupId = 19;
+    let dataToShare = {
+        Action: "CCL_CSR_Create_New_Navigation",
+        Detail: {
+            projectRegisterId,
+            groupId,
+            templateName,
+            templateId
+        }
+    };
+    let appDataEvent = new ShellEventRegister().getShellEvent();
+    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
+    window.dispatchEvent(appDataEvent);
+};
 
-}, [groupTemplates, defaultReportGroups]);
+
+
