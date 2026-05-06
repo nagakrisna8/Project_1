@@ -442,7 +442,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
         SupplierCapabilitesList: [],
         SupplierCapabilities: "",
         SupplierAuditType: "",
-        IsEasaRegister: false,
+        EasaRegisterFlag: false,
         OrganizationType: "",
         OrganizationTypeList: [],
         TempateVersionList: [],
@@ -869,18 +869,15 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
         // Check if the value is null or a number and not NaN
         return value === null || (!isNaN(value) && !isNaN(parseFloat(value)));
     };
-    const isFromNavigation = storageService.getApplicationDataByKey(
-        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-        "isFromNavigation"
-    );
+    const isFromNavigation = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,"isFromNavigation");
 
-    const fectReportNumberData = async () => {
+    const fetchReportNumberData = async () => {
         if (isFromNavigation) {
             const storageService = new StorageService();
             const reportTemplate = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, "reportTemplate");
             templateIdDetail = reportTemplate?.TemplateId;
             groupIdDetail = reportTemplate?.GroupId;
-            setSelectedTemplate({...reportTemplate});
+            setSelectedTemplate({ ...reportTemplate });
             if (!templateIdDetail) return "";
         }
         if (!isTemplateHandleFlag) {
@@ -926,7 +923,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
                 if (!Array.isArray(localOrgTypes) || localOrgTypes.length === 0) {
                     if (savedDdtlOrganizationName) {
                         try {
-                            const orgRes = await GeneralTabService.GetOrgType(response.data[0].SupplierName ?? "");
+                            const orgRes = await GeneralTabService.GetOrgType(response.data[0].SupplierName ?? "",parseInt(reportId));
                             localOrgTypes = Array.isArray(orgRes?.data) ? orgRes.data : [];
                             setDdtlOrganizationTypes(localOrgTypes);
                         } catch (err) {
@@ -1180,7 +1177,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
                                     : tempHdrData.DOCUMENT_NAME;
                             tempCSRHeaderData[0].DOCUMENT_NUMBER = "";
                             tempCSRHeaderData[0].REVISION = "00";
-                            tempCSRHeaderData[0].IsEasaRegister = true;
+                            tempCSRHeaderData[0].EasaRegisterFlag = true;
                             tempCSRHeaderData[0].ScaStatus = "In Work";
                             tempCSRHeaderData[0].AuditOutcome = "Pending";
                             // easaMasterType = selectedTemplate?.TemplateTitle;
@@ -1301,7 +1298,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
                                 projId = Number(tempHdrData.PROJECT_ID);
                                 const formattedReportNumber =
                                     new CommonFunction().IsEASAReport()
-                                        ? await fectReportNumberData()
+                                        ? await fetchReportNumberData()
                                         : tempHdrData.DOCUMENT_NUMBER;
                                 // restoring csrHeaderData after changing project number
                                 let tempCSRHeaderData: CSRHeaderData[] = response.data;
@@ -1834,7 +1831,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
 
 
     const fetchOrganizationTypes = () => {
-        GeneralTabService.GetOrganizationType()
+        GeneralTabService.GetOrgType(null,parseInt(reportId))
             .then((res) => {
                 const list = Array.isArray(res?.data) ? res.data : [];
                 setOrganizationTypes(list);
@@ -2008,7 +2005,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
 
     //DDTL API'S
     const fetchOrgNmae = () => {
-        GeneralTabService.Getorgname()
+        GeneralTabService.Getorgname(parseInt(reportId))
             .then((res) => {
                 const list = Array.isArray(res?.data) ? res.data : [];
                 setDdtlOrganizationNames(list);
@@ -2020,7 +2017,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
     };
 
     const fetchOrgType = (OrgTypeName: string) => {
-        GeneralTabService.GetOrgType(OrgTypeName)
+        GeneralTabService.GetOrgType(OrgTypeName,parseInt(reportId))
             .then((res) => {
                 const list = Array.isArray(res?.data) ? res.data : [];
                 setDdtlOrganizationTypes(list);
@@ -2208,7 +2205,6 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
                 // check added if selected discipline is EASA and user creating report from workapp and my workspace.
                 if (
                     (projectIdDrpDown == null &&
-                        setReportGroup &&
                         setReportGroup?.length == 0) ||
                     (!csrWorkAppFlag && setReportGroup?.length == 0)
                 ) {
@@ -2327,6 +2323,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
     ) => {
         const fallback = groupTemplates?.[0] ?? null;
         let next = newValue ?? fallback;
+        if (next == null) return;
         next.TempVersion = Math.max(...next.TempVersion.split(',').map(Number)).toString();
         setSelectedTemplate(next);
         setSelectedTemplateVersion(next);
@@ -2349,7 +2346,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
             templateIdDetail = next?.TemplateId;
             templateDescDetail = newValue?.TemplateTitle;
             projRegId = getRegisterProjectId;
-            formattedReportNumber = await fectReportNumberData();
+            formattedReportNumber = await fetchReportNumberData();
             updated[0].DOCUMENT_NUMBER = formattedReportNumber;
             if (next?.TemplateTitle === ReportType.DDTL || next?.TemplateTitle === ReportType.DQN) {
                 updated[0].DOCUMENT_NAME = formattedReportNumber ?? "";
@@ -2361,8 +2358,8 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
         setAssessmentRef("");
         updated[0].SupplierName = "";
         updated[0].AssessmentRef = "";
-        updated[0].TemplateTitle = next ? next.TemplateTitle : "";
-        updated[0].TemplateVersion = next ? Math.max(...next.TempVersion.split(',').map(Number)).toString() : "";
+        updated[0].TemplateTitle = next ? next?.TemplateTitle : "";
+        updated[0].TemplateVersion = next ? Math.max(...next?.TempVersion.split(',').map(Number)).toString() : "";
 
         let docTitle = "";
         if (checkIsEasaWorkSpace && !isEasaRegister) {
@@ -2600,7 +2597,6 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
                     newErrors.ReportGroup = "";
                     validationFlag = validationFlag && true;
                 }
-                console.log(csrHeaderData[0], 'csrHeaderData');
                 if (!csrHeaderData[0].TemplateTitle) {
                     newErrors.ReportTemplate = "* Report Type is required";
                     validationFlag = validationFlag && false;
@@ -3765,7 +3761,7 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
         // Otherwise Pending
         return "Pending";
     };
-    console.log(selectedTemplate, 'selectedTemplate');
+    
     useEffect(() => {
         if (!Array.isArray(csrHeaderData)) return;
 
@@ -5763,12 +5759,12 @@ const GeneralTab = React.forwardRef<any, any>((props, ref) => {
                                                                         }
                                                                         value={
                                                                             tab.SubSystemsList
-                                                                                ? dropdownOptions.SubSystems.filter(
+                                                                                ? dropdownOptions?.SubSystems?.filter(
                                                                                     (option) =>
                                                                                         tab?.SubSystemsList?.includes(
                                                                                             option.MasterValue
                                                                                         )
-                                                                                )
+                                                                                ) ?? []
                                                                                 : []
                                                                         }
                                                                         disabled={disableField(false)}
