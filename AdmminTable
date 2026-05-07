@@ -1,12 +1,19 @@
-useEffect(() => {
-  return () => {
-    // 🔥 This runs when you leave the page
-    if (eventData?.Detail) {
-      eventData.Detail.isFromNavigation = false;
-    }
-
-    // If you're using storage, clear it there too
-    const storageService = new StorageService();
-    storageService.set('isFromNavigation', false);
-  };
-}, []);
+const navigateToCSRReportIDPage = (rptId: number, tempName: string, tempId: number) => {
+    const storageServiceTemp = new StorageService();
+    const projRegId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+    const groupId = 19;
+    let dataToShare = {
+        Action: 'CCN_CSR_Navigation',
+        Detail: {
+            projectRegisterId: projRegId,
+            groupId,
+            templateId: tempId,
+            templateName: tempName,
+            reportId: rptId,
+            isFromNavigation:true
+        }
+    };
+    let appDataEvent = new ShellEventRegister().getShellEvent();
+    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
+    window.dispatchEvent(appDataEvent);
+};
