@@ -1,38 +1,7 @@
-const navigateToCSRReportIDPage = (rptId: number, tempName: string, tempId: number) => {
-    const storageServiceTemp = new StorageService();
-    const projRegId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
-    const groupId = 19;
-    let dataToShare = {
-        Action: 'CCN_CSR_Navigation',
-        Detail: {
-            projectRegisterId: projRegId,
-            groupId,
-            templateId: tempId,
-            templateName: tempName,
-            reportId: rptId,
-            isFromNavigation:true
-        }
-    };
-    let appDataEvent = new ShellEventRegister().getShellEvent();
-    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
-    window.dispatchEvent(appDataEvent);
-};
-
-  else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CCN_CSR_Navigation") {
-        let projectRegisterId = tempWorkAppData["Detail"]["projectRegisterId"];
-        let reportId = tempWorkAppData["Detail"]["reportId"];
-        let groupId = tempWorkAppData["Detail"]["groupId"];
-        let templateId = tempWorkAppData["Detail"]["templateId"];
-        const templateName = tempWorkAppData["Detail"]["templateName"];
-        const isFromNavigation = tempWorkAppData["Detail"]["isFromNavigation"];
-        const storageServ = new StorageService();
-        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "isFromNavigation", isFromNavigation);
-        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, 'selectedeasareporttype', templateName);
-        new easaMenuSubmenu().setMenuSectionVisibility(true);
-        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', groupId);
-        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
-        const userTokenTemp = new UserToken();
-        userTokenTemp.setGroupBU(GroupBU.EASA);
-        userTokenTemp.setGroupId(groupId);
-        singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId);
-    }
+  useEffect(() => {
+    const storageServ = new StorageService();
+    const isNav = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, "isFromNavigation");
+    SetIsFromNavigation(!!isNav);
+    console.log(isFromNavigation, isNav, 'isFromNavigation');
+    storageServ.setApplicationDataByKey(isNav, "isFromNavigation", false);
+  }, []);
