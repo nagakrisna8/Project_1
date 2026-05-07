@@ -113,7 +113,6 @@ function CSRDetailsBase(props) {
   const [drawingReviewInitiated, setDrawingReviewInitiated] = useState<boolean>(false);
   const [tabRefresh, setTabRefresh] = useState(0);
   const isTableResizeRef = useRef<boolean>(false);
-  const [isFromNavigation, SetIsFromNavigation] = useState(false);
 
   const handleClickConfigRefInsertBtn = () => {
     let currentRef: any = { current: null };
@@ -284,7 +283,14 @@ function CSRDetailsBase(props) {
       </DrawerItem>
     );
   };
-
+ const navigationCSRtoCERT = () => {
+    let dataToShare = {
+      Action: 'CSR_CERT_Navigation',
+    };
+    let appDataEvent = new ShellEventRegister().getShellEvent();
+    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
+    window.dispatchEvent(appDataEvent);
+  };
   // Revision Record approval buttons
   const userToken = new UserToken();
   const userBemsId = userToken.getUserBemsId();
@@ -296,14 +302,7 @@ function CSRDetailsBase(props) {
     UnResolvedCommentCount: 0,
   });
   const [loadCommentCount, setLoadCommentCount] = useState<number>(-1);
-  const navigationCSRtoCERT = () => {
-    let dataToShare = {
-      Action: 'CSR_CERT_Navigation',
-    };
-    let appDataEvent = new ShellEventRegister().getShellEvent();
-    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
-    window.dispatchEvent(appDataEvent);
-  };
+
   const handleOpenCommentSumPanel = async () => {
     let ifSubRefTab = false;
     let currentRef: any = getActiveTabRef();
@@ -447,17 +446,13 @@ function CSRDetailsBase(props) {
     storageService.setApplicationDataByKey(`${process.env.REACT_PARENT_APP_NAME}-Shell`, 'currentdisciplineid', currDisciplineId);
     storageService.setApplicationDataByKey(`${process.env.REACT_PARENT_APP_NAME}-Shell`, 'groupbu', 'EASA');
   };
-  useEffect(() => {
-    const storageServ = new StorageService();
-    const isNav = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, "isFromNavigation");
-    SetIsFromNavigation(!!isNav);
-  },[]);
+
   // reseting bookmark content Id on first load
   useEffect(() => {
     storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'bookmarkLinkId', 0);
     storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'bookmarkTabId', 0);
   }, []);
-
+  
   const APP_STORAGE_KEY = `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`;
   const confirmBeforeRefNavigation = useCallback(async (targetHref: string) => {
     const currentRef: any = getActiveTabRef();
@@ -465,10 +460,10 @@ function CSRDetailsBase(props) {
       APP_STORAGE_KEY,
       'compliancedirtygriddetail'
     );
-
+  
     let isDirty = false;
     let isRevisionDirty = false;
-
+  
     if (currentRef?.current) {
       const revisionTabIndex = tabList?.findIndex(
         item => item?.Title?.trim().toUpperCase() === FixedTabTitle.REVISED_RECORD.toUpperCase()
@@ -479,22 +474,22 @@ function CSRDetailsBase(props) {
       const signatureTabIndex = tabList?.findIndex(
         item => item?.Title?.trim().toUpperCase() === FixedTabTitle.SIGNATURE.toUpperCase()
       );
-
+  
       const isRevisionTab =
         selectedTab === revisionTabIndex ||
         selectedTab === revisionLogTabIndex ||
         selectedTab === signatureTabIndex;
-
+  
       if (
         isRevisionTab &&
         window.location.hash?.indexOf(FixedTabTitle.COMMENT_SUMMARY_TAB_INDEX) === -1
       ) {
         isRevisionDirty = await isRevisionChangeGridDirty(currentRef);
       }
-
+  
       isDirty = await currentRef.current.isTabSectionDirty();
     }
-
+  
     if (isDirty || complianceDirty || isRevisionDirty) {
       userDefinedConfirm({
         message: "There are unsaved changes in the current session. Do you want to proceed without saving?",
@@ -505,30 +500,30 @@ function CSRDetailsBase(props) {
           storageService.setApplicationDataByKey(APP_STORAGE_KEY, 'IsTabDirty', false);
           window.location.href = targetHref;
         },
-        () => { }
+        () => {}
       );
       return;
     }
     window.location.href = targetHref;
   }, [selectedTab, tabList]);
-
+  
   useEffect(() => {
     const root = document.getElementById('compliance-report-base-page');
     if (!root) return;
-
+  
     const handleDynamicRefClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       const anchor = target?.closest('a[href*="/tab/-77777?edit="]') as HTMLAnchorElement | null;
-
+  
       if (!anchor) return;
-
+  
       e.preventDefault();
       e.stopPropagation();
       confirmBeforeRefNavigation(anchor.href);
     };
-
+  
     root.addEventListener('click', handleDynamicRefClick, true);
-
+  
     return () => {
       root.removeEventListener('click', handleDynamicRefClick, true);
     };
@@ -966,7 +961,7 @@ function CSRDetailsBase(props) {
   };
 
   const disableSave = () => {
-    const isUserInFocalApprovers = Array.isArray(allFocalList) && allFocalList.some(focal =>
+    const isUserInFocalApprovers  = Array.isArray(allFocalList) && allFocalList.some(focal =>
       Array.isArray(focal?.ApproverDetailList) &&
       focal.ApproverDetailList.some(detail => detail?.BemsId === parseInt(userBemsId))
     );
@@ -977,8 +972,8 @@ function CSRDetailsBase(props) {
     const revisionTitle = revision?.Title?.trim() ?? '';
     const signature = tabList?.find(item => item?.Title?.toUpperCase().trim() === FixedTabTitle.SIGNATURE.toUpperCase().trim());
     const signatureTitle = signature?.Title?.trim() ?? '';
-    const isRevisionOrSignatureTab = selectedtabTitle && (revisionTitle == selectedtabTitle || signatureTitle == selectedtabTitle) ? true : false;
-    if (isUserInFocalApprovers && isRevisionOrSignatureTab && csrHeaderData[0]?.RELEASE_DATE === null) return false;
+    const isRevisionOrSignatureTab  = selectedtabTitle && (revisionTitle == selectedtabTitle || signatureTitle == selectedtabTitle ) ? true : false;
+    if(isUserInFocalApprovers  && isRevisionOrSignatureTab  && csrHeaderData[0]?.RELEASE_DATE === null) return false;
     if (csrHeaderData && csrHeaderData.length > 0 &&
       csrHeaderData[0]?.AuthorBemsId === parseInt(userBemsId) &&
       csrHeaderData[0]?.TemplateTitle === EasaMasterType.Supplier &&
@@ -1283,8 +1278,8 @@ function CSRDetailsBase(props) {
       //Build a URL from the file
       const fileURL = URL.createObjectURL(file);
       //Open the URL in Browser Window
-      var strWindowFeatures = "location=yes,height=600,width=720,scrollbars=yes,status=yes";
-      const pdfWindow: any = window.open(fileURL, '_blank', strWindowFeatures);
+       var strWindowFeatures = "location=yes,height=600,width=720,scrollbars=yes,status=yes";
+       const pdfWindow: any = window.open(fileURL, '_blank', strWindowFeatures);
     });
   }
 
@@ -1674,7 +1669,7 @@ function CSRDetailsBase(props) {
 
       if (selectedTab == revisionTabIndex && !isRefOrSubsTab) {
         ischangeGridDirty = await isRevisionChangeGridDirty(currentRef);
-      }
+        }
 
       // if yes then show msg and onClick of yes return
       currentRef.current.isTabSectionDirty().then((isDirty) => {
@@ -1842,7 +1837,7 @@ function CSRDetailsBase(props) {
   const shouldDisplayWFButton = () => {
     return (csrHeaderData.length > 0 && csrHeaderData[0].PendingWithBemsId.includes(userBemsId) && csrHeaderData[0].ShowButtonFlag == "Y" && csrHeaderData[0].WFButtonTitle && (csrHeaderData[0].SignEnabledFlag == "N" || csrHeaderData[0].SignatureStatus[userBemsId] == "Y"));
   }
-  const isNavigatedFromCert = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, "isFromNavigation");
+  const isFromNavigation = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,"isFromNavigation");
 
   return (
     <>
@@ -1865,7 +1860,7 @@ function CSRDetailsBase(props) {
             height: '100%',
             // maxHeight: shellWorkappContainerMaxHeight != 0 ? shellWorkappContainerMaxHeight : `${window.innerHeight}px`
           }}
-            className={`adobe-FINDCSR-CSRReport ${checkIsEasaWorkSpace ? 'easa-report' : 'non-easa-report'}`}
+          className={`adobe-FINDCSR-CSRReport ${checkIsEasaWorkSpace ? 'easa-report' : 'non-easa-report'}`}
           >
             <div className="fixedHeader"
             // style={shellMainSection != undefined ? { position: 'relative' } : { top: 0, position: 'fixed' }}
@@ -1874,7 +1869,7 @@ function CSRDetailsBase(props) {
                 <Stack className="buttonRows" direction="row" spacing={2}>
 
                   {/* <Button size="medium" variant="contained" className='saveButton' onClick={saveTabDetails} disabled={parseInt(tabIndex) > 0 ? (commonFunction.isReview(csrHeaderData[0]?.STATE) ? (tabList[0]?.TabId == parseInt(tabIndex) ? false : commonFunction.isAllDisable(csrHeaderData[0]?.STATE)) : commonFunction.isAllDisable(csrHeaderData[0]?.STATE)) : tabIndex == "" && commonFunction.isReview(csrHeaderData[0]?.STATE) ? false : (parseInt(tabIndex) < 0 ? false : commonFunction.isAllDisable(csrHeaderData[0]?.STATE))}>Save</Button> */}
-                  {(tabIndex && checkIsComplainceGridTab() && isCurrentUserAuthor() && !(new CommonFunction().IsEASAReport()) && csrHeaderData[0]?.WorkFlowStep == ReportStepId.CREATE_STEP) && <Button size="medium" variant="contained" className='insertButton' onClick={handleClickConfigRefInsertBtn} disabled={checkIsRefGrid === "0"} title="Insert">Insert</Button>}
+                  {(tabIndex && checkIsComplainceGridTab() && isCurrentUserAuthor() &&  !(new CommonFunction().IsEASAReport()) && csrHeaderData[0]?.WorkFlowStep == ReportStepId.CREATE_STEP) && <Button size="medium" variant="contained" className='insertButton' onClick={handleClickConfigRefInsertBtn} disabled={checkIsRefGrid === "0"} title="Insert">Insert</Button>}
 
                   <Button id="SaveCSR" size="medium" variant="contained" className='saveButton' onClick={saveTabDetails} disabled={disableSave()} title="Save">Save</Button>
                   {(csrHeaderData.length > 0 && csrHeaderData[0].TemplateTitle?.toUpperCase() == ReportType.Drawing.toUpperCase()
@@ -1901,23 +1896,23 @@ function CSRDetailsBase(props) {
                   }
                   {(csrHeaderData.length == 0 || (csrHeaderData.length > 0 && csrHeaderData[0].TemplateTitle?.toUpperCase() != ReportType.Drawing.toUpperCase())) &&
                     <>
-                      {isFromNavigation && (<Button id="SaveCSR" size="medium" variant="contained" className='saveButton' onClick={navigationCSRtoCERT} title="Continue to Cert Strategy">Continue to Cert Strategy</Button>)}
+                     {isFromNavigation && (<Button id="SaveCSR" size="medium" variant="contained" className='saveButton' onClick={navigationCSRtoCERT} title="Continue to Cert Strategy">Continue to Cert Strategy</Button>)}
                       {/*shouldShowPreviewOrViewButton() && */ <Button id="ViewCSR" size="small" variant="contained" className='previewIcon' disabled={!isCreateReport} onClick={handlePdfPreview} title={csrHeaderData?.[0]?.EnvelopeId !== null || csrHeaderData?.[0]?.RELEASE_DATE !== null ? "View" : "Preview"}>{csrHeaderData?.[0]?.EnvelopeId !== null || csrHeaderData?.[0]?.RELEASE_DATE !== null ? "View" : "Preview"}</Button>}
-                      {shouldDisplayWFButton() && (<Button id="SubmitCSR" size="medium" variant="contained" className='approvalButton' onClick={() => WorkFlowClick("WFSubmit")} title={editReqCommentPresent ? 'Request Edit' : csrHeaderData[0].WFButtonTitle}>{editReqCommentPresent ? 'Request Edit' : csrHeaderData[0].WFButtonTitle}</Button>)}
+                      {shouldDisplayWFButton() && (<Button id="SubmitCSR"size="medium" variant="contained" className='approvalButton' onClick={() => WorkFlowClick("WFSubmit")} title={editReqCommentPresent ? 'Request Edit' : csrHeaderData[0].WFButtonTitle}>{editReqCommentPresent ? 'Request Edit' : csrHeaderData[0].WFButtonTitle}</Button>)}
                       {shouldDisplayButtonPullBackToEdit(csrHeaderData[0]) && (<Button id="PullBackCSR" size="medium" variant="contained" className='approvalButton' onClick={() => WorkFlowClick("WFPullback")} title='Pull Back'>Pull Back</Button>)}
                       {shouldDisplayControl(ButtonCode.FixedTableRegCode) && <Button id="ProjRegCSR" size="medium" variant="contained" className='approvalButton' onClick={() => handleConfigureRegulations()} disabled={!isCreateReport} title='Configure Regulations'>Project Regulations</Button>}
                       {shouldDisplayControl(ButtonCode.FixedTableRegCode) && <Button id="SubstantiationCSR" size="medium" variant="contained" className='approvalButton' ref={substantiationBtnRef} onClick={() => handleConfigureSubstantiation()} disabled={!isCreateReport} title='Configure Substantiation'>Substantiation</Button>}
                       {shouldDisplayControl(ButtonCode.FixedTableRefCode) && <Button id="ReferencesCSR" size="medium" variant="contained" className='approvalButton' ref={referenceBtnRef} onClick={() => handleConfigureReferences()} disabled={!isCreateReport} title='Configure References'>References</Button>}
-                      {handleComapreBtnVisibility() && (<Button size="small" variant="contained" className='compareBtn' onClick={handleComparer} title="Compare">Compare</Button>)}
-                      {/* {hasEditors && csrHeaderData.length > 0 && csrHeaderData[0]?.EditEnabledFlag === "Y" &&
+                    {handleComapreBtnVisibility() && (<Button size="small" variant="contained" className='compareBtn' onClick={handleComparer} title="Compare">Compare</Button>)}
+                    {/* {hasEditors && csrHeaderData.length > 0 && csrHeaderData[0]?.EditEnabledFlag === "Y" &&
                       csrHeaderData[0]?.WorkFlowStep == ReportStepId.CREATE_STEP && (
                         <Button size="small" variant="contained" className="compareBtn" title="Find & Replace" onClick={() => setOpenGlobalFindReplace(true)}
                         ><SvgIcon icon={binocularsIcon} size="medium" style={{ color: '#737373' }} />
                         </Button>
                       )} */}
-                      <Badge id="badge"
-                        anchorOrigin={{
-                          vertical: "top",
+                    <Badge id="badge"
+                      anchorOrigin={{
+                        vertical: "top",
                           horizontal: "right",
                         }}
                         style={{ marginRight: "15px", marginLeft: "0px" }}
@@ -2004,7 +1999,7 @@ function CSRDetailsBase(props) {
                 {/* {openTabListPopup && <SortableManageTabListPopup allTabs={tabList} certType={csrHeaderData.length > 0 ? csrHeaderData[0].CERTIFICATION : ""} isOpen={openTabListPopup} handleCloseManageTabListPopup={handleCloseManageTabListPopup} handleSaveManageTabListPopup={handleSaveManageTabListPopup} STATE={csrHeaderData[0]?.STATE}/> } */}
 
                 {openSupportingInsertPopup && <SupportingInsertPopupData supGridLenght={0} checkedItem={[]} isOpen={openSupportingInsertPopup} onCloseSupportingModelPopup={handleCloseInsSupportingPopup} IsManageSupTab={false} revision={csrHeaderData.length > 0 ? csrHeaderData[0].REVISION : null} configRefSourceId={configRefSourceId} refTableCode={refTableCode} refGridTitle={refGridTitle} sequenceStartWith={getSequence} isOpenedFromDocumentNumber={false} />}
-                {openSubstantitionPopup && <SubstantiationInsertPopup isOpen={openSubstantitionPopup} onCloseInsSubStantiationPopup={handleCloseInsSubStantiationPopup} contentOwner={csrHeaderData.length > 0 ? csrHeaderData[0].CONTENT_OWNER : ''} projectId={csrHeaderData.length > 0 ? csrHeaderData[0].PROJECT_ID : ''} revision={csrHeaderData.length > 0 ? csrHeaderData[0].REVISION : null} parentReportId={csrHeaderData.length > 0 ? csrHeaderData[0].PARENT_RPT_ID : null} regTableCode={regTableCode} />}
+                {openSubstantitionPopup && <SubstantiationInsertPopup isOpen={openSubstantitionPopup} onCloseInsSubStantiationPopup={handleCloseInsSubStantiationPopup} contentOwner={csrHeaderData.length > 0 ? csrHeaderData[0].CONTENT_OWNER : ''} projectId={csrHeaderData.length > 0 ? csrHeaderData[0].PROJECT_ID : ''} revision={csrHeaderData.length > 0 ? csrHeaderData[0].REVISION : null} parentReportId={csrHeaderData.length > 0 ? csrHeaderData[0].PARENT_RPT_ID : null} regTableCode={regTableCode}/>}
                 {<ReportCompareModal open={openCompareModal} onClose={() => setOpenCompareModal(false)} />}
                 {/* {openPdfPreviewPopup && <PdfPreviewPopup isOpen={openPdfPreviewPopup} rptId={reportId} handleClosePdfPreviewPopup={handleClosePdfPreviewPopup} />} */}
               </Box>
