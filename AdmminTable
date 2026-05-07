@@ -1,17 +1,8 @@
-const [isFromNavigation, SetIsFromNavigation] = useState(false);
 useEffect(() => {
   const storageServ = new StorageService();
   const key = `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`;
-
-  const isNav = storageServ.getApplicationDataByKey(key, "isFromNavigation");
-
-  // ✅ set state
-  SetIsFromNavigation(!!isNav);
-
-  // 🔥🔥 CRITICAL FIX → clear after reading
-  storageServ.setApplicationDataByKey(key, {
-    ...storageServ.getApplicationDataByKey(key),
-    isFromNavigation: false
-  });
-
+  const isNav = storageServ.getApplicationDataByKey(key, "isfromnavigation");
+  SetIsFromCCNNavigation(!!isNav);
+  console.log(isFromCCNNavigation, isNav, 'isNav');
+  localStorage.removeItem("isfromnavigation");
 }, []);
