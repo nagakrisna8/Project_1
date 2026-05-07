@@ -1,8 +1,15 @@
-useEffect(() => {
-  const storageServ = new StorageService();
-  const key = `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`;
-  const isNav = storageServ.getApplicationDataByKey(key, "isfromnavigation");
-  SetIsFromCCNNavigation(!!isNav);
-  console.log(isFromCCNNavigation, isNav, 'isNav');
-  localStorage.removeItem("isfromnavigation");
-}, []);
+const navigateToCSRReportIDPage = (rptId: number, tempName: string, tempId: number) => {
+    const storageServiceTemp = new StorageService();
+    const projRegId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+    const groupId = 19;
+    let dataToShare = {
+        Action: 'CCN_CSR_Navigation',
+        Detail: {
+            projectRegisterId: projRegId,
+            groupId,
+            templateId: tempId,
+            templateName: tempName,
+            reportId: rptId,
+            isFromNavigation:true
+        }
+    };
