@@ -1,16 +1,19 @@
-useEffect(() => {
-  const storageServ = new StorageService();
+const handleCreateNewReport = () => {
+    handleCloseCreateNew();
 
-  const key = `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`;
+    const storageServ = new StorageService();
+    const key = `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`;
 
-  const isNav = storageServ.getApplicationDataByKey(key, "isFromNavigation");
+    // ✅ ADD THIS LINE
+    storageServ.setApplicationDataByKey(key, "isFromNavigation", false);
 
-  setIsFromNavigation(!!isNav);
+    if (!csrWorkAppFlag) {
+        storageServ.setApplicationDataByKey(key, 'ProjectId', projectId);
+    }
 
-  // 🔥🔥 EXACT FIX (CLEAR IT)
-  storageServ.setApplicationDataByKey(key, "isFromNavigation", false);
+    storageServ.setApplicationDataByKey(key, 'DocNumber', '');
+    storageServ.setApplicationDataByKey(key, `DocRev`, '');
+    storageServ.setApplicationDataByKey(key, `ReportTemplate`, selectedReportTemplate);
 
-  // OR EVEN BETTER:
-  // localStorage.removeItem("isFromNavigation");
-
-}, []);
+    navigate(PathConstants.DYNAMIC_TAB.replace(":reportId", "0").replace(":tabIndex", "-1"), { state: null });
+}
