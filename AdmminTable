@@ -13,3 +13,2042 @@ const navigateToCSRReportIDPage = (rptId: number, tempName: string, tempId: numb
             isFromNavigation:true
         }
     };
+else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CCN_CSR_Navigation") {
+        let projectRegisterId = tempWorkAppData["Detail"]["projectRegisterId"];
+        let reportId = tempWorkAppData["Detail"]["reportId"];
+        let groupId = tempWorkAppData["Detail"]["groupId"];
+        let templateId = tempWorkAppData["Detail"]["templateId"];
+        const templateName = tempWorkAppData["Detail"]["templateName"];
+        const isFromNavigation = tempWorkAppData["Detail"]["isFromNavigation"];
+        const storageServ = new StorageService();
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "isFromNavigation", isFromNavigation);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, 'selectedeasareporttype', templateName);
+        new easaMenuSubmenu().setMenuSectionVisibility(true);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', groupId);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+        const userTokenTemp = new UserToken();
+        userTokenTemp.setGroupBU(GroupBU.EASA);
+        userTokenTemp.setGroupId(groupId);
+        singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId);
+    }
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { Button, Badge, Card, CardContent, Typography } from "@mui/material";
+import { Outlet, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import './CSRDetailsBase.scss';
+import PathConstants from "../../../../routes/PathConstants";
+import { userDefinedConfirm } from "../../../../utils/ConfirmDialog";
+import { TabDetails, CSRHeaderData, FixedTabTitle, OperationType, ReportStages, ConfigureReferencesEnum, ButtonCode, ScreenNameEnum, ReportStepId, ReportType, CommentCountDetails, EasaMasterType } from "../../../../model/Model";
+import Box from '@mui/material/Box';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import cSRDetailsBaseService from './CSRDetailsBaseService';
+import ManageTabListPopup from "./manage-tab-list-popup/ManageTabListPopup";
+import Stack from '@mui/material/Stack';
+import { showSnackbar } from "../../../core/snackbar/CustomSnackBarSlice";
+import { useDispatch } from "react-redux";
+import EnvDetail from "../../../../utils/EnvDetail";
+import ShellEventRegister from "../../../../utils/ShellEventRegister";
+import StorageService from "../../../../utils/StorageService";
+import pdfPreviewPopupService from "../csr-details/pdf-preview-popup/PdfPreviewPopupService";
+import PubSub from "../../../../utils/PubSub";
+import PubSubEvent from "../../../../utils/PubSubEvent";
+import { logPageViewEventWithData, adobeWindowData } from "@boeing-fsit/react-oss-adobe-analytics-lib";
+import UserToken from "../../../../utils/UserToken";
+import RevisionRecordService from "./revision-record/RevisionRecordService";
+import SpeakerNotesOutlinedIcon from '@mui/icons-material/SpeakerNotesOutlined';
+import { Drawer, DrawerItem, DrawerItemProps, DrawerSelectEvent } from "@progress/kendo-react-layout";
+import { Button as KButton } from "@progress/kendo-react-buttons";
+import {
+  chevronLeftIcon,
+  chevronRightIcon
+} from "@progress/kendo-svg-icons";
+import SupportingInsertPopupData from "./compliance-showing/supporting-insert-popup-data-grid/SupportingInsertPopupData";
+import SubstantiationInsertPopup from "./configure-substantiation/substantiation-insert-popup-data-grid/SubInsertPopupData";
+import CSRListService from "../csr-list/CSRListService";
+import { resetAllReferenceData } from '././compliance-showing/supporting-data-grid/SupportingDataReferenceContentSlice';
+import { ReportCompareModal } from "./report-comparer/ReportCompareModal";
+import CSRDetailsBaseService from "./CSRDetailsBaseService";
+import AuthorizationService from "../../../core/services/AuthorizationService";
+import CommonFunction from "../../../../utils/CommonFunction";
+import SortableManageTabListPopup from "./manage-tab-list-popup/sortable-manage-tab-list-popup/SortableManageTabListPopup";
+import { clearSubstantiationData } from "./compliance-showing/grid-inside-grid/GridInsideGridSlice";
+import GlobalFindReplaceDialog from "./dynamic-tabs/find-replace-dialog/GlobalFindReplaceDialog";
+import { binocularsIcon } from '@progress/kendo-svg-icons';
+import { SvgIcon } from '@progress/kendo-react-common';
+
+const getRandomNegativeNumber = (): number => {
+  return -(Math.floor(1000 + Math.random() * 9000));
+};
+
+function CSRDetailsBase(props) {
+  var storageService = new StorageService();
+  const dispatch = useDispatch();
+  const { reportId = "", tabIndex = "", groupId, registerId } = useParams();
+  const navigate = useNavigate();
+  const [selectedTab, setTab] = useState<number>(0);
+  const [tabList, setTabList] = useState<TabDetails[]>([]);
+  const [isHeaderDirty, setIsHeaderDirty] = useState<boolean>(false);
+  const [isCreateReport, setIsCreateReport] = useState<boolean>(false);
+  const [openTabListPopup, setOpenTabListPopup] = useState(false);
+  //Dynamic Height of the Fixed header
+  const [headerHeight, setHeaderHeight] = useState<any>(document?.getElementsByClassName("fixedHeader")?.[0]?.clientHeight);
+  const [scrollableBodyHeight, setScrollableBodyHeight] = useState<any>(document?.getElementsByClassName("scrollableBody")?.[0]?.clientHeight);
+  const childRef = useRef<any>(null);
+  const generalRef = useRef<any>(null);
+  const revisionRef = useRef<any>(null);
+  const revisionLogRef = useRef<any>(null);
+  const signatureRef = useRef<any>(null);
+  const configureSubstantiationRef = useRef<any>(null);
+  const configureReferencesRef = useRef<any>(null);
+  const commentSummaryRef = useRef<any>(null);
+  const [csrHeaderData, setCsrHeaderData] = useState<CSRHeaderData[]>([]);
+  //Shell Changes    
+  const [leftSectionHeight, setleftSectionHeight] = useState<any>(window.innerHeight);
+  const [leftPanleContainerMaxHeight, setShellWorkappLeftPanelContainerMaxHeight] = useState(0);
+  const [shellMainSection, setShellMainSection] = useState(document?.getElementById("shell-main-section")?.['clientHeight'])
+  const [shellHeaderHeight, setShellHeaderHeight] = useState(document?.getElementsByClassName("shell-header-setion")?.[0]?.['clientHeight'])
+  const [shellBreadcrumbsHeight, setShellBreadCrumbsHeight] = useState(document?.getElementsByClassName("oss-menu-breadcrums")?.[0]?.['clientHeight'])
+  const [shellWorkappContainerMaxHeight, setShellWorkappContainerMaxHeight] = useState(0);
+  const [shellFooterHeight, setShellFooterHeight] = useState(document?.getElementsByTagName('footer')[0]?.clientHeight);
+  const [scrollableBodyTopHeight, setScrollableBodyTopHeight] = useState<any>(document?.getElementsByClassName("fixedHeader")?.[0]?.clientHeight);
+  const [scrollableMaxHeight, setScrollabelMaxHeight] = useState(scrollableBodyHeight);
+  const [screenPercentage, setScreenPercentage] = useState(0);
+  const [defaultWindowWidth, setDefaultWindowWidth] = useState(window.innerWidth);
+  const [isRevisionTabloaded, setIsRevisionTabloaded] = useState(false);
+  const [isRevisionLogTabloaded, setIsRevisionLogTabloaded] = useState(false);
+  const [isSignatureTabloaded, setIsSignatureTabloaded] = useState(false);
+  const [isGeneralTabloaded, setIsGeneralTabloaded] = useState(false);
+  const [maxRevision, setMaxRevision] = useState(0)
+  const [openSupportingInsertPopup, setOpenSupportingInsertPopup] = useState(false);  // handling insert supporting popup
+  const [loadSupportingData, setLoadSupportingData] = useState(-1);
+  const [searchDocId] = useSearchParams();
+  const checkIsRefGrid = searchDocId.get('edit');
+  const checkISubComp = searchDocId.get('edit');
+  const getSubDocId = searchDocId.get('edit')?.includes(ConfigureReferencesEnum.SUBSTANTIATION_PARAM);
+  const [openSubstantitionPopup, setOpenSubstantiationPopup] = useState(false);
+  const [loadSubStantiationData, setLoadSubStantiationData] = useState(-1);
+  const [configRefSourceId, setConfigRefSourceId] = useState<string>("");
+  const [refTableCode, setRefTableCode] = useState<string>("");
+  const [regTableCode, setRegTableCode] = useState<string>("");
+  const [refGridTitle, setRefGridTitle] = useState<string>("");
+  const [getSequence, setSequence] = useState<string>("");
+  const substantiationBtnRef = useRef(null);
+  const referenceBtnRef = useRef(null);
+  const [delRptFlag, setDelRptFlag] = useState<boolean | null>(null);//making null on Initail loading 
+  let scrollPositionTop = false;
+  const prevTabRef = useRef(selectedTab);
+  const [checkIsEasaWorkSpace, setIsEasaWorkSpace] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [allFocalList, setAllFocalList] = useState<any>([]);
+  const [revisionRecordDetails, setRevisionRecordDetails] = useState<any>([]);
+  const [openCompareModal, setOpenCompareModal] = useState(false);
+  // const [openGlobalFindReplace, setOpenGlobalFindReplace] = useState(false);
+  const [hasEditors, setHasEditors] = useState(false);
+  const [drawingReviewInitiated, setDrawingReviewInitiated] = useState<boolean>(false);
+  const [tabRefresh, setTabRefresh] = useState(0);
+  const isTableResizeRef = useRef<boolean>(false);
+
+  const handleClickConfigRefInsertBtn = () => {
+    let currentRef: any = { current: null };
+    if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_SUBSTANTIATION_TAB_INDEX) > -1) {
+      currentRef = configureSubstantiationRef;
+    } else if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX) > -1) {
+      currentRef = configureReferencesRef;
+    } else if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.COMMENT_SUMMARY_TAB_INDEX) > -1) {
+      currentRef = commentSummaryRef;
+    };
+    const checkCompGrid = currentRef.current.handleConfigRefInsert();
+    if (checkCompGrid && (checkCompGrid?.tableCode == ScreenNameEnum.CONFIG_SUBSTANTIATION || checkCompGrid?.tableCode == ScreenNameEnum.SPECIAL_REGULATION)) {
+      setRegTableCode(checkCompGrid?.tableCode);
+      setOpenSubstantiationPopup(true);
+    } else if (checkCompGrid && !checkCompGrid.loadedGrid) {
+      let checkIsTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'IsTabDirty');
+      if (checkIsTabDirty) {
+        userDefinedConfirm({
+          message: "There are unsaved changes in the current session. Do you want to proceed without saving?",
+          okBtnText: "Yes",
+          cancelBtnText: "Cancel",
+        }).then(({ button, input }) => {
+          storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
+          navigate(`${PathConstants.CONFIGURE_REFERENCES.replace(":reportId", reportId).replace(FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX, `${FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX}?edit=${0}`)}`);
+        }, () => {
+          return;
+        });
+      } else {
+        navigate(`${PathConstants.CONFIGURE_REFERENCES.replace(":reportId", reportId).replace(FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX, `${FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX}?edit=${0}`)}`);
+      }
+    } else if (checkCompGrid && checkCompGrid?.loadedGrid.split(',').length > 0) {
+      setConfigRefSourceId(checkCompGrid?.loadedGrid);
+      setRefTableCode(checkCompGrid?.tableCode);
+      setRefGridTitle(checkCompGrid?.gridTitle);
+      setSequence(checkCompGrid?.gridSequence);
+      setOpenSupportingInsertPopup(true);
+    };
+  };
+
+  const handleCloseInsSupportingPopup = (checkIsDataAdded) => {
+    setOpenSupportingInsertPopup(false);
+    if (checkIsDataAdded) {
+      setLoadSupportingData(Math.floor(Math.random() * 1000000000));
+    }
+  };
+
+  const handleCloseInsSubStantiationPopup = (checkIsDataAdded) => {
+    setOpenSubstantiationPopup(false);
+    if (checkIsDataAdded) {
+      setLoadSubStantiationData(Math.floor(Math.random() * 1000000000));
+    }
+  };
+
+  // Left side Tab Panel
+  const [expanPanel, setExpanPanel] = useState<boolean>(true);
+  const onSelect = (event: DrawerSelectEvent) => {
+    if (event && event.itemTarget) {
+      let tabId: string = event.itemTarget.props.id.replace('simple-tab-', '');
+      if (event && tabId != tabIndex) {
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'bookmarkLinkId', 0);
+        handleTabChange(event, event.itemIndex);
+      };
+      if (tabId) {
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'lastDynamicTabSelecetd', tabId);
+      }
+    };
+  };
+
+  const handleOpenLeftTab = () => {
+    setExpanPanel(true);
+  };
+
+  const handleCloseLeftTab = () => {
+    setExpanPanel(false);
+  };
+
+  // function for converting number to alphabat
+  const numberToAlphabet = (num) => {
+    let result = "";
+    while (num > 0) {
+      num--; // Adjust for 0-based index
+      result = String.fromCharCode((num % 26) + 65) + result;
+      num = Math.floor(num / 26);
+    }
+    return result;
+  };
+
+  let customTabSeqcount = 1;
+  // recreating tab list for custom Tab sequence order
+  const updatedTabList = tabList.map((item) => {
+    if (new CommonFunction().IsEASAReport()) {
+      if (item.AppendixFlagValue == 'Y') {
+        let newItem = {
+          ...item,
+          Sequence: customTabSeqcount,
+        }
+        customTabSeqcount++;
+        return newItem;
+      };
+      return item;
+    } else {
+      if (item.ConditionalFlag != 'Y') {
+        let newItem = {
+          ...item,
+          Sequence: customTabSeqcount,
+        }
+        customTabSeqcount++;
+        return newItem;
+      };
+      return item;
+    }
+
+  });
+
+  // handling tab classname for helpGuide
+  const handleTabClassName = (inputValue: string) => {
+    switch (inputValue.toUpperCase()) {
+      case FixedTabTitle.GENERAL.toUpperCase():
+        return "csr_general";
+      case FixedTabTitle.COMPLIANCE_SHOWING.toUpperCase():
+        return 'csr_compliance_showing';
+      case FixedTabTitle.ACRONMYS.toUpperCase():
+        return 'csr_acronyms';
+      case FixedTabTitle.REVISED_RECORD.toUpperCase():
+        return 'csr_revision';
+      default:
+        return "default";
+    }
+  };
+
+  const CustomItem = (props: DrawerItemProps) => {
+    const handleIconChange = (tabvalue: string, defaultFlag: string, conditionalFlag: string, sequenceNo: number, displayIndex: string, apppendixFlag: string) => {
+      if (new CommonFunction().IsEASAReport()) {
+        if (apppendixFlag == "Y") { //&& conditionalFlag != 'Y'
+          return `A.${numberToAlphabet(sequenceNo)}`;
+        }
+        else if (["G", "R", "S", "A"].includes(displayIndex?.toUpperCase()) && apppendixFlag == "N") {
+          return `${displayIndex}.`;
+        }
+        else {
+          return `${displayIndex}.`;
+        }
+      } else {
+        if (apppendixFlag == "Y") { //&& conditionalFlag != 'Y'
+          return `A.${displayIndex}`;
+        } else {
+          return `${displayIndex}.`;
+        }
+      }
+    };
+
+    return (
+      <DrawerItem id={`simple-tab-${props.TabId}`} index={props.index} onSelect={props.onSelect} title={props.Title}
+        className={`${selectedTab === props.index ? 'setBgColor' : ''} ${handleTabClassName(props.Title)}`}
+      >
+        <div id={props.TabId} className={"item-descr-wrap-" + (expanPanel == true ? "open" : "close")}>
+          <div className={expanPanel ? "drawer-item-inline" : ""}>
+            {expanPanel ?
+              <span className='circle-text' style={{ color: !props.TabColor ? "#253746" : props.TabColor }}>{handleIconChange(props.Title, props.DefaultFlag, props.ConditionalFlag, props.Sequence, props.DisplayIndex, props.AppendixFlagValue)}</span>
+              : ''}
+            <div className={expanPanel ? 'listContent' : "iconContent"} style={{ color: !props.TabColor ? "#253746" : props.TabColor }}>
+              {expanPanel ? props.Title :
+                <span className='circle-text' style={{ color: !props.TabColor ? "#253746" : props.TabColor }}>{handleIconChange(props.Title, props.DefaultFlag, props.ConditionalFlag, props.Sequence, props.DisplayIndex, props.AppendixFlagValue)}</span>
+              }
+            </div>
+          </div>
+        </div>
+      </DrawerItem>
+    );
+  };
+ const navigationCSRtoCERT = () => {
+    let dataToShare = {
+      Action: 'CSR_CERT_Navigation',
+    };
+    let appDataEvent = new ShellEventRegister().getShellEvent();
+    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
+    window.dispatchEvent(appDataEvent);
+  };
+  // Revision Record approval buttons
+  const userToken = new UserToken();
+  const userBemsId = userToken.getUserBemsId();
+  const [editReqCommentPresent, setEditReqCommentPresent] = useState(false);
+  const [loadTabList, setLoadTabList] = useState<number>(-1);
+  const [commentCountDetails, setCommentCountDetails] = useState<CommentCountDetails>({
+    RptId: 0,
+    TotalCommentCount: 0,
+    UnResolvedCommentCount: 0,
+  });
+  const [loadCommentCount, setLoadCommentCount] = useState<number>(-1);
+
+  const handleOpenCommentSumPanel = async () => {
+    let ifSubRefTab = false;
+    let currentRef: any = getActiveTabRef();
+    let revisionTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISED_RECORD.toUpperCase());
+    let revisionLogTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISION_LOG.toUpperCase());
+    let signatureTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.SIGNATURE.toUpperCase());
+    let urlFragment = window.location.hash.split('/').pop() || "";
+
+    if (urlFragment == FixedTabTitle.CONFIGURE_SUBSTANTIATION_TAB_INDEX || urlFragment == FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX) {
+      ifSubRefTab = true;
+    }
+    if (currentRef && currentRef.current) {
+      window['rightPaneScrollPosition'] = "0";
+      // get grid dirty flag from storage
+      let ischangeGridDirty = false;
+
+      if (!ifSubRefTab && (selectedTab == revisionTabIndex || selectedTab == revisionLogTabIndex || selectedTab == signatureTabIndex) && window.location.hash?.indexOf(FixedTabTitle.COMMENT_SUMMARY_TAB_INDEX) == -1) {
+        ischangeGridDirty = await isRevisionChangeGridDirty(currentRef);
+      }
+
+      // if yes then show msg and onClick of yes return
+      currentRef.current.isTabSectionDirty().then((isDirty) => {
+        scrollPositionTop = true;
+        if (isDirty || ischangeGridDirty) {
+          userDefinedConfirm({ message: `There are unsaved changes in the current session. Do you want to proceed without saving?`, okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
+            ({ button, input }) => {
+              handleScrollPosition();
+              navigate(PathConstants.DYNAMIC_TAB.replace(":reportId", (reportId || "0")).replace(":tabIndex", "-99999"));
+            },
+            () => {
+              scrollPositionTop = false;
+              handleScrollPosition();
+              return;
+            }
+          );
+        } else {
+          handleScrollPosition();
+          navigate(PathConstants.DYNAMIC_TAB.replace(":reportId", (reportId || "0")).replace(":tabIndex", "-99999"));
+        }
+      });
+    }
+  }
+
+  //-----Adobe analytics start
+  const [adobeData, setAdobeData] = useState<adobeWindowData>({
+    key: "adobe-FINDCSR-CSRReport",
+    pageComponentData: {
+    }
+  })
+  //--Adobe analytics end
+  // const handleScreenResize = () => {
+  //     const percentage = calculateScreenPercentage(); // Your function to calculate screen percentage
+  //     setScreenPercentage(percentage);
+  //   };
+  const calculateScreenPercentage = () => {
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const totalPixels = screenWidth * screenHeight;
+    // Assuming a reference screen size of 1920x1080 for 100% screen size
+    const referenceWidth = 1920;
+    const referenceHeight = 1080;
+    const referencePixels = referenceWidth * referenceHeight;
+    const percentage = (totalPixels / referencePixels) * 100;
+    return screenWidth == defaultWindowWidth ? 0 : percentage;
+  };
+  const handleScreenResize = () => {
+    shellHeight();
+    const percentage = calculateScreenPercentage();
+    setScreenPercentage(percentage);
+    setHeaderHeight(document.getElementsByClassName("fixedHeader")[0]?.clientHeight)
+  }
+  // Attach event listener for screen resize
+  useEffect(() => {
+    window.addEventListener('resize', handleScreenResize);
+    return () => {
+      window.removeEventListener('resize', handleScreenResize);
+    };
+  }, []);
+
+  // Track whether editor elements exist on the page
+  useEffect(() => {
+    const checkEditors = () => setHasEditors(document.querySelectorAll('.k-editor-content .ProseMirror').length > 0);
+    checkEditors();
+    const observer = new MutationObserver(checkEditors);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  // Close find & replace dialog when editors disappear (e.g. page navigation)
+  // useEffect(() => {
+  //   if (!hasEditors && openGlobalFindReplace) setOpenGlobalFindReplace(false);
+  // }, [hasEditors]);
+
+  // Ctrl+F to open global Find & Replace
+  // useEffect(() => {
+  //   const handleKeyDown = (e: KeyboardEvent) => {
+  //     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+  //       if (hasEditors && csrHeaderData.length > 0 && csrHeaderData[0]?.EditEnabledFlag === "Y" && csrHeaderData[0]?.WorkFlowStep == ReportStepId.CREATE_STEP) {
+  //         e.preventDefault();
+  //         setOpenGlobalFindReplace(true);
+  //       }
+  //     }
+  //   };
+  //   window.addEventListener('keydown', handleKeyDown);
+  //   return () => window.removeEventListener('keydown', handleKeyDown);
+  // }, [csrHeaderData, hasEditors]);
+
+  useEffect(() => {
+    if (isPendingWithUser()) {
+      if (!tabIndex) return;
+      const id = parseInt(tabIndex, 10);
+      const selectedTab = tabList?.find(t => t?.TabId === id);
+      const selectedtabTitle = selectedTab?.Title?.trim() ?? '';
+      const revision = tabList?.find(item => item?.Title?.toUpperCase().trim() === 'REVISION RECORD');
+      const revisionTitle = revision?.Title?.trim() ?? '';
+      const revisionLog = tabList?.find(item => item?.Title?.toUpperCase().trim() === 'REVISION LOG');
+      const revisionlogTitle = revisionLog?.Title?.trim() ?? '';
+      const signature = tabList?.find(item => item?.Title?.toUpperCase().trim() === 'SIGNATURE');
+      const signatureTitle = signature?.Title?.trim() ?? '';
+      setIsRevisionTabloaded(revisionTitle == selectedtabTitle ? true : false);
+      setIsSignatureTabloaded(signatureTitle == selectedtabTitle ? true : false);
+      setIsRevisionLogTabloaded(revisionlogTitle == selectedtabTitle ? true : false)
+    } else {
+      setIsRevisionTabloaded(false);
+      setIsSignatureTabloaded(false);
+      setIsRevisionLogTabloaded(false)
+    }
+  }, [csrHeaderData]);
+
+  const setEasaActiveSubMenuData = (groupTitle) => {
+    // storing data in easaActiveSubMenu-cache local storage 
+    storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', groupTitle);
+
+    // storing data in FINDCSR shell
+    storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'CsrWorkAppFlag', true)
+  };
+
+  const setShellStorageData = (groupBUId, currDiscipline, currDisciplineId) => {
+    storageService.setApplicationDataByKey(`${process.env.REACT_PARENT_APP_NAME}-Shell`, 'currentbusinessunitid', groupBUId);
+    storageService.setApplicationDataByKey(`${process.env.REACT_PARENT_APP_NAME}-Shell`, 'currentdiscipline', currDiscipline);
+    storageService.setApplicationDataByKey(`${process.env.REACT_PARENT_APP_NAME}-Shell`, 'currentdisciplineid', currDisciplineId);
+    storageService.setApplicationDataByKey(`${process.env.REACT_PARENT_APP_NAME}-Shell`, 'groupbu', 'EASA');
+  };
+
+  // reseting bookmark content Id on first load
+  useEffect(() => {
+    storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'bookmarkLinkId', 0);
+    storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'bookmarkTabId', 0);
+  }, []);
+  
+  const APP_STORAGE_KEY = `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`;
+  const confirmBeforeRefNavigation = useCallback(async (targetHref: string) => {
+    const currentRef: any = getActiveTabRef();
+    const complianceDirty = storageService.getApplicationDataByKey(
+      APP_STORAGE_KEY,
+      'compliancedirtygriddetail'
+    );
+  
+    let isDirty = false;
+    let isRevisionDirty = false;
+  
+    if (currentRef?.current) {
+      const revisionTabIndex = tabList?.findIndex(
+        item => item?.Title?.trim().toUpperCase() === FixedTabTitle.REVISED_RECORD.toUpperCase()
+      );
+      const revisionLogTabIndex = tabList?.findIndex(
+        item => item?.Title?.trim().toUpperCase() === FixedTabTitle.REVISION_LOG.toUpperCase()
+      );
+      const signatureTabIndex = tabList?.findIndex(
+        item => item?.Title?.trim().toUpperCase() === FixedTabTitle.SIGNATURE.toUpperCase()
+      );
+  
+      const isRevisionTab =
+        selectedTab === revisionTabIndex ||
+        selectedTab === revisionLogTabIndex ||
+        selectedTab === signatureTabIndex;
+  
+      if (
+        isRevisionTab &&
+        window.location.hash?.indexOf(FixedTabTitle.COMMENT_SUMMARY_TAB_INDEX) === -1
+      ) {
+        isRevisionDirty = await isRevisionChangeGridDirty(currentRef);
+      }
+  
+      isDirty = await currentRef.current.isTabSectionDirty();
+    }
+  
+    if (isDirty || complianceDirty || isRevisionDirty) {
+      userDefinedConfirm({
+        message: "There are unsaved changes in the current session. Do you want to proceed without saving?",
+        okBtnText: "Yes",
+        cancelBtnText: "Cancel",
+      }).then(
+        () => {
+          storageService.setApplicationDataByKey(APP_STORAGE_KEY, 'IsTabDirty', false);
+          window.location.href = targetHref;
+        },
+        () => {}
+      );
+      return;
+    }
+    window.location.href = targetHref;
+  }, [selectedTab, tabList]);
+  
+  useEffect(() => {
+    const root = document.getElementById('compliance-report-base-page');
+    if (!root) return;
+  
+    const handleDynamicRefClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const anchor = target?.closest('a[href*="/tab/-77777?edit="]') as HTMLAnchorElement | null;
+  
+      if (!anchor) return;
+  
+      e.preventDefault();
+      e.stopPropagation();
+      confirmBeforeRefNavigation(anchor.href);
+    };
+  
+    root.addEventListener('click', handleDynamicRefClick, true);
+  
+    return () => {
+      root.removeEventListener('click', handleDynamicRefClick, true);
+    };
+  }, [confirmBeforeRefNavigation]);
+
+  useEffect(() => {
+    if (parseInt(reportId) > 0) {//&& csrHeaderData.length == 0
+      let storageService = new StorageService();
+      const selectedDisciplined = storageService.getSelectedDiscipline();
+      let currentBUId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunitid');
+      cSRDetailsBaseService.getCSRHeaderData(reportId, selectedDisciplined).then((response) => {
+        if (response.data.length > 0) {
+          setDelRptFlag(false);  //for existing tab load
+          response.data[0].DuplicateFlag = "N";
+          setCsrHeaderData(response.data);
+          CSRDetailsBaseService.GetRevisionDetails(reportId).then((res) => {
+            const revisions = res.data || [];
+            setMaxRevision(() => Math.max(...revisions.map(option => parseInt(option.Revision))));
+          });
+          if (response.data[0].DOCUMENT_NAME || response.data[0].DOCUMENT_NUMBER) {
+            if (response.data[0].CurrentState && response.data[0].CurrentState.toLowerCase() == "initiate review") {
+              setDrawingReviewInitiated(true);
+            }
+            setIsCreateReport(true);
+            let docNumber = response.data[0]["DOCUMENT_NUMBER"];
+            let projectId = response.data[0]["PROJECT_ID"];
+            let rev = "";
+            if (response.data[0]["PARENT_RPT_ID"] != null && response.data[0]["PARENT_RPT_ID"] > 0) {
+              rev = response.data[0]["REVISION"];
+            };
+            let groupID = response.data[0]["GroupId"];
+            let groupBU = response.data[0]["BusinessUnitTitle"];
+
+
+            // setting Object for Copied URL not working and Giving Error invalid PID 
+            let updateProjectId = projectId?.toString().padStart(5, '0');
+            let regProjectId = response.data[0]["ProjectRegisterId"]?.toString();
+            let groupTitle = response.data[0]["GroupTitle"];
+            if (!registerId && groupBU?.includes("EASA")) {
+              let groupBUId = response.data[0]["BusinessUnitId"];
+              let currDiscipline = response.data[0]["DisciplineTitle"];
+              let currDisciplineId = response.data[0]["DisciplineId"];
+              setEasaActiveSubMenuData(groupTitle);
+              setShellStorageData(groupBUId, currDiscipline, currDisciplineId);
+            };
+            // getting Easa report details
+            let checkCurrentBUId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunitid');
+            let checkRegisterId = regProjectId;
+            if (checkCurrentBUId == 2 && checkRegisterId != 0) { // check for EASA workspace
+              CSRListService.getEasaReportType(Number(groupID), checkRegisterId).then((easaResponse) => {
+                if (easaResponse && easaResponse.data) {
+                  sendBreadcrumbDataToShell(docNumber, projectId, rev, groupID, groupBU, regProjectId, easaResponse.data[0]?.Revision);
+                }
+              });
+            }
+            else {
+              sendBreadcrumbDataToShell(docNumber, projectId, rev, groupID, groupBU, regProjectId, "");
+            }
+            // ---- setting document number / report Id for reading in shell level
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `docnumber`, docNumber);
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `DocRev`, rev);
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `reportid`, reportId);
+            //---Adobe Analytics
+            setAdobeData({
+              ...adobeData, pageComponentData: {
+                projectId: projectId,
+                documentNumber: docNumber
+              }
+            })
+          }
+        }
+        else {
+          setDelRptFlag(true);  //to display rpt not found msg
+          const CsrPmdbProjectId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'CsrPmdbProjectId');
+          let groupBU = response.data.length > 0 ? response.data[0]["BusinessUnitTitle"] : '';
+          let regProjectId = response.data.length > 0 ? response.data[0]["ProjectRegisterId"]?.toString() : '';
+          let regProjectIdRev = "";
+          if (window["projectId"])
+
+            sendBreadcrumbDataToShell("", window["projectId"], "", "", groupBU, regProjectId, regProjectIdRev);
+          else {
+            //const key = `${EnvDetail.ParentAppName}-Shell-cache`;
+            let projId = storageService.getApplicationDataByKey(`${process.env.REACT_PARENT_APP_NAME}-Shell`, 'projectid');
+            sendBreadcrumbDataToShell("", projId, "", "", groupBU, regProjectId, regProjectIdRev);
+          }
+        }
+      });
+
+      // checking is EASA or FAA
+      if (currentBUId == "2") {
+        setIsEasaWorkSpace(true);
+      } else {
+        setIsEasaWorkSpace(false);
+      };
+    }
+    else {
+      setDelRptFlag(false);  //for existing tab load
+    }
+  }, [reportId, tabIndex, tabRefresh]);
+
+
+  useEffect(() => {
+    // Clear Slice data on report change
+    dispatch(resetAllReferenceData());
+    dispatch(clearSubstantiationData());
+  }, [reportId]);
+
+  // useEffect for adobe
+
+  useEffect(() => {
+    if (Object.keys(adobeData.pageComponentData).length > 0) {
+      logPageViewEventWithData(adobeData)
+    }
+  }, [adobeData.pageComponentData.documentNumber])
+
+  const sendBreadcrumbDataToShell = (docNumber, projectId, rev, groupId, groupBU, RegProjectId, regProjectIdRev) => {
+    // Send Document Name to Shell
+    let dataToShare = {
+      AppName: EnvDetail.AppName,
+      Action: 'CSR_Breadcrumb_Detail',
+      Detail: {
+        DocNumber: docNumber ? docNumber : "",
+        ProjectId: projectId,
+        Rev: rev,
+        GroupId: groupId,
+        GroupBU: groupBU,
+        registerProjectId: RegProjectId,
+        regProjectIdRevision: regProjectIdRev
+      }
+    };
+    let appDataEvent = new ShellEventRegister().getShellEvent();
+    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
+    window.dispatchEvent(appDataEvent);
+  }
+
+  const handleTabHeighlight = (data) => {
+    let tempTabList = JSON.parse(JSON.stringify(tabList));
+
+    for (let i = 0; i < tempTabList.length; i++) {
+      if (tempTabList[i].TabId == parseInt(data.Detail.tabId)) {
+        if (data.Detail.TotalUnresolvedCommentCount > 0) {
+          tempTabList[i].TabColor = "#EA002A";
+          // tempTabList[i].UnresolveCmtCount = 1;
+        } else {
+          tempTabList[i].TabColor = "#253746";
+        }
+      }
+    };
+    setTabList(tempTabList);
+  };
+
+  const fetchFocalData = async () => {
+    try {
+      const response = await RevisionRecordService.getTabListByRptId(reportId, 0);
+      const result = response.data;
+      setRevisionRecordDetails(result);
+      setAllFocalList(result.AllFocalDetailList);
+      return result.AllFocalDetailList ?? [];
+    } catch (err) {
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    fetchFocalData();
+  }, [tabRefresh]);
+
+  useEffect(() => {
+    cSRDetailsBaseService.getTabListByRptId(reportId).then((response) => {
+      if (parseInt(reportId) == 0) {
+        //this section for creating new report
+        let result = response.data;
+        result[0].TabId = -1;
+        setTabList(result);
+        setTab(0);
+      }
+      else {
+        setTabList(response.data);
+      }
+      let topHeaderHeight: any = document.getElementsByClassName("fixedHeader")[0]?.clientHeight;
+      setHeaderHeight(topHeaderHeight);
+    });
+    RevisionRecordService.getTabListByRptId(reportId, 0).then((response) => {
+      let result = response.data;
+      setRevisionRecordDetails(result);
+      setAllFocalList(result.AllFocalDetailList);
+    });
+    RevisionRecordService.checkIsEditRequiredCommentPresent(Number(reportId)).then((response) => {
+      if (response) {
+        setEditReqCommentPresent(response.data);
+      }
+    });
+  }, [reportId, tabIndex, loadTabList, tabRefresh]);
+
+  useEffect(() => {
+    GetProjectCommentCount();
+  }, [reportId, tabIndex, loadTabList, loadCommentCount, tabRefresh]);
+
+  const GetProjectCommentCount = () => {
+    cSRDetailsBaseService.GetProjectCommentCount(parseInt(reportId)).then((res) => {
+      if (res) {
+        setCommentCountDetails(res.data);
+      };
+    });
+  }
+
+  const shellHeight = () => {
+    setShellHeaderHeight(document?.getElementsByClassName("shell-header-setion")?.[0]?.['clientHeight'])
+    setShellBreadCrumbsHeight(document?.getElementsByClassName("oss-menu-breadcrums")?.[0]?.['clientHeight'])
+    setShellFooterHeight(document.getElementsByTagName('footer')[0]?.clientHeight)
+  }
+  useEffect(() => {
+    if (document?.getElementById('shell-main-section') != undefined) {
+      shellHeight();
+      setHeaderHeight(document.getElementsByClassName("fixedHeader")[0]?.clientHeight);
+      setShellMainSection(document?.getElementById('shell-main-section')?.clientHeight)
+    }
+    setHeaderHeight(document?.getElementsByClassName("fixedHeader")?.[0]?.clientHeight)
+  });
+
+  useEffect(() => {
+    shellHeight();
+    setHeaderHeight(document.getElementsByClassName("fixedHeader")[0]?.clientHeight);
+    setShellMainSection(document?.getElementById('shell-main-section')?.clientHeight)
+  }, [screenPercentage]);
+
+  useEffect(() => {
+    setShellWorkappContainerMaxHeight(shellMainSection != undefined ? shellMainSection - (shellHeaderHeight + shellBreadcrumbsHeight + shellFooterHeight) + 30 : 0)
+  }, [shellMainSection, shellBreadcrumbsHeight, shellHeaderHeight, shellFooterHeight]);
+
+  // for left panel shell height adjustment
+  useEffect(() => {
+    const csrWorkAppFlag = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'CsrWorkAppFlag');
+    setShellWorkappLeftPanelContainerMaxHeight(shellMainSection != undefined ? shellMainSection - (shellHeaderHeight + shellBreadcrumbsHeight + shellFooterHeight) + (csrWorkAppFlag ? 5 : -46) : 0)
+  }, [shellMainSection, shellBreadcrumbsHeight, shellHeaderHeight, shellFooterHeight]);
+
+  useEffect(() => {
+    //Scrollable Body height is calculated as a difference of the total screen width and header and accordian width
+    setScrollableBodyHeight((window.innerHeight - headerHeight) - 6);
+    setScrollableBodyTopHeight(headerHeight)
+  }, [headerHeight, screenPercentage]);
+
+  useEffect(() => {
+    setScrollabelMaxHeight((shellWorkappContainerMaxHeight - headerHeight) - 10);
+  }, [shellWorkappContainerMaxHeight, headerHeight, screenPercentage]);
+
+  const ITEM_HEIGHT = 48;
+  const ITEM_PADDING_TOP = 8;
+  const MenuProps = {
+    PaperProps: {
+      style: {
+        maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
+        width: 250,
+      },
+    },
+  };
+
+  useEffect(() => {
+    storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, isHeaderDirty);
+  }, [isHeaderDirty]);
+
+  // To Highlight the tab based on Tab Index
+  useEffect(() => {
+    highlightSelectedTab();
+    if (!tabIndex) {
+      setIsGeneralTabloaded(true);
+    };
+
+    // Subscribe event to change Color
+    PubSub.subscribe(PubSubEvent.UPDATE_TAB_COLOR, (data: any) => {
+      if (tabList.length > 0) {
+        setLoadTabList(Math.floor(Math.random() * 1000000000));
+        handleTabHeighlight(data);
+      }
+    });
+    // Highlight Header button
+    highlightHeaderButton();
+
+  }, [tabList, tabRefresh]);
+
+  const highlightHeaderButton = () => {
+    // Subscribe event to change HEADER button text Color
+    PubSub.subscribe(PubSubEvent.HIGHLIGHT_HEADER_BUTTON, (data: any) => {
+      if (tabList.length > 0 && data) {
+        let commentResult = data.Detail.CountResult;
+
+        // For Reference button
+        if (referenceBtnRef.current) {
+          let tempRef: any = referenceBtnRef.current;
+          const hasUnresolvedComments = commentResult?.some(item => item.UnResolvedCommentCount > 0 && !csrHeaderData[0]?.DefaultSubDocTypeList?.some(sub => sub.TableCode === item.ScreenName));
+          tempRef.style.color = hasUnresolvedComments ? "#EA002A" : "#253746";
+        }
+        // For Substantiation button
+        if (substantiationBtnRef.current) {
+          let tempRef: any = substantiationBtnRef.current;
+          const hasFixedRegulationUnresolved = commentResult?.some(item => csrHeaderData[0]?.DefaultSubDocTypeList?.some(sub => sub.TableCode === item.ScreenName) && item.UnResolvedCommentCount > 0);
+          tempRef.style.color = hasFixedRegulationUnresolved ? "#EA002A" : "#253746";
+        }
+
+      }
+    });
+  }
+
+  const handleCloseManageTabListPopup = () => {
+    setOpenTabListPopup(false);
+  }
+
+  const handleOpenManageTabListPopup = () => {
+    let revisionTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISED_RECORD.toUpperCase());
+    let genlTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.GENERAL.toUpperCase());
+    let revisionLogTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISION_LOG.toUpperCase());
+    let signatureTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.SIGNATURE.toUpperCase());
+    let currentRef: any = { current: null };
+
+    if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_SUBSTANTIATION_TAB_INDEX) > -1) {
+      currentRef = configureSubstantiationRef;
+    } else if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX) > -1) {
+      currentRef = configureReferencesRef;
+    } else if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.COMMENT_SUMMARY_TAB_INDEX) > -1) {
+      currentRef = commentSummaryRef;
+    } else {
+      currentRef =
+        selectedTab === revisionTabIndex ? revisionRef :
+          selectedTab === genlTabIndex ? generalRef :
+            selectedTab === revisionLogTabIndex ? revisionLogRef :
+              selectedTab === signatureTabIndex ? signatureRef :
+                childRef;
+    }
+
+    currentRef.current.isTabSectionDirty().then((isDirty) => {
+      let generalTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.GENERAL.toUpperCase());
+      if (isDirty && (selectedTab == 0 || selectedTab == generalTabIndex || selectedTab == revisionTabIndex || selectedTab == revisionLogTabIndex || selectedTab == signatureTabIndex)) {
+        userDefinedConfirm({
+          message: "There are unsaved changes in the current session. Do you want to proceed without saving?",
+          okBtnText: "Yes",
+          cancelBtnText: "Cancel",
+        }).then(({ button, input }) => {
+          setOpenTabListPopup(true);
+        }, () => {
+          return;
+        });
+      }
+      else {
+        setOpenTabListPopup(true);
+      }
+    });
+  }
+
+  const handleSaveManageTabListPopup = (updatedTabList: TabDetails[]) => {
+    handleCloseManageTabListPopup();
+    setTabList(updatedTabList);
+    setLoadCommentCount(Math.floor(Math.random() * 1000000000));
+    // Call the refresh function in the child component to update Appendix tab name in textbox
+    if (childRef.current) {
+      childRef.current.refreshAllEditor();
+    }
+  }
+
+  //to update Appendix and Custom Section tab name
+  const handleTabTitle = (data) => {
+    let tempTabList = JSON.parse(JSON.stringify(tabList));
+    const serialNo = String(data.SectionSerialNumber).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const pattern = new RegExp(`^${serialNo}\\.?\\s*`);
+    const newTabTitle = data.SectionTitle.replace(pattern, '').trim();
+
+    for (let i = 0; i < tempTabList.length; i++) {
+      if (tempTabList[i].CustomTabFlag && tempTabList[i].CustomTabFlag == "Y" && tempTabList[i].TabId == parseInt(data.TabId)) {
+        tempTabList[i].Title = newTabTitle;
+        break;
+      }
+    }
+    setTabList(tempTabList);
+  };
+
+  const highlightSelectedTab = () => {
+    let urlPath = window.location.hash;
+    let urlFragment = urlPath.split('/').pop() || ""; //getting TabId
+
+    if (urlPath.indexOf('tab') > -1 && (urlFragment.indexOf(FixedTabTitle.CONFIGURE_SUBSTANTIATION_TAB_INDEX) > -1
+      || urlFragment.indexOf(FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX) > -1 || urlFragment.indexOf(FixedTabTitle.COMMENT_SUMMARY) > -1)) {
+      setTab(prevTabRef.current);   // Restore the previously selected tab from the ref
+    }
+    else if (urlPath.indexOf('tab') > -1) {
+      let tempTabIndex = tabList.findIndex(a => a.TabId.toString() === urlFragment);
+
+      if (tempTabIndex > -1) {
+        setTab(tempTabIndex);
+        prevTabRef.current = tempTabIndex;
+      } else if (prevTabRef && prevTabRef?.current > 0) {
+        setTab(prevTabRef.current)
+      }
+    }
+    else {
+      setTab(0);
+      prevTabRef.current = 0;
+    }
+  };
+
+
+  // const highlightSelectedTab = () => {
+  //   let urlPath = window.location.hash;
+  //   let urlFragment = urlPath.split('/').pop() || "";
+
+  //   if (urlPath.indexOf('tab') > -1) {
+  //     // Changes to set focus on either Compliance or other tab while navigating to Project Regulations
+  //     if (tabIndex && (tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_SUBSTANTIATION_TAB_INDEX) > -1 )) {
+  //       // Set Focus to Compliance Showing tab
+  //       let complianceTabIndex = tabList?.findIndex(item => item.Regexist === 1);
+  //       setTab(complianceTabIndex);
+  //     } 
+  //     else if (tabIndex && (tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX) > -1)) {
+  //       let referenceTabIndex = tabList?.findIndex(item => item.Refexist === 1);
+  //       setTab(referenceTabIndex);
+  //     }
+  //     else {
+  //       // Get Dynamic Tab index
+  //       let tempTabIndex = tabList.findIndex(a => a.TabId.toString() == urlFragment);
+  //       setTab(tempTabIndex);
+  //     }
+  //   }
+  //   else {
+  //     setTab(0);
+  //   }
+  // }
+
+  const isPendingWithUser = () => {
+    let currentUserBemsId = AuthorizationService.getUserBemsId();
+    const isUserDataExist = csrHeaderData[0]?.PendingWithBemsId?.filter(item => {
+      return item == currentUserBemsId;
+    });
+    if (isUserDataExist && isUserDataExist.length > 0 && csrHeaderData[0]?.RELEASE_DATE == null)
+      return true;
+    return false;
+  };
+
+  const disableSave = () => {
+    const isUserInFocalApprovers  = Array.isArray(allFocalList) && allFocalList.some(focal =>
+      Array.isArray(focal?.ApproverDetailList) &&
+      focal.ApproverDetailList.some(detail => detail?.BemsId === parseInt(userBemsId))
+    );
+    const id = parseInt(tabIndex, 10);
+    const selectedTab = tabList?.find(t => t?.TabId === id);
+    const selectedtabTitle = selectedTab?.Title?.trim() ?? '';
+    const revision = tabList?.find(item => item?.Title?.toUpperCase().trim() === FixedTabTitle.REVISED_RECORD.toUpperCase().trim());
+    const revisionTitle = revision?.Title?.trim() ?? '';
+    const signature = tabList?.find(item => item?.Title?.toUpperCase().trim() === FixedTabTitle.SIGNATURE.toUpperCase().trim());
+    const signatureTitle = signature?.Title?.trim() ?? '';
+    const isRevisionOrSignatureTab  = selectedtabTitle && (revisionTitle == selectedtabTitle || signatureTitle == selectedtabTitle ) ? true : false;
+    if(isUserInFocalApprovers  && isRevisionOrSignatureTab  && csrHeaderData[0]?.RELEASE_DATE === null) return false;
+    if (csrHeaderData && csrHeaderData.length > 0 &&
+      csrHeaderData[0]?.AuthorBemsId === parseInt(userBemsId) &&
+      csrHeaderData[0]?.TemplateTitle === EasaMasterType.Supplier &&
+      csrHeaderData[0]?.RELEASE_DATE != null) {
+      return maxRevision !== parseInt(csrHeaderData[0]?.REVISION);
+    }
+    return showDisableSaveButton() || disableSaveOnRefTab();
+  };
+
+  const showDisableSaveButton = () => {
+    let disable =
+      (parseInt(tabIndex) == -1 || csrHeaderData[0]?.EditEnabledFlag == "Y"
+        || (isGeneralTabloaded && csrHeaderData[0]?.EditEnabledFlag == "Y")
+        || (isGeneralTabloaded && isCurrentUserAuthor() && csrHeaderData[0]?.WorkFlowStep == ReportStepId.SUBMIT_REVIEW)
+        || isRevisionTabloaded || isRevisionLogTabloaded || isSignatureTabloaded)
+        && csrHeaderData[0]?.RELEASE_DATE == null
+        ? false
+        : true;
+
+    // Check condition to enable save button
+    if (csrHeaderData[0]?.EnvelopeId && isPendingWithUser() && (isRevisionTabloaded || isRevisionLogTabloaded || isSignatureTabloaded)) {
+      return csrHeaderData[0]?.AuthorBemsId === parseInt(userBemsId)
+    }
+    return disable;
+  };
+
+  const handleTabChange = async (event, value) => {
+    let revisionTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISED_RECORD.toUpperCase());
+    let genlTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.GENERAL.toUpperCase());
+    let revisionLogTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISION_LOG.toUpperCase());
+    let signatureTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.SIGNATURE.toUpperCase());
+    let currentRef: any = { current: null };
+
+    if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_SUBSTANTIATION_TAB_INDEX) > -1) {
+      currentRef = configureSubstantiationRef;
+    } else if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX) > -1) {
+      currentRef = configureReferencesRef;
+    } else if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.COMMENT_SUMMARY_TAB_INDEX) > -1) {
+      currentRef = commentSummaryRef;
+    } else {
+      currentRef =
+        selectedTab === revisionTabIndex ? revisionRef :
+          selectedTab === genlTabIndex ? generalRef :
+            selectedTab === revisionLogTabIndex ? revisionLogRef :
+              selectedTab === signatureTabIndex ? signatureRef :
+                childRef;
+    }
+
+    if (currentRef.current) {
+      window['rightPaneScrollPosition'] = "0";
+      // get grid dirty flag from storage
+      let IsComplianceGridTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'compliancedirtygriddetail');
+      let ischangeGridDirty = false;
+
+      if ((selectedTab == revisionTabIndex || selectedTab == revisionLogTabIndex || selectedTab == signatureTabIndex) && window.location.hash?.indexOf(FixedTabTitle.COMMENT_SUMMARY_TAB_INDEX) == -1) {
+        ischangeGridDirty = await isRevisionChangeGridDirty(currentRef);
+      }
+
+      // if yes then show msg and onClick of yes return
+      currentRef.current.isTabSectionDirty().then((isDirty) => {
+        scrollPositionTop = true;
+        if (isDirty || IsComplianceGridTabDirty || ischangeGridDirty) {
+          let dirtyGridLength = IsComplianceGridTabDirty.split(',').length;
+          // let message = IsComplianceGridTabDirty ? `unsaved ${dirtyGridLength > 1 ? IsComplianceGridTabDirty.replace(","," and ") : IsComplianceGridTabDirty} grid changes` : "unsaved changes";
+          let message = IsComplianceGridTabDirty ? `unsaved changes in ${dirtyGridLength > 1 ? IsComplianceGridTabDirty.replace(/,(?=[^,]*$)/, " and ") : IsComplianceGridTabDirty} grid` : "unsaved changes";
+          userDefinedConfirm({ message: `There are ${message} in the current session. Do you want to proceed without saving?`, okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
+            ({ button, input }) => {
+              doTabNavigation(event, value);
+              storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
+              handleScrollPosition();
+            },
+            () => {
+              scrollPositionTop = false;
+              handleScrollPosition();
+              return;
+            }
+          );
+        } else {
+          // Check if Data is already in Local Storage
+          handleScrollPosition();
+          let existingStorageData = storageService.getApplicationData(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`);
+
+          if (existingStorageData) {
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `DocNumber`, csrHeaderData[0].DOCUMENT_NUMBER);
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `ProjectId`, csrHeaderData[0].PROJECT_ID)
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `DocRev`, csrHeaderData[0].REVISION)
+          } else {
+            // Set data in Storage for Tab Navigation change
+            let cacheData = {
+              "DocNumber": csrHeaderData[0].DOCUMENT_NUMBER,
+              "ProjectId": csrHeaderData[0].PROJECT_ID,
+              "DocRev": csrHeaderData[0].REVISION,
+              "CsrWorkAppFlag": true,
+              "CsrPmdbProjectId": csrHeaderData[0].PROJECT_ID
+            };
+            storageService.setApplicationData(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, cacheData);
+          }
+          doTabNavigation(event, value);
+        }
+      });
+    }
+  };
+
+  const isRevisionChangeGridDirty = async (currentRef) => {
+    let isDirty = false;
+    await currentRef.current.isRevisionChangeGridDirty().then((isGridDirty) => {
+      isDirty = isGridDirty;
+    });
+
+    return isDirty;
+  }
+
+  const doTabNavigation = (event, value) => {
+    setTab(value);
+    const revision = tabList?.find(item => item?.Title?.toUpperCase().trim() === 'REVISION RECORD');
+    const revisionTitle = revision?.Title?.trim() ?? '';
+
+    const revisionLog = tabList?.find(item => item?.Title?.toUpperCase().trim() === 'REVISION LOG');
+    const revisionlogTitle = revisionLog?.Title?.trim() ?? '';
+
+    const signature = tabList?.find(item => item?.Title?.toUpperCase().trim() === 'SIGNATURE');
+    const signatureTitle = signature?.Title?.trim() ?? '';
+
+    const general = tabList?.find(item => item?.Title?.toUpperCase().trim() === 'GENERAL');
+    const generalTitle = general?.Title?.trim() ?? '';
+    let tabIdForData: string = event.itemTarget.props.id.replace('simple-tab-', '');
+    let selectedtabTitle: string = event.itemTarget.props.title?.trim();
+    const shouldLoad = (titleToMatch: string): boolean =>
+      !!(
+        titleToMatch &&
+        titleToMatch === selectedtabTitle &&
+        csrHeaderData?.[0]?.EnvelopeId &&
+        isPendingWithUser()
+      );
+    setIsRevisionTabloaded(shouldLoad(revisionTitle));
+    setIsSignatureTabloaded(shouldLoad(signatureTitle));
+    setIsRevisionLogTabloaded(shouldLoad(revisionlogTitle));
+    setIsGeneralTabloaded(generalTitle == selectedtabTitle ? true : false);
+
+    // This condition is for Dynamic Tabs
+    if (tabIdForData) {
+      navigate(PathConstants.DYNAMIC_TAB.replace(":reportId", (reportId || "0")).replace(":tabIndex", tabIdForData));
+    }
+  }
+
+  const drawingInitiateReviewClick = (reinitiateFlag: boolean) => {
+    cSRDetailsBaseService.DrawingInitiateReview(reportId, reinitiateFlag).then((response) => {
+      if (response.data == "success") {
+        dispatch(showSnackbar({
+          snackbarOpen: true,
+          snackbarType: "success",
+          snackbarMessage: "Review Initiated Successfully."
+        }));
+        let storageService = new StorageService();
+        const selectedDisciplined = storageService.getSelectedDiscipline();
+        let currentBUId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunitid');
+        cSRDetailsBaseService.getCSRHeaderData(reportId, selectedDisciplined).then((response) => {
+          if (response.data.length > 0) {
+            setDrawingReviewInitiated(true);
+            setCsrHeaderData(response.data);
+          }
+        });
+      }
+      else {
+        dispatch(showSnackbar({
+          snackbarOpen: true,
+          snackbarType: "error",
+          snackbarMessage: response.data
+        }));
+      }
+    });
+  }
+
+  const isLoggedInUserIsDrawingDe = () => {
+    const isInFocalList = Array.isArray(allFocalList) && allFocalList.some(focal =>
+      Array.isArray(focal?.ApproverDetailList) && focal.UserRole == "DE" &&
+      focal.ApproverDetailList.some(detail => detail?.BemsId === parseInt(userBemsId))
+    );
+    return isInFocalList;
+  };
+
+  const drawingViewReviewClick = (action: string) => {
+    cSRDetailsBaseService.GetDrawingNoAssignForReportID(reportId).then((response) => {
+      if (response.data > 0) {
+        let dataToShare = {
+          AppName: EnvDetail.AppName,
+          Action: 'Bildr_Tool_Navigation',
+          Detail: {
+            action: action,//drawingReviewButtonText.toLocaleLowerCase(),
+            reportId: reportId,
+            drawingId: response.data
+          }
+        };
+        let appDataEvent = new ShellEventRegister().getShellCheckListEntryEvent();
+        appDataEvent[`${EnvDetail.ParentAppName}_FindBuilderTool_EVENT_DATA`] = dataToShare;
+        window.dispatchEvent(appDataEvent);
+      }
+      else {
+        dispatch(showSnackbar({
+          snackbarOpen: true,
+          snackbarType: "error",
+          snackbarMessage: "Drawing document not found."
+        }));
+      }
+    });
+
+  }
+
+  const saveTabDetails = () => {
+    let revisionTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISED_RECORD.toUpperCase());
+    let genlTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.GENERAL.toUpperCase());
+    let revisionLogTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISION_LOG.toUpperCase());
+    let signatureTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.SIGNATURE.toUpperCase());
+
+    let currentRef: any = { current: null };
+
+    if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_SUBSTANTIATION_TAB_INDEX) > -1) {
+      currentRef = configureSubstantiationRef;
+    } else if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX) > -1) {
+      currentRef = configureReferencesRef;
+    } else if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.COMMENT_SUMMARY_TAB_INDEX) > -1) {
+      currentRef = commentSummaryRef;
+    } else {
+      currentRef =
+        selectedTab === revisionTabIndex ? revisionRef :
+          selectedTab === genlTabIndex ? generalRef :
+            selectedTab === revisionLogTabIndex ? revisionLogRef :
+              selectedTab === signatureTabIndex ? signatureRef :
+                childRef;
+    }
+
+    if (currentRef.current) {
+      if (isTableResizeRef.current) {
+        currentRef.current.saveTabDetails().then((response) => {
+        });
+      } else {
+        currentRef.current.isTabSectionDirty().then((isDirty) => {
+          let generalTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.GENERAL.toUpperCase());
+          // let revisionTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISED_RECORD.toUpperCase());
+          let acronymTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.ACRONMYS.toUpperCase());
+          if (isDirty) {
+            currentRef.current.saveTabDetails().then((response) => {
+              // setDisableButton(false)
+            });
+          }
+          //This is for general Tab
+          else if (selectedTab == 0 || selectedTab == generalTabIndex) {
+            if (!isDirty && !isHeaderDirty && !(parseInt(tabIndex) == -1)) {
+              if (csrHeaderData[0].MODEL == null || csrHeaderData[0].ModelList.length == 0) {
+                dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Model is required." }));
+                return;
+              }
+              dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "info", snackbarMessage: "No changes to save." }));
+              return;
+            }
+            currentRef.current.saveTabDetails().then((response) => {
+            });
+          }
+          //This is for revision Tab
+          else if (selectedTab == revisionTabIndex) {
+            currentRef.current.saveTabDetails().then((response) => {
+
+            });
+          } else if (selectedTab == revisionLogTabIndex) {
+            currentRef.current.saveTabDetails().then((response) => {
+
+            });
+          } else if (selectedTab == signatureTabIndex) {
+            currentRef.current.saveTabDetails().then((response) => {
+
+            });
+          }
+          else if (selectedTab != acronymTabIndex && !getSubDocId && checkIsRefGrid == null) {  //  && !getBoeingDocId && !getSupDocId
+            currentRef.current.isFirstLoadDataEmpty().then((isEmpty) => {
+              if (isEmpty) {
+                currentRef.current.saveTabDetails().then((response) => {
+                  return;
+                });
+              }
+              else if (!isDirty && !isHeaderDirty) {
+                dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "info", snackbarMessage: "No changes to save." }));
+                return;
+              }
+            })
+          }
+          else if (!isDirty && !isHeaderDirty) {
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "info", snackbarMessage: "No changes to save." }));
+            return;
+          }
+
+        });
+      }
+
+    }
+  }
+
+
+  const openPDFForPreview = () => {
+    pdfPreviewPopupService.getPreviewPdfContent(parseInt(reportId || "0")).then(response => {
+      //Create a Blob from the PDF Stream
+      const file = new Blob([response.data], { type: "application/pdf" });
+      //Build a URL from the file
+      const fileURL = URL.createObjectURL(file);
+      //Open the URL in Browser Window
+       var strWindowFeatures = "location=yes,height=600,width=720,scrollbars=yes,status=yes";
+       const pdfWindow: any = window.open(fileURL, '_blank', strWindowFeatures);
+    });
+  }
+
+  const openPDFForView = () => {
+    CSRDetailsBaseService.GetSignedDocument((parseInt(reportId || "0")), csrHeaderData?.[0]?.EnvelopeId).then(response => {
+      //Create a Blob from the PDF Stream
+      const file = new Blob([response.data], { type: "application/pdf" });
+      //Build a URL from the file
+      const fileURL = URL.createObjectURL(file);
+
+      // Show different preview option once report got released
+      const isReleased = csrHeaderData?.[0]?.RELEASE_DATE != null;
+      if (isReleased) {
+        // Create a temporary anchor element to trigger the download
+        const link = document.createElement('a');
+        link.href = fileURL;
+        // Use the filename from the C# backend's Content-Disposition header if available, otherwise use the passed filename
+        const contentDisposition = response.headers['content-disposition'];
+        // By default generate Random GUID
+        let downloadFileName = crypto.randomUUID() + ".pdf";
+
+        if (contentDisposition) {
+          const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
+          if (fileNameMatch.length === 2) downloadFileName = fileNameMatch[1];
+        }
+        link.setAttribute('download', downloadFileName);
+        // Append link to body, click it, and remove it
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        //Open the URL in Browser Window
+        var strWindowFeatures = "location=yes,height=600,width=720,scrollbars=yes,status=yes";
+        const pdfWindow: any = window.open(fileURL, '_blank', strWindowFeatures);
+      }
+    });
+  }
+
+  const handlePdfPreview = async () => {
+    if (csrHeaderData?.[0]?.RELEASE_DATE == null && !csrHeaderData?.[0]?.EnvelopeId) {
+      let checkIsTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'IsTabDirty');
+      if (checkIsTabDirty) {
+        userDefinedConfirm({
+          message: "There are unsaved changes in the current session. Do you want to proceed without saving?",
+          okBtnText: "Yes",
+          cancelBtnText: "Cancel",
+        }).then(({ button, input }) => {
+          storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
+          openPDFForPreview();
+        }, () => {
+          return;
+        });
+      } else {
+        openPDFForPreview();
+      }
+    } else {
+      openPDFForView();
+    }
+  }
+
+
+  const isCurrentUserAuthor = () => {
+    if (csrHeaderData && csrHeaderData.length > 0 && csrHeaderData[0].EditEnabledFlag === "Y")
+      return true;
+    else
+      return false;
+  }
+
+  const refreshTabList = () => {
+    cSRDetailsBaseService.getTabListByRptId(reportId).then((res) => {
+      setTabList(res.data);
+    });
+  }
+
+  const updateTableResize = useCallback((value: boolean) => {
+    if (isTableResizeRef.current === value) return;
+    isTableResizeRef.current = value;
+  }, []);
+
+  const validateForm = (focalList) => {
+    let validationFlag = true;
+    const focalErrors: Record<string, string> = {};
+    const invalidLabels = new Set<string>();
+
+    const isEmptyBems = (approver: any) =>
+      approver == null ||
+      approver.BemsId === "" ||
+      approver.BemsId === null ||
+      approver.BemsId === undefined ||
+      approver.BemsId === 0;
+    const isEmptyName = (approver: any) =>
+      approver == null ||
+      approver.Name === "" ||
+      approver.Name === null ||
+      approver.Name === undefined;
+    const focals = Array.isArray(focalList) ? focalList : [];
+    focals.forEach((focal: any) => {
+      const list = Array.isArray(focal.ApproverDetailList) ? focal.ApproverDetailList : [];
+      const label = focal.UserRole;
+      list.forEach((approver: any, idx: number) => {
+        if (approver?.RecStatus === OperationType.DELETE) {
+          focalErrors[`${label}-${idx}`] = "";
+          return;
+        }
+        const missingBems = isEmptyBems(approver);
+        const missingName = isEmptyName(approver);
+        if (missingBems || missingName) {
+          validationFlag = false;
+          const parts: string[] = [];
+          if (missingName) parts.push("Name");
+          if (missingBems) parts.push("BEMSID");
+          focalErrors[`${label}-${idx}`] = `* ${label} is required`;
+          invalidLabels.add(label);
+        } else {
+          focalErrors[`${label}-${idx}`] = "";
+        }
+      });
+    });
+    setErrors(focalErrors as any);
+    if (!validationFlag) {
+      const revisionItems = tabList.filter(t => (t.Title?.trim() || '').toLowerCase() === 'revision record');
+      const tabName = revisionItems.length > 0 ? 'Revision Record' : 'Signature';
+      const labels = Array.from(invalidLabels);
+      const labelList = labels.join(', ');
+      const snackbarMessage = `${labelList} is required in ${tabName} tab.`;
+      dispatch(
+        showSnackbar({
+          snackbarOpen: true,
+          snackbarType: "error",
+          snackbarMessage,
+        })
+      );
+    }
+
+    return validationFlag;
+  }
+
+  // Conditions for showing approver button in different state
+  const shouldDisplayButtonPullBackToEdit = (data: CSRHeaderData): boolean => {
+    let stateNotReleaseorCreateorEdit = !(data?.WorkFlowStep == ReportStepId.CREATE_STEP || data?.RELEASE_DATE != null);
+    let isCurrentUserAuthor = data?.AuthorBemsId == userBemsId;
+    let allFocalSigned = data?.AllFocalSignedFlag != "Y";
+    return stateNotReleaseorCreateorEdit && isCurrentUserAuthor && allFocalSigned;
+  }
+  const shouldDisplayControl = (controlName: string): boolean => {
+    if (csrHeaderData && csrHeaderData.length > 0 && controlName == ButtonCode.FixedTableRegCode)
+      return csrHeaderData[0].FixedTableRegCodeFlag;
+    if (csrHeaderData && csrHeaderData.length > 0 && controlName == ButtonCode.FixedTableRefCode)
+      return csrHeaderData[0].FixedTableRefCodeFlag;
+    if (csrHeaderData && csrHeaderData.length > 0 && csrHeaderData[0].ControlVisibilityDtls && csrHeaderData[0].ControlVisibilityDtls.length > 0)
+      return csrHeaderData[0].ControlVisibilityDtls?.some(control => control.ControlName.toUpperCase() === controlName.toUpperCase() && control.VisibilityFlag === "Y");
+
+    return false;
+  }
+
+  const activeTabIsRevisionRecord = () => {
+    let isRevisionRecord = tabList?.filter(tab => (tab.TabId == Number(tabIndex) && tab.Title.toUpperCase() == FixedTabTitle.REVISED_RECORD.toUpperCase()));
+    return isRevisionRecord.length > 0;
+  };
+
+  const refreshPage = () => {
+    setTabRefresh(k => k + 1);
+  }
+
+  const WorkFlowClick = async (flag) => {
+    let focalList = await fetchFocalData();
+    if (!focalList) {
+      return;
+    }
+    let currentRef: any = getActiveTabRef();
+    let revisionTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISED_RECORD.toUpperCase());
+    let revisionLogTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISION_LOG.toUpperCase());
+    let signatureTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.SIGNATURE.toUpperCase());
+
+    if (currentRef && currentRef.current) {
+      window['rightPaneScrollPosition'] = "0";
+      // get grid dirty flag from storage
+      let ischangeGridDirty = false;
+
+      if ((selectedTab == revisionTabIndex || selectedTab == revisionLogTabIndex || selectedTab == signatureTabIndex) && window.location.hash?.indexOf(FixedTabTitle.COMMENT_SUMMARY_TAB_INDEX) == -1) {
+        ischangeGridDirty = await isRevisionChangeGridDirty(currentRef);
+      }
+      // if yes then show msg and onClick of yes return
+      currentRef.current.isTabSectionDirty().then((isDirty) => {
+        if (isDirty || ischangeGridDirty) {
+          userDefinedConfirm({ message: `There are unsaved changes in the current session. Do you want to proceed without saving?`, okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
+            ({ button, input }) => {
+              // handleScrollPosition();
+              focalSubmit(flag, focalList);
+            },
+            () => {
+              return;
+            }
+          );
+        } else {
+          // handleScrollPosition();
+          focalSubmit(flag, focalList);
+        }
+      });
+    }
+  };
+
+  const focalSubmit = (flag, focalList) => {
+    if (!validateForm(focalList))
+      return;
+    RevisionRecordService.getRPTStatus(Number(reportId)).then((response) => {
+      let message = "";
+      if (flag == "WFPullback")
+        message = 'Do you want to pull back the document?'
+      else if (editReqCommentPresent)
+        message = 'Are you sure you want to request edit?';
+      else if (csrHeaderData[0]?.WFButtonTitle?.toLowerCase().includes('release'))
+        message = 'Are you sure want to release this report?';
+      else
+        message = csrHeaderData?.[0]?.ConfirmationMsg;
+
+      if (response.data && (response.data.toUpperCase() != ReportStages.Edit.toUpperCase() || csrHeaderData[0].AuthorBemsId == parseInt(userBemsId))) {
+        userDefinedConfirm({
+          message: message,
+          okBtnText: "Yes",
+          cancelBtnText: "Cancel"
+        }).then(
+          ({ button, input }) => {
+            if (flag == "WFPullback") {
+              cSRDetailsBaseService.PullBackToEdit(reportId).then((response) => {
+                //   setHeaderData();
+                if (response && response.data) {
+                  if (!response.data.SuccessFlag) {
+                    dispatch(showSnackbar({
+                      snackbarOpen: true,
+                      snackbarType: "error",
+                      snackbarMessage: response.data.ErrorMsg?.toString()
+                    }));
+                  }
+                  else {
+                    dispatch(showSnackbar({
+                      snackbarOpen: true,
+                      snackbarType: "success",
+                      snackbarMessage: response.data.ErrorMsg?.toString()
+                    }));
+                    setTabRefresh(k => k + 1);
+                  }
+                }
+              })
+            }
+            else {
+              if (csrHeaderData[0].AuthorBemsId == userBemsId && csrHeaderData[0].WorkFlowCycle == 1) {
+                RevisionRecordService.submitForReview(Number(reportId)).then((result) => {
+                  if (result && result.data) {
+                    if (!result.data.SuccessFlag) {
+                      dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: result.data.ErrorMsg }));
+                    }
+                    else {
+                      // setHeaderData();
+                      dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: "Report is submitted successfully for Review." }));
+                      setTabRefresh(k => k + 1);
+                    }
+                  }
+                });
+              }
+              else {
+                cSRDetailsBaseService.FocalSubmit(reportId).then((response) => {
+                  //   setHeaderData();
+                  if (response && response.data) {
+                    if (!response.data.SuccessFlag) {
+                      dispatch(showSnackbar({
+                        snackbarOpen: true,
+                        snackbarType: "error",
+                        snackbarMessage: response.data.ErrorMsg?.toString()
+                      }));
+                    }
+                    else {
+                      dispatch(showSnackbar({
+                        snackbarOpen: true,
+                        snackbarType: "success",
+                        snackbarMessage: response.data.ErrorMsg?.toString()
+                      }));
+                      setTabRefresh(k => k + 1);
+                      pushToCA();
+                    }
+                  }
+                });
+
+              }
+            }
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
+          },
+          () => {
+            return;
+          }
+        );
+      } else {
+        dispatch(showSnackbar({
+          snackbarOpen: true,
+          snackbarType: "info",
+          snackbarMessage: "Report pulled backed for Edit by the author, please refresh."
+        }));
+      }
+    });
+  }
+  const pushToCA = async () => {
+    const selectedDisciplined = storageService.getSelectedDiscipline();
+    await CSRDetailsBaseService.getCSRHeaderData(reportId, selectedDisciplined).then(async (response) => {
+      if (response.data.length > 0 && response.data[0].RELEASE_DATE != null) {
+        if (response.data[0]?.TemplateTitle?.toUpperCase() == ReportType.CCL.toUpperCase()) {
+          await CSRDetailsBaseService.PushCCLToCA(response.data[0]?.RPT_ID);
+        }
+        if (response.data[0]?.TemplateTitle?.toUpperCase() == ReportType.DQN.toUpperCase()) {
+          await CSRDetailsBaseService.GetDDTLDQNDeails(response.data[0]?.RPT_ID);
+        }
+      }
+    });
+  };
+  const getActiveTabRef = (): any => {
+    let revisionTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISED_RECORD.toUpperCase());
+    let genlTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.GENERAL.toUpperCase());
+    let revisionLogTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISION_LOG.toUpperCase());
+    let signatureTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.SIGNATURE.toUpperCase());
+    let currentRef: any = { current: null };
+
+    if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_SUBSTANTIATION_TAB_INDEX) > -1) {
+      currentRef = configureSubstantiationRef;
+    } else if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX) > -1) {
+      currentRef = configureReferencesRef;
+    } else if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.COMMENT_SUMMARY_TAB_INDEX) > -1) {
+      currentRef = commentSummaryRef;
+    } else {
+      currentRef =
+        selectedTab === revisionTabIndex ? revisionRef :
+          selectedTab === genlTabIndex ? generalRef :
+            selectedTab === revisionLogTabIndex ? revisionLogRef :
+              selectedTab === signatureTabIndex ? signatureRef :
+                childRef;
+    }
+    return currentRef;
+  }
+
+  const handleConfigureRegulations = async () => {
+    let currentRef: any = getActiveTabRef();
+    let revisionTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISED_RECORD.toUpperCase());
+    let revisionLogTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISION_LOG.toUpperCase());
+    let signatureTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.SIGNATURE.toUpperCase());
+
+    if (currentRef && currentRef.current) {
+      window['rightPaneScrollPosition'] = "0";
+      // get grid dirty flag from storage
+      let ischangeGridDirty = false;
+
+      if ((selectedTab == revisionTabIndex || selectedTab == revisionLogTabIndex || selectedTab == signatureTabIndex) && window.location.hash?.indexOf(FixedTabTitle.COMMENT_SUMMARY_TAB_INDEX) == -1) {
+        ischangeGridDirty = await isRevisionChangeGridDirty(currentRef);
+      }
+
+      // if yes then show msg and onClick of yes return
+      currentRef.current.isTabSectionDirty().then((isDirty) => {
+        scrollPositionTop = true;
+        if (isDirty || ischangeGridDirty) {
+          userDefinedConfirm({ message: `There are unsaved changes in the current session. Do you want to proceed without saving?`, okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
+            ({ button, input }) => {
+              handleScrollPosition();
+              navigate(`${PathConstants.PROJECT_REGULATION.replace(":projectId", csrHeaderData[0].PROJECT_ID.toString())}`, { state: { lastTabIndex: tabIndex, tabList: tabList, rptId: reportId } });
+            },
+            () => {
+              scrollPositionTop = false;
+              handleScrollPosition();
+              return;
+            }
+          );
+        } else {
+          handleScrollPosition();
+          navigate(`${PathConstants.PROJECT_REGULATION.replace(":projectId", csrHeaderData[0].PROJECT_ID.toString())}`, { state: { lastTabIndex: tabIndex, tabList: tabList, rptId: reportId } });
+        }
+      });
+    }
+  }
+
+  const handleConfigureSubstantiation = async () => {
+    let currentRef: any = getActiveTabRef();
+    let revisionTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISED_RECORD.toUpperCase());
+    let urlPath = window.location.hash;
+    let urlFragment = urlPath.split('/').pop() || "";
+
+    if (currentRef && currentRef.current) {
+      window['rightPaneScrollPosition'] = "0";
+      // get grid dirty flag from storage
+      let ischangeGridDirty = false;
+      let isRefOrSubsTab = urlFragment == '-77777' || urlFragment == '-88888' || urlFragment == '-99999';
+
+      if (selectedTab == revisionTabIndex && !isRefOrSubsTab) {
+        ischangeGridDirty = await isRevisionChangeGridDirty(currentRef);
+        }
+
+      // if yes then show msg and onClick of yes return
+      currentRef.current.isTabSectionDirty().then((isDirty) => {
+        scrollPositionTop = true;
+        if (isDirty || ischangeGridDirty) {
+          userDefinedConfirm({ message: `There are unsaved changes in the current session. Do you want to proceed without saving?`, okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
+            ({ button, input }) => {
+              handleScrollPosition()
+              navigate(`${PathConstants.CONFIGURE_SUBSTANTIATION.replace(":reportId", reportId)}`);
+            },
+            () => {
+              scrollPositionTop = false;
+              handleScrollPosition()
+              return;
+            }
+          );
+        } else {
+          handleScrollPosition();
+          navigate(`${PathConstants.CONFIGURE_SUBSTANTIATION.replace(":reportId", reportId)}`, { state: { lastTabIndex: tabIndex } });
+        }
+      });
+    }
+  }
+
+  const handleConfigureReferences = async () => {
+    let currentRef: any = getActiveTabRef();
+    let revisionTabIndex = tabList?.findIndex(item => item?.Title?.trim().toUpperCase() == FixedTabTitle.REVISED_RECORD.toUpperCase());
+    let urlPath = window.location.hash;
+    let urlFragment = urlPath.split('/').pop() || ""; //getting TabId
+
+    if (currentRef && currentRef.current) {
+      window['rightPaneScrollPosition'] = "0";
+      // get grid dirty flag from storage
+      let ischangeGridDirty = false;
+      let isRefOrSubsTab = urlFragment == '-77777' || urlFragment == '-88888' || urlFragment == '-99999';
+
+      if (selectedTab == revisionTabIndex && !isRefOrSubsTab) {
+        ischangeGridDirty = await isRevisionChangeGridDirty(currentRef);
+      }
+
+      // if yes then show msg and onClick of yes return
+      currentRef.current.isTabSectionDirty().then((isDirty) => {
+        scrollPositionTop = true;
+        if (isDirty || ischangeGridDirty) {
+          userDefinedConfirm({ message: `There are unsaved changes in the current session. Do you want to proceed without saving?`, okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
+            ({ button, input }) => {
+              handleScrollPosition();
+              navigateToReferences();
+            },
+            () => {
+              scrollPositionTop = false;
+              handleScrollPosition();
+              return;
+            }
+          );
+        } else {
+          handleScrollPosition();
+          navigateToReferences();
+        }
+      });
+    }
+  };
+
+  const navigateToReferences = () => {
+    // Check if previous URL was edit screen for Supporting/ BoeingRef
+    let isEditRefSection = window.location.hash.indexOf('edit=') > -1;
+    dispatch(resetAllReferenceData());
+    if (isEditRefSection) {
+      navigate(`${PathConstants.CONFIGURE_REFERENCES.replace(":reportId", reportId)}`, { state: { lastUrl: window.location.hash } });
+    } else {
+      navigate(`${PathConstants.CONFIGURE_REFERENCES.replace(":reportId", reportId)}`, { state: { lastUrl: window.location.hash, lastTabIndex: tabIndex } });
+    }
+  };
+
+  const checkIsBoeingSection = () => {
+    let currentRef: any = { current: null };
+    if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_SUBSTANTIATION_TAB_INDEX) > -1) {
+      currentRef = configureSubstantiationRef;
+    } else if (tabIndex && tabIndex.toString().indexOf(FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX) > -1) {
+      currentRef = configureReferencesRef;
+    }
+
+    if (currentRef && currentRef.current) {
+      const checkCompGrid = currentRef.current.handleConfigRefInsert();
+      if (checkCompGrid && checkCompGrid.loadedGrid == null && tabIndex == FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+  };
+
+  const checkIsComplainceGridTab = () => {
+    if ((tabIndex == FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX && !checkIsRefGrid) || checkIsBoeingSection() || (tabIndex == FixedTabTitle.CONFIGURE_SUBSTANTIATION_TAB_INDEX && checkISubComp === null)) {
+      return true;
+    } else {
+      return false;
+    }
+  };
+
+  const disableSaveOnRefTab = () => {
+    if ((tabIndex == FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX && checkIsRefGrid === null) || (tabIndex == FixedTabTitle.CONFIGURE_SUBSTANTIATION_TAB_INDEX && checkISubComp === null)) {
+      return true;
+    } else {
+      return false;
+    }
+  };
+
+  const MemoizedOutlet = useMemo(() => <Outlet context={{ ParentData: { refreshPage: refreshPage, tabList: tabList, ref: childRef, genRef: generalRef, revRef: revisionRef, revLogRef: revisionLogRef, signRef: signatureRef, configureSubstantiationRef: configureSubstantiationRef, configureReferencesRef: configureReferencesRef, commentSummaryRef: commentSummaryRef, tabContentMaxHeight: scrollableMaxHeight, refreshTabList: refreshTabList, getProjectCommentCount: GetProjectCommentCount, handleTabTitle: handleTabTitle, loadSupportingData: loadSupportingData, loadSubStantiationData: loadSubStantiationData, selectedTab: selectedTab, tabRefresh, updateTableResize, isTableResizeRef } }} />,
+    [tabList, childRef, generalRef, revisionRef, revisionLogRef, signatureRef, scrollableMaxHeight, configureSubstantiationRef, configureReferencesRef, commentSummaryRef, loadSupportingData, loadSubStantiationData, selectedTab, tabRefresh, updateTableResize]);
+
+  const handleScrollPosition = () => {
+    const setScrollPosition = window.pageYOffset;
+    let scrollableDiv;
+    if (scrollPositionTop) {
+      scrollableDiv = document.querySelector('#compliance-report-base-page');
+      const divScrollOffset = scrollableDiv.scrollTop;
+      window['compliance-report-base-page'] = divScrollOffset;
+      window.scroll(0, divScrollOffset);
+    } else {
+      window['rightPaneScrollPosition'] = setScrollPosition;
+    }
+    scrollPositionTop = false;
+  };
+
+  const handleComparer = () => {
+    let checkIsTabDirty = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'IsTabDirty');
+    if (checkIsTabDirty) {
+      userDefinedConfirm({
+        message: "There are unsaved changes in the current session. Do you want to proceed without saving?",
+        okBtnText: "Yes",
+        cancelBtnText: "Cancel",
+      }).then(({ button, input }) => {
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
+        setOpenCompareModal(true);
+      }, () => {
+        return;
+      });
+    } else {
+      setOpenCompareModal(true);
+    }
+  }
+
+  const shouldShowPreviewOrViewButton = () => {
+    const isReleased = csrHeaderData?.[0]?.RELEASE_DATE != null;
+    if (isReleased) return true;
+    if (csrHeaderData?.[0]?.EnvelopeId !== null) {
+      const isInFocalList = Array.isArray(allFocalList) && allFocalList.some(focal =>
+        Array.isArray(focal?.ApproverDetailList) &&
+        focal.ApproverDetailList.some(detail => detail?.BemsId === parseInt(userBemsId))
+      );
+      return isInFocalList;
+    }
+    return true;
+  }
+
+  const handleComapreBtnVisibility = () => {
+    if (csrHeaderData && csrHeaderData[0]?.PARENT_RPT_ID != null && csrHeaderData[0]?.PARENT_RPT_ID > 0) {
+      return true;
+    } else {
+      return false;
+    };
+  };
+
+  const shouldDisplayWFButton = () => {
+    return (csrHeaderData.length > 0 && csrHeaderData[0].PendingWithBemsId.includes(userBemsId) && csrHeaderData[0].ShowButtonFlag == "Y" && csrHeaderData[0].WFButtonTitle && (csrHeaderData[0].SignEnabledFlag == "N" || csrHeaderData[0].SignatureStatus[userBemsId] == "Y"));
+  }
+const isFromNavigation = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,"isfromnavigation");
+// const [isFromCCNNavigation, SetIsFromCCNNavigation] = useState(false);
+// useEffect(() => {
+//   const storageServ = new StorageService();
+//   const key = `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`;
+//   const isNav = storageServ.getApplicationDataByKey(key, "isfromnavigation");
+//   SetIsFromCCNNavigation(!!isNav);
+//   console.log(isFromCCNNavigation, isNav, 'isNav');
+//   localStorage.removeItem("isfromnavigation");
+// }, []);
+  return (
+    <>
+      {delRptFlag === true
+        ? (
+          <Card className="cardSection" sx={{ minWidth: 275, height: '100%' }} style={{ marginLeft: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '65vh' }}>
+            <CardContent style={{ padding: 24, textAlign: 'center' }}>
+              <Box>
+                <Typography variant="h6" component="div" color="textPrimary" gutterBottom>
+                  Report is not found.
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  The requested report was not found. It may have been deleted or unavailable.
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>)
+        : (delRptFlag === false ? (
+          <div id="compliance-report-base-page" onClick={() => handleScrollPosition()} style={{
+            height: '100%',
+            // maxHeight: shellWorkappContainerMaxHeight != 0 ? shellWorkappContainerMaxHeight : `${window.innerHeight}px`
+          }}
+          className={`adobe-FINDCSR-CSRReport ${checkIsEasaWorkSpace ? 'easa-report' : 'non-easa-report'}`}
+          >
+            <div className="fixedHeader"
+            // style={shellMainSection != undefined ? { position: 'relative' } : { top: 0, position: 'fixed' }}
+            >
+              <Box sx={{ borderBottom: 0, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Stack className="buttonRows" direction="row" spacing={2}>
+
+                  {/* <Button size="medium" variant="contained" className='saveButton' onClick={saveTabDetails} disabled={parseInt(tabIndex) > 0 ? (commonFunction.isReview(csrHeaderData[0]?.STATE) ? (tabList[0]?.TabId == parseInt(tabIndex) ? false : commonFunction.isAllDisable(csrHeaderData[0]?.STATE)) : commonFunction.isAllDisable(csrHeaderData[0]?.STATE)) : tabIndex == "" && commonFunction.isReview(csrHeaderData[0]?.STATE) ? false : (parseInt(tabIndex) < 0 ? false : commonFunction.isAllDisable(csrHeaderData[0]?.STATE))}>Save</Button> */}
+                  {(tabIndex && checkIsComplainceGridTab() && isCurrentUserAuthor() &&  !(new CommonFunction().IsEASAReport()) && csrHeaderData[0]?.WorkFlowStep == ReportStepId.CREATE_STEP) && <Button size="medium" variant="contained" className='insertButton' onClick={handleClickConfigRefInsertBtn} disabled={checkIsRefGrid === "0"} title="Insert">Insert</Button>}
+
+                  <Button id="SaveCSR" size="medium" variant="contained" className='saveButton' onClick={saveTabDetails} disabled={disableSave()} title="Save">Save</Button>
+                  {(csrHeaderData.length > 0 && csrHeaderData[0].TemplateTitle?.toUpperCase() == ReportType.Drawing.toUpperCase()
+                    && csrHeaderData[0].DrawingFileName) &&
+                    <>
+                      {(drawingReviewInitiated == false && csrHeaderData[0].CurrentState.toUpperCase() != "DRWPDFEXTRACT" && isLoggedInUserIsDrawingDe() == true) && <Button size="medium" variant="contained" className='ReviewButton' title="Initiate Review" onClick={() => { drawingInitiateReviewClick(false) }}>Initiate Review</Button>}
+                      {(drawingReviewInitiated == true && isLoggedInUserIsDrawingDe() == true && csrHeaderData[0].WorkFlowStep == 1 && csrHeaderData[0].PendingWithBemsId.includes(userBemsId)) && <Button size="medium" variant="contained" className='ReviewButton' title="Reinitiate Review" onClick={() => { drawingInitiateReviewClick(true) }}>Reinitiate Review</Button>}
+                      {(csrHeaderData[0].WorkFlowCycle == 2 || (csrHeaderData[0].RPT_ID > 0
+                        && userBemsId == csrHeaderData[0].AuthorBemsId) ||
+                        (csrHeaderData[0].WorkFlowCycle == 1 && csrHeaderData[0].PendingWithBemsId.includes(userBemsId) == false)) &&
+                        <Button size="medium" variant="contained" className='ReviewButton' title="View" onClick={() => { drawingViewReviewClick("view") }}>View</Button>
+                      }
+                      {(!(csrHeaderData?.[0]?.RELEASE_DATE == null && !csrHeaderData?.[0]?.EnvelopeId)) &&
+                        <Button size="medium" variant="contained" className='ReviewButton' title="View" onClick={() => { openPDFForView() }}>View signed document</Button>
+                      }
+                      {drawingReviewInitiated == true && <>
+                        {(csrHeaderData[0].WorkFlowCycle == 1 && csrHeaderData[0].PendingWithBemsId.includes(userBemsId)
+                          && userBemsId != csrHeaderData[0].AuthorBemsId) &&
+                          <Button size="medium" variant="contained" className='ReviewButton' title="Review" onClick={() => { drawingViewReviewClick("review") }}>Review</Button>
+                        }
+                      </>}
+                      {/* {drawingReviewInitiated == true && <Button size="medium" variant="contained" className='ReviewButton' title="Review" onClick={() => { drawingViewReviewClick() }}>{drawingReviewButtonText}</Button>} */}
+                    </>
+                  }
+                  {(csrHeaderData.length == 0 || (csrHeaderData.length > 0 && csrHeaderData[0].TemplateTitle?.toUpperCase() != ReportType.Drawing.toUpperCase())) &&
+                    <>
+                     {isFromNavigation && (<Button id="SaveCSR" size="medium" variant="contained" className='saveButton' onClick={navigationCSRtoCERT} title="Continue to Cert Strategy">Continue to Cert Strategy</Button>)}
+                      {/*shouldShowPreviewOrViewButton() && */ <Button id="ViewCSR" size="small" variant="contained" className='previewIcon' disabled={!isCreateReport} onClick={handlePdfPreview} title={csrHeaderData?.[0]?.EnvelopeId !== null || csrHeaderData?.[0]?.RELEASE_DATE !== null ? "View" : "Preview"}>{csrHeaderData?.[0]?.EnvelopeId !== null || csrHeaderData?.[0]?.RELEASE_DATE !== null ? "View" : "Preview"}</Button>}
+                      {shouldDisplayWFButton() && (<Button id="SubmitCSR"size="medium" variant="contained" className='approvalButton' onClick={() => WorkFlowClick("WFSubmit")} title={editReqCommentPresent ? 'Request Edit' : csrHeaderData[0].WFButtonTitle}>{editReqCommentPresent ? 'Request Edit' : csrHeaderData[0].WFButtonTitle}</Button>)}
+                      {shouldDisplayButtonPullBackToEdit(csrHeaderData[0]) && (<Button id="PullBackCSR" size="medium" variant="contained" className='approvalButton' onClick={() => WorkFlowClick("WFPullback")} title='Pull Back'>Pull Back</Button>)}
+                      {shouldDisplayControl(ButtonCode.FixedTableRegCode) && <Button id="ProjRegCSR" size="medium" variant="contained" className='approvalButton' onClick={() => handleConfigureRegulations()} disabled={!isCreateReport} title='Configure Regulations'>Project Regulations</Button>}
+                      {shouldDisplayControl(ButtonCode.FixedTableRegCode) && <Button id="SubstantiationCSR" size="medium" variant="contained" className='approvalButton' ref={substantiationBtnRef} onClick={() => handleConfigureSubstantiation()} disabled={!isCreateReport} title='Configure Substantiation'>Substantiation</Button>}
+                      {shouldDisplayControl(ButtonCode.FixedTableRefCode) && <Button id="ReferencesCSR" size="medium" variant="contained" className='approvalButton' ref={referenceBtnRef} onClick={() => handleConfigureReferences()} disabled={!isCreateReport} title='Configure References'>References</Button>}
+                    {handleComapreBtnVisibility() && (<Button size="small" variant="contained" className='compareBtn' onClick={handleComparer} title="Compare">Compare</Button>)}
+                    {/* {hasEditors && csrHeaderData.length > 0 && csrHeaderData[0]?.EditEnabledFlag === "Y" &&
+                      csrHeaderData[0]?.WorkFlowStep == ReportStepId.CREATE_STEP && (
+                        <Button size="small" variant="contained" className="compareBtn" title="Find & Replace" onClick={() => setOpenGlobalFindReplace(true)}
+                        ><SvgIcon icon={binocularsIcon} size="medium" style={{ color: '#737373' }} />
+                        </Button>
+                      )} */}
+                    <Badge id="badge"
+                      anchorOrigin={{
+                        vertical: "top",
+                          horizontal: "right",
+                        }}
+                        style={{ marginRight: "15px", marginLeft: "0px" }}
+                        badgeContent={commentCountDetails && commentCountDetails.TotalCommentCount}
+                        color={commentCountDetails && commentCountDetails.UnResolvedCommentCount > 0 ? 'error' : 'success'}
+                        showZero
+                      >
+                        <Button size="small" variant="contained" disabled={parseInt(reportId) <= 0} className='cmtSummaryBtn' id="commentSumBtn" title="Comment Summary"
+                          onClick={handleOpenCommentSumPanel}
+                        >
+                          <SpeakerNotesOutlinedIcon style={{ color: '#737373' }} />
+                        </Button>
+                      </Badge>
+                    </>
+                  }
+                </Stack>
+              </Box>
+
+            </div >
+            <div className="scrollableBody" style={{ top: shellMainSection == undefined ? scrollableBodyTopHeight : '4px', }}>
+              {/* height: scrollableBodyHeight, maxHeight: shellMainSection == undefined ? scrollableBodyHeight : scrollableMaxHeight  */}
+              <Box style={{ display: 'flex', gap: '8px' }}>
+                <div className={expanPanel == true ? "open-drawer" : "close-drawer"}
+                  style={{
+                    //height: leftSectionHeight >= window.innerHeight ? "100vh" : `${window.innerHeight}px`,
+                    minHeight:
+                      leftPanleContainerMaxHeight != 0
+                        ? leftPanleContainerMaxHeight + 30
+                        : `${window.innerHeight + 30}px`,
+                    //width: `${window.innerWidth}px`,
+                    overflowY: "auto",
+                    overflowX: "hidden"
+                  }}
+                >
+                  <div className={expanPanel == true ? "left-panel-open-header" : "left-panel-closed-header"}>
+                    {expanPanel == true ?
+                      <span id="section_header" className="leftPanel_mainLabel">
+                        Section
+                      </span>
+                      : ''}
+                    <div className="section-rightheader">
+                      <span title="Manage Section">
+                        {(csrHeaderData[0]?.EditEnabledFlag == "N") ? (<>
+                          <EditOutlinedIcon className="disable-color editIcon" sx={{ visibility: "hidden" }} ></EditOutlinedIcon>
+                        </>
+                        ) : (
+                          <>
+                            {parseInt(reportId) > 0 && tabList.length > 0 && <EditOutlinedIcon className="editIcon cursor-pointer manage_section" onClick={() => handleOpenManageTabListPopup()}></EditOutlinedIcon>}
+                          </>
+                        )}
+                      </span>
+                      <span className={expanPanel ? "expanded-button" : "collapse-button"}>
+                        {expanPanel ? (<KButton className="drawer-button" id="drawer-button" svgIcon={chevronLeftIcon}
+                          size={"small"} themeColor={"primary"} onClick={handleCloseLeftTab}>
+                        </KButton>) : (<KButton className="drawer-button" id="drawer-button" svgIcon={chevronRightIcon}
+                          size={"small"} themeColor={"primary"} onClick={handleOpenLeftTab}>
+                        </KButton>)}
+                      </span>
+                    </div>
+                  </div>
+                  <Drawer
+                    className='kdrawer-oss-csr-tab-panel k-drawer-left'
+                    expanded={expanPanel}
+                    position={"start"}
+                    mode={"push"}
+                    mini={true}
+                    style={{
+                      minHeight: "inherit"
+                    }}
+                    items={updatedTabList.map((item, index) => ({
+                      ...item,
+                    }))}
+                    item={CustomItem}
+                    onSelect={onSelect}
+                  >
+                  </Drawer>
+                </div>
+
+                {tabList.length > 0 && MemoizedOutlet}
+                {openTabListPopup ? (csrHeaderData[0].ResequenceSectionFlag == "Y" ?
+                  <SortableManageTabListPopup allTabs={tabList} certType={csrHeaderData.length > 0 ? csrHeaderData[0].CERTIFICATION : ""} isOpen={openTabListPopup} handleCloseManageTabListPopup={handleCloseManageTabListPopup} handleSaveManageTabListPopup={handleSaveManageTabListPopup} STATE={csrHeaderData[0]?.STATE} />
+                  : <ManageTabListPopup allTabs={tabList} certType={csrHeaderData.length > 0 ? csrHeaderData[0].CERTIFICATION : ""} isOpen={openTabListPopup} handleCloseManageTabListPopup={handleCloseManageTabListPopup} handleSaveManageTabListPopup={handleSaveManageTabListPopup} STATE={csrHeaderData[0]?.STATE} />) : null}
+
+                {/* {openTabListPopup && <SortableManageTabListPopup allTabs={tabList} certType={csrHeaderData.length > 0 ? csrHeaderData[0].CERTIFICATION : ""} isOpen={openTabListPopup} handleCloseManageTabListPopup={handleCloseManageTabListPopup} handleSaveManageTabListPopup={handleSaveManageTabListPopup} STATE={csrHeaderData[0]?.STATE}/> } */}
+
+                {openSupportingInsertPopup && <SupportingInsertPopupData supGridLenght={0} checkedItem={[]} isOpen={openSupportingInsertPopup} onCloseSupportingModelPopup={handleCloseInsSupportingPopup} IsManageSupTab={false} revision={csrHeaderData.length > 0 ? csrHeaderData[0].REVISION : null} configRefSourceId={configRefSourceId} refTableCode={refTableCode} refGridTitle={refGridTitle} sequenceStartWith={getSequence} isOpenedFromDocumentNumber={false} />}
+                {openSubstantitionPopup && <SubstantiationInsertPopup isOpen={openSubstantitionPopup} onCloseInsSubStantiationPopup={handleCloseInsSubStantiationPopup} contentOwner={csrHeaderData.length > 0 ? csrHeaderData[0].CONTENT_OWNER : ''} projectId={csrHeaderData.length > 0 ? csrHeaderData[0].PROJECT_ID : ''} revision={csrHeaderData.length > 0 ? csrHeaderData[0].REVISION : null} parentReportId={csrHeaderData.length > 0 ? csrHeaderData[0].PARENT_RPT_ID : null} regTableCode={regTableCode}/>}
+                {<ReportCompareModal open={openCompareModal} onClose={() => setOpenCompareModal(false)} />}
+                {/* {openPdfPreviewPopup && <PdfPreviewPopup isOpen={openPdfPreviewPopup} rptId={reportId} handleClosePdfPreviewPopup={handleClosePdfPreviewPopup} />} */}
+              </Box>
+            </div>
+            {/* {openGlobalFindReplace && <GlobalFindReplaceDialog open={openGlobalFindReplace} onClose={() => setOpenGlobalFindReplace(false)} />} */}
+          </div >) : (<div></div>))
+      }
+    </>
+  );
+}
+export default CSRDetailsBase;
