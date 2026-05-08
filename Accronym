@@ -1,19 +1,4 @@
-const handleCreateNewReport = () => {
-    handleCloseCreateNew();
-
-    const storageServ = new StorageService();
-    const key = `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`;
-
-    // ✅ ADD THIS LINE
-    storageServ.setApplicationDataByKey(key, "isFromNavigation", false);
-
-    if (!csrWorkAppFlag) {
-        storageServ.setApplicationDataByKey(key, 'ProjectId', projectId);
-    }
-
-    storageServ.setApplicationDataByKey(key, 'DocNumber', '');
-    storageServ.setApplicationDataByKey(key, `DocRev`, '');
-    storageServ.setApplicationDataByKey(key, `ReportTemplate`, selectedReportTemplate);
-
-    navigate(PathConstants.DYNAMIC_TAB.replace(":reportId", "0").replace(":tabIndex", "-1"), { state: null });
-}
+[  {    "Report_Id": 198786,    "Cve_Panel": "P0",    "Cve_Description": "Project Certification Manager",    "Cdi": "1.1",    "Cdi_Description": "Airframe Interface",    "Regulation": "25.301",    "Para": "(a)",    "Amendment": "CS 25/13",    "Moc": null,    "Compliance_Shown_In": null,    "Compliance_statement": null,    "Additional_Notes": null,    "Created_By": 3423939,    "Cloned": false,    "Cve_Id": 1,    "Cdi_Id": 1,    "Reg_Id": 19143,    "Row_Sequence": 1,    "CloneFlag": "N",    "ActiveFlag": null,    "PageTotalCnt": 1,    "CDI_DESC": "1.1 - Airframe Interface",    "RegDescription": "Loads",    "TaskName": "Testing3",    "TaskDescription": "Testing3"  },
+  {    "Report_Id": 198786,    "Cve_Panel": "P0",    "Cve_Description": "Project Certification Manager",    "Cdi": "1.1",    "Cdi_Description": "Airframe Interface",    "Regulation": "25.301",    "Para": "(a)",    "Amendment": "CS 25/13",    "Moc": null,    "Compliance_Shown_In": null,    "Compliance_statement": null,    "Additional_Notes": null,    "Created_By": 3423939,    "Cloned": false,    "Cve_Id": 1,    "Cdi_Id": 1,    "Reg_Id": 19143,    "Row_Sequence": 1,    "CloneFlag": "N",    "ActiveFlag": null,    "PageTotalCnt": 0,    "CDI_DESC": "1.1 - Airframe Interface",    "RegDescription": "Loads",    "TaskName": "installation",    "TaskDescription": "installtion of servers"  },
+  {    "Report_Id": 198786,    "Cve_Panel": "P0",    "Cve_Description": "Project Certification Manager",    "Cdi": "1.1",    "Cdi_Description": "Airframe Interface",    "Regulation": "25.301",    "Para": "(a)",    "Amendment": "CS 25/13",    "Moc": null,    "Compliance_Shown_In": null,    "Compliance_statement": null,    "Additional_Notes": null,    "Created_By": 3423939,    "Cloned": false,    "Cve_Id": 1,    "Cdi_Id": 1,    "Reg_Id": 19143,    "Row_Sequence": 1,    "CloneFlag": "N",    "ActiveFlag": null,    "PageTotalCnt": 0,    "CDI_DESC": "1.1 - Airframe Interface",    "RegDescription": "Loads",    "TaskName": "Testing for new",    "TaskDescription": "CPreport"  }
+]
