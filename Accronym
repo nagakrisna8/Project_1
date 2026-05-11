@@ -1,49 +1,74 @@
 const mocdropdownlist = (props: GridCellProps) => {
-        const canonicalField = props.field ?? "MOC";
-        const selectedIds = new Set(gridSelectableMOCs);
-        const matchedMocs = moc.filter(m => selectedIds.has(m.Moc_Id));
-        const currentValue = props.dataItem[canonicalField] ?? props.dataItem["Moc"] ?? [];
-        const valueArray = Array.isArray(currentValue) ? currentValue : (currentValue ? [currentValue] : []);
+    const canonicalField = props.field ?? "MOC";
+    const selectedIds = new Set(gridSelectableMOCs);
+    const matchedMocs = moc.filter(m => selectedIds.has(m.Moc_Id));
 
-        const handleChange = (e: SelectChangeEvent<string[]>) => {
-            if (props.onChange) {
-                // Build a GridItemChangeEvent; ensure `field` is a string
-                const fieldName: string = canonicalField;
-                props.onChange({
-                    dataIndex: props.dataIndex,
-                    dataItem: props.dataItem,
-                    field: fieldName,
-                    syntheticEvent: e as unknown as SyntheticEvent,
-                    value: e.target.value,
-                } as GridItemChangeEvent);
-                _handleDirtyFlag(true);
-            }
-        };
+    const currentValue =
+        props.dataItem[canonicalField] ??
+        props.dataItem["MOC"] ??
+        [];
 
-        return (
-            <td title={valueArray.join(', ')}>
-                <Select
-                    className="moc-dropdownlist"
-                    size="small"
-                    value={valueArray}
-                    onChange={handleChange}
-                    disabled={allControlEnable}
-                >
-                    {
-                        matchedMocs.length > 0 && (
-                            <MenuItem value="">
-                            </MenuItem>
-                        )
-                    }
-                    {matchedMocs.map((m) => (
-                        <MenuItem key={m.Moc_Id} value={m.Moc}>
-                            <ListItemText
-                                primary={m.Moc}
-                                primaryTypographyProps={{ sx: { fontSize: '14px', color: '#253746' } }}
-                            />
-                        </MenuItem>
-                    ))}
-                </Select>
-            </td>
-        );
+    const valueArray = Array.isArray(currentValue)
+        ? currentValue
+        : (currentValue ? [currentValue] : []);
+
+    const selectedMocNames = valueArray
+        .map((id) => {
+            const match = matchedMocs.find((m) => m.Moc === id || m.Moc_Id === id);
+            return match?.Moc;
+        })
+        .filter(Boolean)
+        .join(", ");
+
+    const handleChange = (e: SelectChangeEvent<string[]>) => {
+        if (props.onChange) {
+            const fieldName: string = canonicalField;
+
+            props.onChange({
+                dataIndex: props.dataIndex,
+                dataItem: props.dataItem,
+                field: fieldName,
+                syntheticEvent: e as unknown as SyntheticEvent,
+                value: e.target.value,
+            } as GridItemChangeEvent);
+
+            _handleDirtyFlag(true);
+        }
     };
+
+    return (
+        <td title={selectedMocNames}>
+            <Select
+                multiple
+                className="moc-dropdownlist"
+                size="small"
+                value={valueArray}
+                onChange={handleChange}
+                disabled={allControlEnable}
+                renderValue={(selected) =>
+                    selected
+                        .map((id) => {
+                            const match = matchedMocs.find(
+                                (m) => m.Moc === id || m.Moc_Id === id
+                            );
+                            return match?.Moc;
+                        })
+                        .filter(Boolean)
+                        .join(", ")
+                }
+            >
+                {matchedMocs.map((m) => (
+                    <MenuItem key={m.Moc_Id} value={m.Moc}>
+                        <Checkbox checked={valueArray.includes(m.Moc)} />
+                        <ListItemText
+                            primary={m.Moc}
+                            primaryTypographyProps={{
+                                sx: { fontSize: '14px', color: '#253746' }
+                            }}
+                        />
+                    </MenuItem>
+                ))}
+            </Select>
+        </td>
+    );
+};
