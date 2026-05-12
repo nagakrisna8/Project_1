@@ -1,22 +1,22 @@
+const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+
 <Select
     className="task-dropdownlist"
     size="small"
     multiple
+    open={openDropdown === props.dataIndex}
+    onOpen={() => setOpenDropdown(props.dataIndex)}
+    onClose={() => setOpenDropdown(null)}
     value={valueArray}
-    onChange={handleChange}
-    disabled={allControlEnable}
-    
-    // IMPORTANT FIX
-    MenuProps={{
-        disableAutoFocusItem: true,
-        disableRestoreFocus: true,
-        PaperProps: {
-            onMouseDown: (e) => {
-                e.stopPropagation();
-            },
-        },
-    }}
+    onChange={(e) => {
+        handleChange(e);
 
+        // KEEP DROPDOWN OPEN
+        setTimeout(() => {
+            setOpenDropdown(props.dataIndex);
+        }, 0);
+    }}
+    disabled={allControlEnable}
     renderValue={(selected) =>
         (selected as number[])
             .map((id) => {
