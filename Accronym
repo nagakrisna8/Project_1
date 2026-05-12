@@ -1,10 +1,10 @@
-  const taskdropdownlist = (props: GridCellProps) => {
+ const taskdropdownlist = (props: GridCellProps) => {
         const canonicalField = props.field ?? "Task";
         const matchedTasks = taskNameOptions ?? [];
         console.log(matchedTasks, 'matchedTasks');
 
-        const currentValue = props.dataItem[canonicalField] ?? props.dataItem["TaskId"] ?? [];
-        const valueArray = Array.isArray(currentValue) ? currentValue : [];
+        const currentValue = props.dataItem[canonicalField] ?? props.dataItem["Task"] ?? [];
+        const valueArray = Array.isArray(currentValue) ? currentValue.map(Number) : [];
         const selectedTaskNames = valueArray
             .map((id) => {
                 const found = matchedTasks.find(
@@ -29,7 +29,7 @@
                 _handleDirtyFlag(true);
             }
         };
-
+console.log(valueArray, 'valueArray');
         return (
             <td title={selectedTaskNames}>
                 <Select
@@ -39,8 +39,9 @@
                     value={valueArray}
                     onChange={handleChange}
                     disabled={allControlEnable}
+                    MenuProps={{disableAutoFocusItem: true}}
                     renderValue={(selected) =>
-                        (selected as string[])
+                        (selected as Number[])
                             .map((id) => {
                                 const found = matchedTasks.find(
                                     (t) => String(t.TaskId) === String(id)
@@ -51,10 +52,10 @@
                     }
                 >
                     {matchedTasks.map((t) => (
-                        <MenuItem key={t.TaskId} value={t.TaskId}>
+                      
+                        <MenuItem key={t.TaskId} value={Number(t.TaskId)} onClick={(e) => e.stopPropagation()}>
                             <Checkbox
-                                checked={valueArray.map(Number).includes(Number(t.TaskId))}
-                                onMouseDown={(e) => e.preventDefault()}
+                                checked={valueArray.includes(Number(t.TaskId))}
                                 sx={{ padding: 0, marginRight: 2 }}
                             />
                             <ListItemText
