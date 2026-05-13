@@ -4007,38 +4007,3 @@ function keepOneAndReverseOthers(items: any[]): any[] {
 
     return result;
 }
-[
-    {
-        "Row_Sequence": 2,
-        "Report_Id": 199451,
-        "Cve_Panel": "P4",
-        "Cdi": "4.1",
-        "Cdi_Description": "Weight & Balance",
-        "Regulation": "25.25",
-        "Para": "(a)",
-        "Moc": "MC3",
-        "Compliance_Shown_In": null,
-        "Compliance_statement": "<p>test</p>",
-        "Additional_Notes": null,
-        "Created_By": 3729350,
-        "Cve_Id": 5,
-        "Cve_Description": "Hydromechanical Systems",
-        "Cdi_Id": 16,
-        "Reg_Id": 3361,
-        "Is_Clone": "N",
-        "Amendment": "CS 25/13",
-        "Cdi_Complete": "4.1 - Weight & Balance",
-        "RegDescription": "Weight Limits",
-        "Task": "62,63,64",
-        "TaskName": [
-            62,
-            63,
-            64,
-            65,
-            67,
-            66
-        ],
-        "edited": true,
-        "ActiveFlag": "Y"
-    }
-]
