@@ -2398,7 +2398,7 @@ const CCLBuilderGrid = () => {
                 />
                 <GridColumn
                     className="grid_Task"
-                    field="TaskName"
+                    field="TaskId"
                     title="Task Name"
                     width="120px"
                     cell={taskdropdownlist}
@@ -2794,20 +2794,20 @@ const CCLBuilderGrid = () => {
         //     rec.Compliance_statement !== "<p></p>" &&
         //     rec.Compliance_statement !== "<p><br></p>"
         // );
-        const invalidRow = cclGridData.find(rec =>
-            ((rec.Compliance_Shown_In == null || rec.Compliance_Shown_In == "") && (rec.Compliance_statement == null || rec.Compliance_statement == "<p></p>" || rec.Compliance_statement == "<p><br></p>"))
-        );
-        if (invalidRow) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage:
-                        "Either 'Compliance shown in' or 'Compliance statement' should be provided in a row",
-                })
-            );
-            return false;
-        }
+        // const invalidRow = cclGridData.find(rec =>
+        //     ((rec.Compliance_Shown_In == null || rec.Compliance_Shown_In == "") && (rec.Compliance_statement == null || rec.Compliance_statement == "<p></p>" || rec.Compliance_statement == "<p><br></p>"))
+        // );
+        // if (invalidRow) {
+        //     dispatch(
+        //         showSnackbar({
+        //             snackbarOpen: true,
+        //             snackbarType: "error",
+        //             snackbarMessage:
+        //                 "Either 'Compliance shown in' or 'Compliance statement' should be provided in a row",
+        //         })
+        //     );
+        //     return false;
+        // }
         // END VALIDATIONS
         let userInfo = AuthorizationService.getUserInfo(AuthorizationService.getAppToken());
         let projectRegisterNoId = localStorage.getItem('OSS-CertToolProjectNo');
@@ -2932,20 +2932,20 @@ const CCLBuilderGrid = () => {
         //     rec.Compliance_statement !== "<p></p>" &&
         //     rec.Compliance_statement !== "<p><br></p>"
         // );
-        const invalidRow = cclGridData.find(rec =>
-            ((rec.Compliance_Shown_In == null || rec.Compliance_Shown_In == "") && (rec.Compliance_statement == null || rec.Compliance_statement == "<p></p>" || rec.Compliance_statement == "<p><br></p>" || rec.Compliance_statement == ""))
-        );
-        if (invalidRow) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage:
-                        "Either 'Compliance shown in' or 'Compliance statement' should be provided in a row",
-                })
-            );
-            return;
-        }
+        // const invalidRow = cclGridData.find(rec =>
+        //     ((rec.Compliance_Shown_In == null || rec.Compliance_Shown_In == "") && (rec.Compliance_statement == null || rec.Compliance_statement == "<p></p>" || rec.Compliance_statement == "<p><br></p>" || rec.Compliance_statement == ""))
+        // );
+        // if (invalidRow) {
+        //     dispatch(
+        //         showSnackbar({
+        //             snackbarOpen: true,
+        //             snackbarType: "error",
+        //             snackbarMessage:
+        //                 "Either 'Compliance shown in' or 'Compliance statement' should be provided in a row",
+        //         })
+        //     );
+        //     return;
+        // }
         // END VALIDATIONS
         let userInfo = AuthorizationService.getUserInfo(AuthorizationService.getAppToken());
         let projectRegisterNoId = localStorage.getItem('OSS-CertToolProjectNo');
