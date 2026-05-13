@@ -104,19 +104,6 @@ const initialState = {
     sort: [],
     filter: undefined
 }
-const taskNameOptions = [  {    "TaskId": 17,    "TaskName": "Testing for new",    "TaskDescription": "CPreport"  },
-  {    "TaskId": 18,    "TaskName": "installation",    "TaskDescription": "installtion of servers"  },
-  {    "TaskId": 12,    "TaskName": "TEST1",    "TaskDescription": "testing in progress"  },
-  {    "TaskId": 16,    "TaskName": "Testing3",    "TaskDescription": "Testing3"  },
-  {    "TaskId": 23,    "TaskName": "Testing TestName",    "TaskDescription": "Testing description"  },
-  {    "TaskId": 9,    "TaskName": "Test Update",    "TaskDescription": "Testing"  },
-  {    "TaskId": 11,    "TaskName": "testing in progress",    "TaskDescription": "CP Testing"  },
-  {    "TaskId": 13,    "TaskName": "TEST2",    "TaskDescription": "TEST2_desc"  },
-  {    "TaskId": 24,    "TaskName": "Installation of servers",    "TaskDescription": "Server Installation"  },
-  {    "TaskId": 22,    "TaskName": "DATA Deployment",    "TaskDescription": "Deployment Description"  },
-  {    "TaskId": 10,    "TaskName": "string",    "TaskDescription": "string"  },
-  {    "TaskId": 19,    "TaskName": "Test123",    "TaskDescription": "This is the description of task for test123"  }
-]
 let filterObjectsparam: FilterParam[] = [];
 
 const SELECT_ALL = "Select All";
@@ -1972,7 +1959,7 @@ const CCLBuilderGrid = () => {
 
     const taskdropdownlist = (props: GridCellProps) => {
         const canonicalField = props.field ?? "Task";
-        const matchedTasks = taskNameOptions ?? [];
+        const matchedTasks = task ?? [];
 
         const initialValue =
             props.dataItem[canonicalField] ??
