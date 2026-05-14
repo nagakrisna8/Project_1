@@ -6,19 +6,17 @@ const handleChange = (e: SelectChangeEvent<any>) => {
                   .map((x) => Number(x))
             : (e.target.value as number[]);
 
-    setSelectedTasks(value);
+    props.dataItem.TaskId = value.join(",");
 
-    if (props.onChange) {
-        props.onChange({
-            dataIndex: props.dataIndex,
-            dataItem: {
-                ...props.dataItem,
-                TaskId: value.join(","),
-                Task: value.join(",")
-            },
-            field: "TaskId",
-            syntheticEvent: e as any,
-            value: value.join(",")
-        });
-    }
+    const updatedData = cclGridData.map((item) =>
+        item.Report_Id === props.dataItem.Report_Id
+            ? {
+                  ...item,
+                  TaskId: value.join(","),
+                  edited: true
+              }
+            : item
+    );
+
+    setCclGridData(updatedData);
 };
