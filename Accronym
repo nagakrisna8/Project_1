@@ -1,25 +1,107 @@
-const handleChange = (e: SelectChangeEvent<any>) => {
-    const value = e.target.value as number[];
+const taskdropdownlist = (props: GridCellProps) => {
+    const canonicalField = props.field ?? "Task";
+    const matchedTasks = task ?? [];
 
-    // maintain dropdown checked state
-    setSelectedTasks(value);
+    const initialValue =
+        props.dataItem[canonicalField] ??
+        props.dataItem["TaskId"] ??
+        props.dataItem["Task"] ??
+        [];
 
-    // update current row
-    props.dataItem[canonicalField] = value;
+    const normalizedTasks = String(initialValue)
+        .split(",")
+        .map((x) => Number(x.trim()))
+        .filter((x) => !isNaN(x) && x !== 0);
 
-    // update TaskId for API payload
-    props.dataItem["TaskId"] = value.join(",");
+    const [selectedTasks, setSelectedTasks] =
+        useState<number[]>(normalizedTasks);
 
-    // trigger grid change
-    if (props.onChange) {
-        props.onChange({
-            dataIndex: props.dataIndex,
-            dataItem: props.dataItem,
-            field: canonicalField,
-            syntheticEvent: e as unknown as SyntheticEvent,
-            value: value,
-        } as GridItemChangeEvent);
-    }
+    const selectedTaskNames = selectedTasks
+        .map((id) => {
+            const found = matchedTasks.find(
+                (t) => Number(t.TaskId) === Number(id)
+            );
 
-    _handleDirtyFlag(true);
+            return found ? found.TaskName : id;
+        })
+        .join(", ");
+
+    const handleChange = (e: SelectChangeEvent<any>) => {
+        const value = e.target.value as number[];
+
+        // maintain dropdown state
+        setSelectedTasks(value);
+
+        // update row data
+        props.dataItem[canonicalField] = value;
+
+        // important for API payload
+        props.dataItem["TaskId"] = value.join(",");
+
+        // notify grid
+        if (props.onChange) {
+            props.onChange({
+                dataIndex: props.dataIndex,
+                dataItem: {
+                    ...props.dataItem,
+                    TaskId: value.join(","),
+                    [canonicalField]: value,
+                },
+                field: canonicalField,
+                syntheticEvent: e as unknown as SyntheticEvent,
+                value: value,
+            } as GridItemChangeEvent);
+        }
+
+        _handleDirtyFlag(true);
+    };
+
+    return (
+        <td title={selectedTaskNames}>
+            <FormControl fullWidth size="small">
+                <Select
+                    multiple
+                    value={selectedTasks}
+                    onChange={handleChange}
+                    disabled={allControlEnable}
+                    className="task-dropdownlist"
+                    MenuProps={{
+                        keepMounted: true,
+                        disableAutoFocusItem: true,
+                    }}
+                    renderValue={(selected) =>
+                        (selected as number[])
+                            .map((id) => {
+                                const found = matchedTasks.find(
+                                    (t) =>
+                                        Number(t.TaskId) === Number(id)
+                                );
+
+                                return found
+                                    ? found.TaskName
+                                    : id;
+                            })
+                            .join(", ")
+                    }
+                >
+                    {matchedTasks.map((t) => (
+                        <MenuItem
+                            key={t.TaskId}
+                            value={Number(t.TaskId)}
+                        >
+                            <Checkbox
+                                checked={selectedTasks.includes(
+                                    Number(t.TaskId)
+                                )}
+                            />
+
+                            <ListItemText
+                                primary={t.TaskName}
+                            />
+                        </MenuItem>
+                    ))}
+                </Select>
+            </FormControl>
+        </td>
+    );
 };
