@@ -8,10 +8,17 @@ const taskdropdownlist = (props: GridCellProps) => {
         props.dataItem["Task"] ??
         [];
 
-    const normalizedTasks = String(initialValue)
-        .split(",")
-        .map((x) => Number(x.trim()))
-        .filter((x) => !isNaN(x) && x !== 0);
+    // FIXED NORMALIZATION
+    const normalizedTasks = Array.isArray(initialValue)
+        ? initialValue
+              .map((x) => Number(x))
+              .filter((x) => !isNaN(x) && x > 0)
+        : String(initialValue ?? "")
+              .split(",")
+              .map((x) => x.trim())
+              .filter((x) => x !== "")
+              .map((x) => Number(x))
+              .filter((x) => !isNaN(x) && x > 0);
 
     const [selectedTasks, setSelectedTasks] =
         useState<number[]>(normalizedTasks);
@@ -27,31 +34,20 @@ const taskdropdownlist = (props: GridCellProps) => {
         .join(", ");
 
     const handleChange = (e: SelectChangeEvent<any>) => {
-        const value = e.target.value as number[];
+        const value =
+            typeof e.target.value === "string"
+                ? e.target.value
+                      .split(",")
+                      .map((x) => Number(x))
+                : (e.target.value as number[]);
 
-        // maintain dropdown state
         setSelectedTasks(value);
 
-        // update row data
-        props.dataItem[canonicalField] = value;
-
-        // important for API payload
+        // store TaskId values
         props.dataItem["TaskId"] = value.join(",");
 
-        // notify grid
-        if (props.onChange) {
-            props.onChange({
-                dataIndex: props.dataIndex,
-                dataItem: {
-                    ...props.dataItem,
-                    TaskId: value.join(","),
-                    [canonicalField]: value,
-                },
-                field: canonicalField,
-                syntheticEvent: e as unknown as SyntheticEvent,
-                value: value,
-            } as GridItemChangeEvent);
-        }
+        // optional if needed elsewhere
+        props.dataItem[canonicalField] = value.join(",");
 
         _handleDirtyFlag(true);
     };
