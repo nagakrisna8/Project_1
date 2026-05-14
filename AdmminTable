@@ -1,21 +1,25 @@
-  // const handleChange = (e: SelectChangeEvent<any>) => {
-        //     const value = e.target.value as number[];
-        //     setSelectedTasks(value);
-        //     props.dataItem[canonicalField] = value;
+const handleChange = (e: SelectChangeEvent<any>) => {
+    const value = e.target.value as number[];
 
-        //     _handleDirtyFlag(true);
-        // };
+    // maintain dropdown checked state
+    setSelectedTasks(value);
 
-  const handleChange = (e: SelectChangeEvent<any>) => {
-            const value = e.target.value as number[];
-            if (props.onChange) {
-                props.onChange({
-                    dataIndex: props.dataIndex,
-                    dataItem: props.dataItem,
-                    field: canonicalField,
-                    syntheticEvent: e as unknown as SyntheticEvent,
-                    value: value.length > 0 ? value.join(",") : "",
-                } as GridItemChangeEvent);
-            }
-            _handleDirtyFlag(true);
-        };
+    // update current row
+    props.dataItem[canonicalField] = value;
+
+    // update TaskId for API payload
+    props.dataItem["TaskId"] = value.join(",");
+
+    // trigger grid change
+    if (props.onChange) {
+        props.onChange({
+            dataIndex: props.dataIndex,
+            dataItem: props.dataItem,
+            field: canonicalField,
+            syntheticEvent: e as unknown as SyntheticEvent,
+            value: value,
+        } as GridItemChangeEvent);
+    }
+
+    _handleDirtyFlag(true);
+};
