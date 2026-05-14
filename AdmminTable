@@ -1,79 +1,21 @@
-const taskdropdownlist = useCallback((props: GridCellProps) => {
-    const canonicalField = props.field ?? "Task";
-    const matchedTasks = task ?? [];
+  // const handleChange = (e: SelectChangeEvent<any>) => {
+        //     const value = e.target.value as number[];
+        //     setSelectedTasks(value);
+        //     props.dataItem[canonicalField] = value;
 
-    const initialValue =
-        props.dataItem[canonicalField] ??
-        props.dataItem["TaskId"] ??
-        props.dataItem["Task"] ??
-        "";
+        //     _handleDirtyFlag(true);
+        // };
 
-    const selectedTasks = initialValue && String(initialValue).trim() !== "" && String(initialValue).trim() !== "0" && String(initialValue).trim() !== "null"
-        ? String(initialValue)
-            .split(",")
-            .map((x) => Number(x.trim()))
-            .filter((x) => !isNaN(x) && x !== 0)
-        : [];
-
-    const selectedTaskNames = selectedTasks
-        .map((id) => {
-            const found = matchedTasks.find(
-                (t) => Number(t.TaskId) === Number(id)
-            );
-            return found ? found.TaskName : id;
-        })
-        .join(", ");
-
-    const handleChange = (e: SelectChangeEvent<any>) => {
-        const value = e.target.value as number[];
-        if (props.onChange) {
-            props.onChange({
-                dataIndex: props.dataIndex,
-                dataItem: props.dataItem,
-                field: canonicalField,
-                syntheticEvent: e as unknown as SyntheticEvent,
-                value: value.length > 0 ? value.join(",") : "",
-            } as GridItemChangeEvent);
-        }
-        _handleDirtyFlag(true);
-    };
-
-    return (
-        <td title={selectedTaskNames}>
-            <FormControl fullWidth size="small">
-                <Select
-                    multiple
-                    value={selectedTasks}
-                    onChange={handleChange}
-                    disabled={allControlEnable}
-                    className="task-dropdownlist"
-                    MenuProps={{
-                        keepMounted: true,
-                    }}
-                    renderValue={(selected) =>
-                        (selected as number[])
-                            .map((id) => {
-                                const found = matchedTasks.find(
-                                    (t) => Number(t.TaskId) === Number(id)
-                                );
-                                return found ? found.TaskName : id;
-                            })
-                            .join(", ")
-                    }
-                >
-                    {matchedTasks.map((t) => (
-                        <MenuItem
-                            key={t.TaskId}
-                            value={Number(t.TaskId)}
-                        >
-                            <Checkbox
-                                checked={selectedTasks.includes(Number(t.TaskId))}
-                            />
-                            <ListItemText primary={t.TaskName} />
-                        </MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
-        </td>
-    );
-}, [task, allControlEnable]);
+  const handleChange = (e: SelectChangeEvent<any>) => {
+            const value = e.target.value as number[];
+            if (props.onChange) {
+                props.onChange({
+                    dataIndex: props.dataIndex,
+                    dataItem: props.dataItem,
+                    field: canonicalField,
+                    syntheticEvent: e as unknown as SyntheticEvent,
+                    value: value.length > 0 ? value.join(",") : "",
+                } as GridItemChangeEvent);
+            }
+            _handleDirtyFlag(true);
+        };
