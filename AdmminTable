@@ -1,119 +1,12 @@
- const taskdropdownlist = (props: GridCellProps) => {
-        const canonicalField = props.field ?? "Task";
-        const matchedTasks = task ?? [];
-
-        const initialValue =
-            props.dataItem[canonicalField] ??
-            props.dataItem["TaskId"] ??
-            props.dataItem["Task"] ??
-            [];
-        const normalizedTasks = String(initialValue)
-            .split(",")
-            .map((x) => Number(x.trim()))
-            .filter((x) => !isNaN(x));
-        const [selectedTasks, setSelectedTasks] =
-            useState<number[]>(normalizedTasks);
-        const selectedTaskNames = selectedTasks
-            .map((id) => {
-                const found = matchedTasks.find(
-                    (t) => Number(t.TaskId) === Number(id)
-                );
-
-                return found ? found.TaskName : id;
-            })
-            .join(", ");
-
-        const handleChange = (e: SelectChangeEvent<any>) => {
-            const value = e.target.value as number[];
+   const handleChange = (e: SelectChangeEvent<any>) => {
+            const value =
+                typeof e.target.value === "string"
+                    ? e.target.value
+                        .split(",")
+                        .map((x) => Number(x))
+                    : (e.target.value as number[]);
 
             setSelectedTasks(value);
-
-            // update grid item silently
-            props.dataItem[canonicalField] = value;
-
-            _handleDirtyFlag(true);
-        };
-
-        return (
-            <td title={selectedTaskNames}>
-                <FormControl fullWidth size="small">
-                    <Select
-                        multiple
-                        value={selectedTasks}
-                        onChange={handleChange}
-                        disabled={allControlEnable}
-                        className="task-dropdownlist"
-                        MenuProps={{
-                            keepMounted: true,
-                        }}
-                        renderValue={(selected) =>
-                            (selected as number[])
-                                .map((id) => {
-                                    const found = matchedTasks.find(
-                                        (t) =>
-                                            Number(t.TaskId) === Number(id)
-                                    );
-
-                                    return found
-                                        ? found.TaskName
-                                        : id;
-                                })
-                                .join(", ")
-                        }
-                    >
-                        {matchedTasks.map((t) => (
-                            <MenuItem
-                                key={t.TaskId}
-                                value={Number(t.TaskId)}
-                            >
-                                <Checkbox
-                                    checked={selectedTasks.includes(
-                                        Number(t.TaskId)
-                                    )}
-                                />
-
-                                <ListItemText
-                                    primary={t.TaskName}
-                                />
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-            </td>
-        );
-    };
-
-
-
-
-   const taskdropdownlist = (props: GridCellProps) => {
-        const canonicalField = props.field ?? "Task";
-        const matchedTasks = task ?? [];
-
-        const initialValue =
-            props.dataItem[canonicalField] ??
-            props.dataItem["TaskId"] ??
-            props.dataItem["Task"] ??
-            "";
-
-        const selectedTasks = initialValue && String(initialValue).trim() !== "" && String(initialValue).trim() !== "0" && String(initialValue).trim() !== "null"
-            ? String(initialValue)
-                .split(",")
-                .map((x) => Number(x.trim()))
-                .filter((x) => !isNaN(x) && x !== 0)
-            : [];
-
-        const selectedTaskNames = selectedTasks
-            .map((id) => {
-                const found = matchedTasks.find(
-                    (t) => Number(t.TaskId) === Number(id)
-                );
-                return found ? found.TaskName : id;
-            })
-            .join(", ");
-
-        const handleChange = (e: SelectChangeEvent<any>) => {
-            const value = e.target.value as number[];
             if (props.onChange) {
                 props.onChange({
                     dataIndex: props.dataIndex,
@@ -123,45 +16,7 @@
                     value: value.length > 0 ? value.join(",") : "",
                 } as GridItemChangeEvent);
             }
+            props.dataItem["TaskId"] = value.join(",");
+            props.dataItem[canonicalField] = value.join(",");
             _handleDirtyFlag(true);
         };
-
-        return (
-            <td title={selectedTaskNames}>
-                <FormControl fullWidth size="small">
-                    <Select
-                        multiple
-                        value={selectedTasks}
-                        onChange={handleChange}
-                        disabled={allControlEnable}
-                        className="task-dropdownlist"
-                        MenuProps={{
-                            keepMounted: true,
-                        }}
-                        renderValue={(selected) =>
-                            (selected as number[])
-                                .map((id) => {
-                                    const found = matchedTasks.find(
-                                        (t) => Number(t.TaskId) === Number(id)
-                                    );
-                                    return found ? found.TaskName : id;
-                                })
-                                .join(", ")
-                        }
-                    >
-                        {matchedTasks.map((t) => (
-                            <MenuItem
-                                key={t.TaskId}
-                                value={Number(t.TaskId)}
-                            >
-                                <Checkbox
-                                    checked={selectedTasks.includes(Number(t.TaskId))}
-                                />
-                                <ListItemText primary={t.TaskName} />
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-            </td>
-        );
-    };
