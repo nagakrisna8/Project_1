@@ -1,34 +1,106 @@
-const handleChange = (e: SelectChangeEvent<any>) => {
-    const value =
-        typeof e.target.value === "string"
-            ? e.target.value
-                  .split(",")
-                  .map((x) => Number(x))
-            : (e.target.value as number[]);
+const taskdropdownlist = (props: GridCellProps) => {
+    const canonicalField = props.field ?? "Task";
+    const matchedTasks = task ?? [];
 
-    setSelectedTasks(value);
+    const initialValue =
+        props.dataItem[canonicalField] ??
+        props.dataItem["TaskId"] ??
+        props.dataItem["Task"] ??
+        [];
 
-    const updatedGrid = [...cclGridData];
+    const normalizedTasks = Array.isArray(initialValue)
+        ? initialValue
+              .map((x) => Number(x))
+              .filter((x) => !isNaN(x) && x > 0)
+        : String(initialValue ?? "")
+              .split(",")
+              .map((x) => x.trim())
+              .filter((x) => x !== "")
+              .map((x) => Number(x))
+              .filter((x) => !isNaN(x) && x > 0);
 
-    const index = updatedGrid.findIndex(
-        (x) => x.Report_Id === props.dataItem.Report_Id
+    const selectedTaskNames = normalizedTasks
+        .map((id) => {
+            const found = matchedTasks.find(
+                (t) => Number(t.TaskId) === Number(id)
+            );
+
+            return found ? found.TaskName : id;
+        })
+        .join(", ");
+
+    const handleChange = (e: SelectChangeEvent<any>) => {
+        const value =
+            typeof e.target.value === "string"
+                ? e.target.value
+                      .split(",")
+                      .map((x) => Number(x))
+                : (e.target.value as number[]);
+
+        const updatedGrid = cclGridData.map((item) => {
+            if (item.Report_Id === props.dataItem.Report_Id) {
+                return {
+                    ...item,
+                    TaskId: value.join(","),
+                    [canonicalField]: value.join(","),
+                    edited: true,
+                };
+            }
+
+            return item;
+        });
+
+        setCclGridData(updatedGrid);
+
+        _handleDirtyFlag(true);
+    };
+
+    return (
+        <td title={selectedTaskNames}>
+            <FormControl fullWidth size="small">
+                <Select
+                    multiple
+                    value={normalizedTasks}
+                    onChange={handleChange}
+                    disabled={allControlEnable}
+                    className="task-dropdownlist"
+                    MenuProps={{
+                        keepMounted: true,
+                        disableAutoFocusItem: true,
+                    }}
+                    renderValue={(selected) =>
+                        (selected as number[])
+                            .map((id) => {
+                                const found = matchedTasks.find(
+                                    (t) =>
+                                        Number(t.TaskId) === Number(id)
+                                );
+
+                                return found
+                                    ? found.TaskName
+                                    : id;
+                            })
+                            .join(", ")
+                    }
+                >
+                    {matchedTasks.map((t) => (
+                        <MenuItem
+                            key={t.TaskId}
+                            value={Number(t.TaskId)}
+                        >
+                            <Checkbox
+                                checked={normalizedTasks.includes(
+                                    Number(t.TaskId)
+                                )}
+                            />
+
+                            <ListItemText
+                                primary={t.TaskName}
+                            />
+                        </MenuItem>
+                    ))}
+                </Select>
+            </FormControl>
+        </td>
     );
-
-    if (index !== -1) {
-        updatedGrid[index] = {
-            ...updatedGrid[index],
-            TaskId: value.join(","),
-            [canonicalField]: value.join(","),
-            edited: true,
-        };
-
-        setCclGridData(
-            updatedGrid.map((x) => ({
-                ...x,
-                Cdi_Complete: `${x.Cdi} - ${x.Cdi_Description}`,
-            }))
-        );
-    }
-
-    _handleDirtyFlag(true);
 };
