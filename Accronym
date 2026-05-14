@@ -1,73 +1,93 @@
 const taskdropdownlist = (props: GridCellProps) => {
-    const canonicalField = "TaskId";
+    const canonicalField = props.field ?? "TaskId";
     const matchedTasks = task ?? [];
 
     const initialValue =
+        props.dataItem[canonicalField] ??
         props.dataItem["TaskId"] ??
+        props.dataItem["Task"] ??
         [];
 
     const normalizedTasks = Array.isArray(initialValue)
-        ? initialValue.map(Number)
-        : String(initialValue)
-              .split(",")
-              .map((x) => Number(x.trim()))
-              .filter((x) => !isNaN(x));
+        ? initialValue.map((x) => Number(x)).filter((x) => !isNaN(x) && x > 0)
+        : String(initialValue ?? "")
+            .split(",")
+            .map((x) => x.trim())
+            .filter((x) => x !== "")
+            .map((x) => Number(x))
+            .filter((x) => !isNaN(x) && x > 0);
 
-    const [selectedTasks, setSelectedTasks] =
-        useState<number[]>(normalizedTasks);
+    const [selectedTasks, setSelectedTasks] = useState<number[]>(normalizedTasks);
 
-    useEffect(() => {
-        setSelectedTasks(normalizedTasks);
-    }, [props.dataItem.TaskId]);
+    const selectedTaskNames = selectedTasks
+        .map((id) => {
+            const found = matchedTasks.find((t) => Number(t.TaskId) === Number(id));
+            return found ? found.TaskName : id;
+        })
+        .join(", ");
 
     const handleChange = (e: SelectChangeEvent<any>) => {
         const value =
             typeof e.target.value === "string"
-                ? e.target.value
-                      .split(",")
-                      .map((x) => Number(x))
+                ? e.target.value.split(",").map((x) => Number(x))
                 : (e.target.value as number[]);
 
+        // 1. Update local dropdown state (keeps dropdown open)
         setSelectedTasks(value);
 
-        // IMPORTANT
-        props.dataItem.TaskId = value.join(",");
+        // 2. Mutate dataItem so the value is available on save
+        props.dataItem[canonicalField] = value.join(",");
+        props.dataItem["TaskId"] = value.join(",");
+
+        // 3. Mark the row as edited directly in cclGridData without triggering re-render via props.onChange
+        setCclGridData((prev) => {
+            const index = prev.findIndex(
+                (x) => x.Report_Id === props.dataItem.Report_Id
+            );
+            if (index === -1) return prev;
+            const copy = [...prev];
+            copy[index] = {
+                ...copy[index],
+                TaskId: value.join(","),
+                edited: true,
+                Cdi_Complete: `${copy[index].Cdi} - ${copy[index].Cdi_Description}`,
+            };
+            return copy;
+        });
+
+        _handleDirtyFlag(true);
     };
 
     return (
-        <td>
+        <td title={selectedTaskNames}>
             <FormControl fullWidth size="small">
                 <Select
                     multiple
                     value={selectedTasks}
                     onChange={handleChange}
-                    displayEmpty
-                    renderValue={(selected) => {
-                        const selectedNames = matchedTasks
-                            .filter((x) =>
-                                (selected as number[]).includes(x.TaskId)
-                            )
-                            .map((x) => x.TaskName);
-
-                        return selectedNames.join(", ");
-                    }}
+                    disabled={allControlEnable}
+                    className="task-dropdownlist"
                     MenuProps={{
-                        PaperProps: {
-                            style: {
-                                maxHeight: 300,
-                            },
-                        },
+                        keepMounted: true,
+                        disableAutoFocusItem: true,
                     }}
+                    renderValue={(selected) =>
+                        (selected as number[])
+                            .map((id) => {
+                                const found = matchedTasks.find(
+                                    (t) => Number(t.TaskId) === Number(id)
+                                );
+                                return found ? found.TaskName : id;
+                            })
+                            .join(", ")
+                    }
                 >
-                    {matchedTasks.map((item) => (
-                        <MenuItem
-                            key={item.TaskId}
-                            value={item.TaskId}
-                        >
+                    {matchedTasks.map((t) => (
+                        <MenuItem key={t.TaskId} value={Number(t.TaskId)}>
                             <Checkbox
-                                checked={selectedTasks.includes(item.TaskId)}
+                                checked={selectedTasks.includes(Number(t.TaskId))}
                             />
-                            <ListItemText primary={item.TaskName} />
+                            <ListItemText primary={t.TaskName} />
                         </MenuItem>
                     ))}
                 </Select>
