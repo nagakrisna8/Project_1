@@ -1,73 +1,575 @@
-.oss-ccl-crimatrix {
-  .k-filterable {
-    vertical-align: top;
+import React, { useEffect, useState } from 'react';
+import { Grid as DataGrid, GridCellProps, GridColumn, GridColumnMenuFilter, GridToolbar, GridColumnMenuSort, GridCustomHeaderCellProps, GridDataStateChangeEvent, GridDetailRowProps, GridEvent, GridItemChangeEvent, GridPageChangeEvent, isColumnMenuFilterActive, isColumnMenuSortActive } from "@progress/kendo-react-grid";
+import { filterIcon } from "@progress/kendo-svg-icons";
+import { CSRReportStage, GetCRIMappingResponse, GetCSRReportStatusResponse } from '../../../model/Model';
+import './CRIMappingGrid.scss';
+import { logFilterAction } from '@boeing-fsit/react-oss-adobe-analytics-lib';
+import { process, State } from '@progress/kendo-data-query';
+import StorageService from "../../../utils/StorageService";
+import EnvDetail from '../../../utils/EnvDetail';
+import { SaveCRIMappingPayload } from "../../../model/Model";
+import CclBuilderGridService from "../project-grid/CclBuilderGridService";
+import { showSnackbar } from "../../core/snackbar/CustomSnackBarSlice";
+import { useDispatch } from "react-redux";
+import { Button } from "@mui/material";
+import HeaderDetails from '../header-details/HeaderDetails';
+import { CCLTEMPLATEID, CCLTEMPLATENAME, MarkAsCompleteButton, navigateToCSRReportIDPage } from '../overview-home/Overview';
+import { useOutletContext } from 'react-router-dom';
+import { OverallDataContext } from '../overview-home/Overview';
+import MainDrawerService from '../drawer-home/MainDrawerService';
+import { userDefinedConfirm } from '../utils/ConfirmDialog';
 
-    .k-cell-inner {
-      border-bottom: 1px solid rgb(0, 0, 0, 0.08);
+
+// interface CRIMappingGridProps {
+//   data: GetCRIMappingResponse | undefined;
+//   setData: React.Dispatch<React.SetStateAction<GetCRIMappingResponse | undefined>>;
+//   _handleDirtyFlag: (templateFlag: any) => void;
+// }
+
+// function CRIMappingGrid({ data, setData, _handleDirtyFlag }: CRIMappingGridProps) {
+function CRIMappingGrid() {
+  const { cclData, markedAsCompleteData, refreshDrawerData } = useOutletContext<OverallDataContext>();
+  const [criMappingGridData, setcriMappingGridData] = useState<GetCRIMappingResponse>();
+  const [dataStateCLI, setDataStateCLI] = useState<State>({});
+  const [newData, setNewData] = useState<GetCRIMappingResponse | undefined>(undefined);
+
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    loadCRIMappingData();
+  }, []);
+
+  const loadCRIMappingData = async () => {
+    const storageServiceTemp = new StorageService();
+    const projNum = storageServiceTemp.getApplicationDataByKey(
+      `${EnvDetail.ParentAppName}-easaActiveSubMenu`,
+      'easamyworkspaceprojectid'
+    );
+
+    try {
+      const criMappingResp = await CclBuilderGridService.GetCRIMapping(projNum);
+
+      console.log("Full API RSPO:", criMappingResp);
+      console.log("API Data:", criMappingResp?.data);
+
+      if (criMappingResp.data) {
+        console.clear();
+        console.log("DATA:", criMappingResp.data);
+        const newTempData: GetCRIMappingResponse = {
+          ...criMappingResp.data,
+          Models: criMappingResp.data.Models.filter(x => x !== "")
+        };
+        setcriMappingGridData(newTempData);
+
+        console.log("Models:", newTempData.Models);
+        console.log("ACTUAL MODELS:", criMappingResp.data.Models);
+
+
+      }
+    } catch (error) { }
+  };
+
+  const saveCriData = async (showSnackbarFlag = true) => {
+    try {
+      const storageServiceTemp = new StorageService();
+      const docName = localStorage.getItem(`${EnvDetail.ParentAppName}-CertToolReportId`)!;
+
+      const projNum = storageServiceTemp.getApplicationDataByKey(
+        `${EnvDetail.ParentAppName}-easaActiveSubMenu`,
+        'easamyworkspaceprojectid'
+      );
+
+      const payload: SaveCRIMappingPayload = {
+        ProjRegId: projNum,
+        CriMappingData: criMappingGridData?.CriMappingData || [],
+        CCL_Report_Id: docName
+      };
+
+      await CclBuilderGridService.SaveCRIMappingData(payload);
+      await loadCRIMappingData();
+      if (showSnackbar)
+        dispatch(
+          showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: "Saved CRI Mapping successfully",
+          })
+        );
+
+      //setIsDirty(false);
+      return true;
+
+    } catch (error: any) {
+      const errText =
+        error?.response?.data?.message ||
+        error?.response?.data ||
+        error?.message ||
+        String(error);
+
+      if (errText?.includes('Create matrix data for project')) {
+        dispatch(
+          showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Create matrix data for project",
+          })
+        );
+      } else {
+        dispatch(
+          showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Error saving data",
+          })
+        );
+      }
+
+      return false;
     }
-  }
-  // height: calc(100% - 56px);
-  .ccl-overflowAuto {
-    height: 100%;
-    overflow: auto;
-  }
+  };
+
+  const markAsComplete = async () => {
+    const saved = await saveCriData(false);
+    if (!saved)
+      return;
+    const storageServiceTemp = new StorageService();
+    const projNum = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+    const projId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easaprojectno');
+    const bu = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunit');
+    const di = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentdiscipline');
+    const buid = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunitid');
+    const discid = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentdisciplineid');
+    const docName = localStorage.getItem(`${EnvDetail.ParentAppName}-CertToolReportId`)!;
+    let bothCompleting = markedAsCompleteData.ccl;
+    try {
+      if (!bothCompleting) {
+        const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+          Project_Number: projNum,
+          Project_Id: projId,
+          Document_Name: docName,
+          Business_Unit_Name: bu,
+          Discipline_Name: di,
+          Business_Unit_Id: buid,
+          Discipline_Id: discid,
+        }, false, true);
+        dispatch(
+          showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: `Marked CRI Applicabilty as completed successfully`,
+          })
+        );
+        await refreshDrawerData();
+        return;
+      }
+      const currentStatus = await CclBuilderGridService.GetCSRReportStatus(projNum, bu, di);
+      const reportStatusDetails: GetCSRReportStatusResponse | null = currentStatus.data;
+      if (currentStatus.status == 204) {
+        const response = await CclBuilderGridService.PushToCA({
+          Project_Number: projNum,
+          Project_Id: projId,
+          Document_Name: docName,
+          Business_Unit_Name: bu,
+          Discipline_Name: di,
+          Business_Unit_Id: buid,
+          Discipline_Id: discid,
+        });
+        const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+          Project_Number: projNum,
+          Project_Id: projId,
+          Document_Name: docName,
+          Business_Unit_Name: bu,
+          Discipline_Name: di,
+          Business_Unit_Id: buid,
+          Discipline_Id: discid,
+        }, false, true);
+        if (response) {
+          navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+          dispatch(
+            showSnackbar({
+              snackbarOpen: true,
+              snackbarType: "success",
+              snackbarMessage: "Generated CCL Document successfully",
+            })
+          );
+        }
+      } else if (reportStatusDetails?.RptStatus == CSRReportStage.CREATE) {
+        const confirmation = await userDefinedConfirm({
+          message: "Report already exists, do you want to overwrite the data?",
+          okBtnText: "Confirm",
+          cancelBtnText: "Cancel",
+        }).catch(() => { });
+        if (confirmation) {
+          const response = await CclBuilderGridService.DeleteAndPushToCA({
+            Project_Number: projNum,
+            Project_Id: projId,
+            Document_Name: docName,
+            Business_Unit_Name: bu,
+            Discipline_Name: di,
+            Business_Unit_Id: buid,
+            Discipline_Id: discid,
+          });
+          const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+            Project_Number: projNum,
+            Project_Id: projId,
+            Document_Name: docName,
+            Business_Unit_Name: bu,
+            Discipline_Name: di,
+            Business_Unit_Id: buid,
+            Discipline_Id: discid,
+          }, false, true);
+          if (response) {
+            navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+            dispatch(
+              showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Updated CCL Document successfully",
+              })
+            );
+          }
+        } else {
+          return;
+        }
+      } else if (reportStatusDetails?.RptStatus == CSRReportStage.EDIT) {
+        // create minor revision
+        const confirmation = await userDefinedConfirm({
+          message: "Report is being Edited, do you want to create a minor revision?",
+          okBtnText: "Confirm",
+          cancelBtnText: "Cancel",
+        }).catch(() => { });
+        if (confirmation) {
+          const response = await CclBuilderGridService.CreateCSRMinorRevision(docName, projId, projNum, buid, discid, bu, di);
+          const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+            Project_Number: projNum,
+            Project_Id: projId,
+            Document_Name: docName,
+            Business_Unit_Name: bu,
+            Discipline_Name: di,
+            Business_Unit_Id: buid,
+            Discipline_Id: discid,
+          }, false, true);
+          if (response && response.data != 0) {
+            navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+            dispatch(
+              showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Succesfully created minor revision",
+              })
+            );
+          }
+        } else {
+          return;
+        }
+
+      } else if (reportStatusDetails?.RptStatus == CSRReportStage.RELEASE) {
+        // create revision
+        const confirmation = await userDefinedConfirm({
+          message: "Report is released, do you want to create a revision?",
+          okBtnText: "Confirm",
+          cancelBtnText: "Cancel",
+        }).catch(() => { });
+        if (confirmation) {
+          const response = await CclBuilderGridService.CreateCSRRevision(docName, projId, projNum, buid, discid, bu, di);
+          const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+            Project_Number: projNum,
+            Project_Id: projId,
+            Document_Name: docName,
+            Business_Unit_Name: bu,
+            Discipline_Name: di,
+            Business_Unit_Id: buid,
+            Discipline_Id: discid,
+          }, false, true);
+          if (response && response.data != 0) {
+            navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+            dispatch(
+              showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Succesfully created revision",
+              })
+            );
+          }
+        } else {
+          return;
+        }
+      } else {
+        const confirmation = await userDefinedConfirm({
+          editorUnSavedDataCheck: true,
+          message: "Report is already in review",
+          cancelBtnText: "Ok"
+        }).catch(() => { });;
+        if (confirmation) {
+
+        } else {
+          return;
+        }
+      }
+    } catch (error) {
+      dispatch(
+        showSnackbar({
+          snackbarOpen: true,
+          snackbarType: "error",
+          snackbarMessage: "Error marking as complete",
+        })
+      );
+    } finally {
+      await refreshDrawerData();
+    }
+  };
+
+
+  // Keep newData in sync when `criMappingGridData` changes. Only run when `criMappingGridData` changes.
+  useEffect(() => {
+    if (!criMappingGridData) {
+      setNewData(undefined);
+      return;
+    }
+    // If user has not visited and there is exactly one model, ensure CriMappingData includes all CRIs for that model
+    if (!criMappingGridData.CRIFlag && criMappingGridData.Models?.length === 1) {
+      const model = criMappingGridData.Models[0];
+      const allCriIds = criMappingGridData.CRI_Data?.map(ci => ci.Cri_Id) ?? [];
+      const payloadCriMapping = allCriIds.map(id => ({ Cri_Id: id, MINOR_MODEL: model }));
+
+      setNewData({
+        ...criMappingGridData,
+        CriMappingData: payloadCriMapping
+      });
+    } else {
+      // Otherwise keep the criMappingGridData as-is
+      setNewData(criMappingGridData);
+    }
+  }, [criMappingGridData]);
+
+  // helpers for column menu + active state
+  const columnProps = (field) => {
+    return {
+      field: field,
+      columnMenu: ColumnMenu,
+      headerClassName: isColumnActive(field, dataStateCLI) ? "active" : "",
+    };
+  };
+  const ColumnMenu = props => {
+    return <div>
+      <GridColumnMenuSort {...props} />
+      <GridColumnMenuFilter {...props} expanded={true} />
+    </div>;
+  };
+  const isColumnActive = (field, dataState) => {
+    return (
+      isColumnMenuFilterActive(field, dataState?.filter) ||
+      isColumnMenuSortActive(field, dataState?.sort)
+    );
+  };
+
+  const datastatechange = (event: GridDataStateChangeEvent) => {
+    logFilterAction(event);
+    setDataStateCLI(event.dataState);
+  };
+
+  const criRowsState = newData?.CRI_Data ?? [];
+  const criModelData = newData?.Models ?? [];
+
+  useEffect(() => {
+    console.log("Models:", newData?.Models);
+    console.log("CRI:", newData?.CriMappingData);
+  }, [newData]);
+
+
+  const mappingExists = (criId: number | string, model: string) =>
+    !!newData && (newData.CriMappingData ?? []).some((x: any) => x.Cri_Id === criId && x.MINOR_MODEL === model);
+  const toggleColumn = (model: string, checked: boolean) => {
+    if (!newData) return;
+    const criIds = criRowsState.map(c => c.Cri_Id);
+    let newCriMappingData = newData.CriMappingData.filter((m: any) => m.MINOR_MODEL !== model);
+
+    if (checked) {
+      const additions = criIds.map(id => ({ Cri_Id: id, MINOR_MODEL: model }));
+      newCriMappingData = [...newCriMappingData, ...additions];
+    }
+
+    const updated = { ...newData, CriMappingData: newCriMappingData };
+    setcriMappingGridData(updated);
+    setNewData(updated);
+    //_handleDirtyFlag(true);
+  };
+
+  const makeHeaderCell = (model: string): React.ComponentType<GridCustomHeaderCellProps> =>
+    (props) => {
+      const allChecked =
+        criRowsState.length > 0 &&
+        criRowsState.every(ci =>
+          newData?.CriMappingData.some(m => m.Cri_Id === ci.Cri_Id && m.MINOR_MODEL === model)
+        );
+
+      const onHeaderToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+        toggleColumn(model, e.target.checked);
+      };
+
+      return (
+        <th {...props.thProps}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: "0px 12px" }}>
+            {/* <input type="checkbox" checked={allChecked} onChange={onHeaderToggle} /> */}
+            {props.title}
+          </div>
+        </th>
+      );
+    };
+
+  return (
+    <div style={{height: '100%', overflow: "hidden"}}>
+      <div>
+        <HeaderDetails data={cclData} />
+      </div>
+      <div
+        className="oss-ccl-crimatrix"
+        style={{height: (cclData.status != "" && cclData.reportId) ?  'calc(100vh - 277px)' : 'calc(100vh - 182px)'}}
+      >
+        <DataGrid
+          id="oss-ccl-crimatrix"
+          data={process(newData?.CRI_Data ?? [], dataStateCLI).data}
+          columnMenuIcon={filterIcon}
+          sortable={true}
+          onDataStateChange={datastatechange}
+          scrollable={"scrollable"}
+          className='ccl-overflowAuto'
+        >
+          <GridToolbar>
+            <div className="oss-ccl-cri-toolbar">
+              <Button
+                variant="outlined"
+                color="inherit"
+                sx={{ textTransform: "capitalize" }}
+                className="oss-ccl-btn-primary"
+                size="small"
+                onClick={() => saveCriData()}
+                disabled={markedAsCompleteData.cri}
+              >
+                Save
+              </Button>
+              <div className="oss-ccl-action-bar-divider"></div>
+              {
+                (
+                  <MarkAsCompleteButton complete={markedAsCompleteData.cri} onClick={markAsComplete} />
+                )
+              }
+            </div>
+          </GridToolbar>
+
+          <GridColumn
+            {...columnProps("Moc")}
+            field="Moc"
+            title="CRI #"
+            width="240px"
+            // cell={(props) => {
+            //   console.log("Data:", props.dataItem);
+            //   return (
+            //     <td title={props.dataItem.Moc}>
+            //       {props.dataItem.Moc}
+            //     </td>
+            //   )
+            // }}
+            cell={(props) => (
+              <td title={props.dataItem.Moc}>
+                {props.dataItem.Moc}
+              </td>
+            )
+            }
+          />
+
+          <GridColumn
+            {...columnProps("Type")}
+            field="Type"
+            title="Type"
+            width="120px"
+            cell={(props) => (
+              <td className="grid_Type" title={props.dataItem.Type}>
+                {props.dataItem.Type}
+              </td>
+            )}
+          />
+          {
+            (newData?.Models?.length ?? 0) < 4 ?
+              <GridColumn
+                {...columnProps("Description")}
+                field="Description"
+                title="Name"
+                cell={(props) => (
+                  <td className="grid_Name" style={{ minWidth: "300px" }} title={props.dataItem.Description}>
+                    {props.dataItem.Description}
+                  </td>
+                )}
+              />
+              :
+              <GridColumn
+                {...columnProps("Description")}
+                field="Description"
+                title="Name"
+                width="600px"
+                cell={(props) => (
+                  <td className="grid_Name" style={{ minWidth: "300px" }} title={props.dataItem.Description}>
+                    {props.dataItem.Description}
+                  </td>
+                )}
+              />
+          }
+          
+          <GridColumn title="Applicability">
+             {criModelData?.map(def => (
+              <GridColumn
+                width="120px"
+                key={def}
+                title={def}
+                field={def}
+                headerCell={makeHeaderCell(def)}
+                cell={(props: GridCellProps) => {
+                  const criId = (props.dataItem as any).Cri_Id;
+                  const isDefaultAllChecked = !newData?.CRIFlag && (criModelData?.length ?? 0) === 1;
+                  const checked = isDefaultAllChecked ? true : !!newData && mappingExists(criId, def);
+
+                  return (
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        disabled={markedAsCompleteData.cri}
+                        type="checkbox"
+                        checked={checked}
+                        onChange={e => {
+                          if (!newData) return;
+                          const isDefaultAllChecked = !newData?.CRIFlag && (criModelData?.length ?? 0) === 1;
+                          const currentMapping = isDefaultAllChecked
+                            ? (criRowsState.map(ci => ({ Cri_Id: ci.Cri_Id, MINOR_MODEL: def })))
+                            : (newData.CriMappingData ?? []);
+
+                          const exists = currentMapping.some((x: any) => x.Cri_Id === criId && x.MINOR_MODEL === def);
+                          let newCriMappingData = currentMapping.filter(
+                            (x: any) => !(x.Cri_Id === criId && x.MINOR_MODEL === def)
+                          );
+
+                          if (!exists && e.target.checked) {
+                            newCriMappingData = [...newCriMappingData, { Cri_Id: criId, MINOR_MODEL: def }];
+                          }
+                          let mergedMapping = newCriMappingData;
+                          if (isDefaultAllChecked) {
+                            const explicit = (newData.CriMappingData ?? []).filter((m: any) => m.MINOR_MODEL !== def);
+                            mergedMapping = [...explicit, ...newCriMappingData];
+                          }
+                          const updated = { ...newData, CriMappingData: mergedMapping, UserVisitingFlag: true, CRIFlag: true };
+                          setcriMappingGridData(updated);
+                          setNewData(updated);
+                          //_handleDirtyFlag(true);
+                        }}
+                      />
+                    </td>
+                  );
+                }}
+              />
+            ))}
+          </GridColumn>
+        </DataGrid>
+      </div>
+    </div>
+  );
 }
 
-th.k-header.active .k-grid-column-menu {
-  color: #fff;
-  background-color: #ff6358;
-}
-
-
-#oss-ccl-crimatrix {
-    border-left: 4px solid #0033A1;
-    border-radius: 4px 0px 0px 4px;
-
-
-  .oss-ccl-cri-toolbar {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    width: 100%;
-  }
-
-  .oss-ccl-action-bar-divider {
-    width: 1px;
-    height: 27px;
-    background-color: #d1d5db;
-    margin: 0 16px;
-  }
-
-  // td {
-  //     max-height: 32px;
-  //     padding: 0px 12px;
-  //     overflow: hidden;
-  //     text-overflow: ellipsis;
-  // }
-
-  // .oss-ccl-cri-td {
-  //     max-height: 32px;
-  //     display: block;
-  //     // justify-content: flex-start;
-  //     // align-items: center;
-  //     overflow: hidden;
-  //     text-overflow: ellipsis;
-  //     white-space: nowrap;
-  // }
-  .k-grid-toolbar {
-    border-color: inherit;
-    box-shadow: none;
-    background-color: rgb(255, 255, 255);
-  }
-
-  .k-grid-header th {
-    padding-top: 0px;
-    padding-bottom: 6px;
-  }
-}
-
-.oss-ccl-crimatrix .k-filterable .k-cell-inner {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
-  margin-bottom: 40px !important;
-  padding-top: 9px;
-}
+export default CRIMappingGrid;
