@@ -1,6 +1,29 @@
-<button
-    id={`drawer-btn-${item.page}`}
-    className={`drawer-btn ${item.page}-btn`}
->
-    {item.text}
-</button>
+ {
+                    buttonData.map(btn => (
+                        <div className="ccl-drawer-button" key={btn.text}>
+                            <button className={`${activeTab === btn.url ? 'active' : ''}`} onClick={() => navigateClick(btn.url)}
+                              //  disabled={btn.disabled}
+                            >
+                                {btn.text}
+                                {(!btn.dontShowStatus) && (<>
+                                    {
+                                        btn.state === "inprogress" && (
+                                            <LensIcon style={{ color: "#0033A1" }} fontSize='small' />
+                                        )
+                                    }
+                                    {
+                                        btn.state === "completed" && (
+                                            // <CheckCircleIcon style={{ color: "#36AA00" }} fontSize='small' />
+                                            <CheckCircleIcon style={{ color: "#1AA45B" }} fontSize='small' />
+                                        )
+                                    }
+                                    {
+                                        (!btn.state || btn.state === "") && (
+                                            <LensIcon style={{ color: "#c8c8c8" }} fontSize='small' />
+                                        )
+                                    }
+                                </>)}
+                            </button>
+                        </div>
+                    ))
+                }
