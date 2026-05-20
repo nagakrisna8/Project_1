@@ -31,11 +31,11 @@ const {
   Outdent,
   Superscript,
   Subscript,
-  Strikethrough 
+  Strikethrough
 } = EditorTools;
 
 const toolbarTools = [
-  [Bold, Italic, Underline],[Superscript, Subscript],[Strikethrough ],
+  [Bold, Italic, Underline], [Superscript, Subscript], [Strikethrough],
   [AlignLeft, AlignCenter, AlignRight, AlignJustify],
   [OrderedList, UnorderedList],
   [Indent, Outdent],
@@ -128,73 +128,73 @@ const EditLOIDetails = React.forwardRef<EditLOIDetailsRef, EditLevelOfInvolmentP
       save: () => buildUpdatedData(),
     }));
 
-const getDoaChipStyles = (doaRating) => {
-  if (doaRating === 'High') {
-    return {
-      bgcolor: '#e8f5e9',
-      border: '1px solid #fe0000fe',
-      '& .MuiChip-label': {
-        color: '#fe0000fe',
-        fontWeight: 600,
-      },
+    const getDoaChipStyles = (doaRating) => {
+      if (doaRating === 'High') {
+        return {
+          bgcolor: '#e8f5e9',
+          border: '1px solid #fe0000fe',
+          '& .MuiChip-label': {
+            color: '#fe0000fe',
+            fontWeight: 600,
+          },
+        };
+      }
+
+      if (doaRating === 'Medium') {
+        return {
+          bgcolor: '#fff3e0',
+          border: '1px solid #d3e508',
+          '& .MuiChip-label': {
+            color: '#d3e508',
+            fontWeight: 600,
+          },
+        };
+      }
+
+      return {
+        bgcolor: '#ffebee',
+        border: '1px solid #4f4d4d',
+        '& .MuiChip-label': {
+          color: '#121010ab ',
+          fontWeight: 600,
+        },
+      };
     };
-  }
 
-  if (doaRating === 'Medium') {
-    return {
-      bgcolor: '#fff3e0',
-      border: '1px solid #d3e508',
-      '& .MuiChip-label': {
-        color: '#d3e508',
-        fontWeight: 600,
-      },
-    };
-  }
-
-  return {
-    bgcolor: '#ffebee',
-    border: '1px solid #4f4d4d',
-    '& .MuiChip-label': {
-      color: '#121010ab ',
-      fontWeight: 600,
-    },
-  };
-};
-
-const CustomSwitchHR = styled(Switch)(({ theme }) => ({
-    padding: 0,
-    width: 44,
-    height: 24,
-    '& .MuiSwitch-track': {
+    const CustomSwitchHR = styled(Switch)(({ theme }) => ({
+      padding: 0,
+      width: 44,
+      height: 24,
+      '& .MuiSwitch-track': {
         borderRadius: 25,
         '&::before, &::after': {
-            content: '""',
-            position: 'absolute',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: 16,
-            height: 16
+          content: '""',
+          position: 'absolute',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 16,
+          height: 16
         },
         '&::before': {
-            content: '""',
-            left: 17,
-            color: '#fff',
-            top: 22
+          content: '""',
+          left: 17,
+          color: '#fff',
+          top: 22
         },
         '&::after': {
-            content: '""',
-            right: 22,
-            color: '#253746',
-            top: 21
+          content: '""',
+          right: 22,
+          color: '#253746',
+          top: 21
         },
-    },
-    '& .MuiSwitch-thumb': {
+      },
+      '& .MuiSwitch-thumb': {
         boxShadow: 'none',
         width: 24,
         height: 24,
         border: '1px solid #ccc',
-    },
-}));
+      },
+    }));
 
     return (
       <Box className="involvement-level__edit-container">
@@ -203,18 +203,21 @@ const CustomSwitchHR = styled(Switch)(({ theme }) => ({
             <Typography variant="body2" className="involvement-level__field-label">
               Novel
             </Typography>
-           
 
-             <FormControlLabel
-                className='toggleCCLProjectSwitch'
-                control={<CustomSwitchHR
-                    name="Togglechecked"
-                    inputProps={{ 'aria-label': 'Switch A' }}
-                    checked={novel}
-                    onClick={() => {handleDirtyFlag(true);setNovel((p) => !p);}}
-                />}
-                label=""
-                id="toggle-switch-ccl"
+
+            <FormControlLabel
+              className='toggleCCLProjectSwitch'
+              control={<CustomSwitchHR
+                name="Togglechecked"
+                inputProps={{ 'aria-label': 'Switch A' }}
+                checked={novel}
+                onChange={(e) => {
+                  handleDirtyFlag(true);
+                  setNovel(e.target.checked);
+                }}
+              />}
+              label=""
+              id="toggle-switch-ccl"
             />
           </MuiGrid>
 
@@ -222,16 +225,16 @@ const CustomSwitchHR = styled(Switch)(({ theme }) => ({
             <Typography variant="body2" className="involvement-level__field-label">
               Critical
             </Typography>
-              <FormControlLabel
-                className='toggleCCLProjectSwitch'
-                control={<CustomSwitchHR
-                    name="Togglechecked"
-                    inputProps={{ 'aria-label': 'Switch A' }}
-                    checked={critical}
-                    onClick={() => {handleDirtyFlag(true);setCritical((p) => !p);}}
-                />}
-                label=""
-                id="toggle-switch-ccl"
+            <FormControlLabel
+              className='toggleCCLProjectSwitch'
+              control={<CustomSwitchHR
+                name="Togglechecked"
+                inputProps={{ 'aria-label': 'Switch A' }}
+                checked={critical}
+                onClick={() => { handleDirtyFlag(true); setCritical((p) => !p); }}
+              />}
+              label=""
+              id="toggle-switch-ccl"
             />
           </MuiGrid>
 
@@ -239,16 +242,16 @@ const CustomSwitchHR = styled(Switch)(({ theme }) => ({
             <Typography variant="body2" className="involvement-level__field-label">
               Complex
             </Typography>
-              <FormControlLabel
-                className='toggleCCLProjectSwitch'
-                control={<CustomSwitchHR
-                    name="Togglechecked"
-                    inputProps={{ 'aria-label': 'Switch A' }}
-                    checked={complex}
-                    onClick={() => {handleDirtyFlag(true);setComplex((p) => !p);}}
-                />}
-                label=""
-                id="toggle-switch-ccl"
+            <FormControlLabel
+              className='toggleCCLProjectSwitch'
+              control={<CustomSwitchHR
+                name="Togglechecked"
+                inputProps={{ 'aria-label': 'Switch A' }}
+                checked={complex}
+                onClick={() => { handleDirtyFlag(true); setComplex((p) => !p); }}
+              />}
+              label=""
+              id="toggle-switch-ccl"
             />
           </MuiGrid>
 
@@ -277,7 +280,7 @@ const CustomSwitchHR = styled(Switch)(({ theme }) => ({
           <Editor
             tools={toolbarTools}
             value={novelText}
-            onChange={(e: EditorChangeEvent) => {handleDirtyFlag(true);setNovelText(e.html);}}
+            onChange={(e: EditorChangeEvent) => { handleDirtyFlag(true); setNovelText(e.html); }}
             contentStyle={{ minHeight: '60px', maxHeight: '300px', overflow: 'auto' }}
             defaultEditMode="div"
           />
@@ -290,7 +293,7 @@ const CustomSwitchHR = styled(Switch)(({ theme }) => ({
           <Editor
             tools={toolbarTools}
             value={complexText}
-            onChange={(e: EditorChangeEvent) => {handleDirtyFlag(true);setComplexText(e.html);}}
+            onChange={(e: EditorChangeEvent) => { handleDirtyFlag(true); setComplexText(e.html); }}
             contentStyle={{ minHeight: '60px', maxHeight: '300px', overflow: 'auto' }}
             defaultEditMode="div"
           />
@@ -303,7 +306,7 @@ const CustomSwitchHR = styled(Switch)(({ theme }) => ({
           <Editor
             tools={toolbarTools}
             value={criticalText}
-            onChange={(e: EditorChangeEvent) => {handleDirtyFlag(true);setCriticalText(e.html);}}
+            onChange={(e: EditorChangeEvent) => { handleDirtyFlag(true); setCriticalText(e.html); }}
             contentStyle={{ minHeight: '60px', maxHeight: '300px', overflow: 'auto' }}
             defaultEditMode="div"
           />
@@ -314,7 +317,7 @@ const CustomSwitchHR = styled(Switch)(({ theme }) => ({
             Planned Means of Compliance
           </Typography>
           <Typography variant="body2" className="involvement-level__detail-text">
-              {complianceText}
+            {complianceText}
           </Typography>
         </Box>
 
@@ -371,8 +374,8 @@ const CustomSwitchHR = styled(Switch)(({ theme }) => ({
                           inputProps={{ 'aria-label': 'Switch A' }}
                           checked={checked}
                           onClick={() =>
-                          handleLoiChange(props.dataItem.DOC_ID, !checked)
-                        }
+                            handleLoiChange(props.dataItem.DOC_ID, !checked)
+                          }
                         />}
                         label=""
                         id="toggle-switch-ccl"
