@@ -1,36 +1,4 @@
-const CustomSwitchHR = styled(Switch)(() => ({
-  width: 44,
-  height: 24,
-  padding: 0,
-
-  '& .MuiSwitch-switchBase': {
-    padding: 0,
-    margin: 0,
-    transitionDuration: '300ms',
-
-    '&.Mui-checked': {
-      transform: 'translateX(20px)',
-      color: '#fff',
-
-      '& + .MuiSwitch-track': {
-        backgroundColor: '#1976d2',
-        opacity: 1,
-      },
-    },
-  },
-
-  '& .MuiSwitch-thumb': {
-    boxSizing: 'border-box',
-    width: 24,
-    height: 24,
-    border: '1px solid #ccc',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-  },
-
-  '& .MuiSwitch-track': {
-    borderRadius: 24 / 2,
-    backgroundColor: '#bdbdbd',
-    opacity: 1,
-    transition: 'background-color 300ms',
-  },
-}));
+'& .MuiSwitch-switchBase': {
+  transitionDuration: '400ms',
+  transitionTimingFunction: 'ease-in-out',
+},
