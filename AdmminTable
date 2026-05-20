@@ -1,80 +1,337 @@
-.oss-ccl-crimatrix {
-  .k-filterable {
-    vertical-align: top;
+import { Outlet, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 
-    .k-cell-inner {
-      border-bottom: 1px solid rgb(0, 0, 0, 0.08);
-      padding-top: 8px !important;
-    }
-  }
-  // height: calc(100% - 56px);
-  .ccl-overflowAuto {
-    height: 100%;
-    overflow: auto;
-  }
+import "./MainDrawer.scss";
+import Drawer, { ButtonDataProps } from "./Drawer";
+import PathConstants from "../../../routes/PathConstants";
+import TaskMapping from "../doc-home/TaskMapping";
+import StorageService from "../../../utils/StorageService";
+import MainDrawerService from "./MainDrawerService";
+import EnvDetail from "../../../utils/EnvDetail";
+import { useDispatch } from "react-redux";
+import { showSnackbar } from "../../core/snackbar/CustomSnackBarSlice";
+import { DocumentResponse, GetAllDetailsResponse, WorkflowResponse } from "./MainDrawerModels";
+import * as _ from "lodash";
+
+export interface DocumentStateProps {
+    status?: string | null,
+    revision?: string | null,
+    reportId?: number | null,
+    signers?: number | null,
+    signerTotal?: number | null,
+    comments?: number | null,
+    commentsTotal?: number | null,
+    WorkFlowDetails?: WorkflowResponse[],
+    documentNumber?: string | null,
+    createdBy?: string | null,
+    Model?: string | null,
+    reportType: "ccl" | "ccn" | "cp",
 }
 
-th.k-header.active .k-grid-column-menu {
-  color: #fff;
-  background-color: #ff6358;
+export enum ReportStages {
+    Create = "Create",
+    Released = "",
+    Edit = "Edit",
+}
+
+export enum ButtonStages {
+    Progress = "inprogress",
+    Complete = "completed"
+}
+
+export type TaskDOCMappingEntity = {
+    Task_Id : Number;
+    Task_Name : string;
+    Task_Description : string;
+    Panel : string;
+    CDI : string;
+    Reg : string;
+    Para : string;
+    Amendment : string;
 }
 
 
-#oss-ccl-crimatrix {
-   .k-grid-header .k-header[rowspan="2"] {
-      vertical-align: middle !important;
-    }
-    border-left: 4px solid #0033A1;
-    border-radius: 4px 0px 0px 4px;
 
+export default function MainDrawer() {
+    const [drawerOpen, setDrawerOpen] = useState(true);
+    const [activeTab, setActiveTab] = useState("");
+    const location = useLocation();
+    const [buttonData, setButtonData] = useState<ButtonDataProps[]>(sampleButtonData);
+    const [progressPercentage, setProgressPercentage] = useState(0);
+    const [taskOpen, setTaskOpen] = useState(false);
+    const dispatch = useDispatch();
 
-    .oss-ccl-cri-toolbar {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      width: 100%;
-    }
+    const [ccnData, setCcnData] = useState<DocumentStateProps>({ reportType: "ccn" });
+    const [cclData, setCclData] = useState<DocumentStateProps>({ reportType: "ccl" });
+    const [cpData, setCpData] = useState<DocumentStateProps>({ reportType: "cp" });
+    const [taskMapDocDetails, setTaskMapDocDetails] = useState<TaskDOCMappingEntity[]>([]);
 
-    .oss-ccl-action-bar-divider {
-      width: 1px;
-      height: 27px;
-      background-color: #d1d5db;
-      margin: 0 16px;
-    }
+    const [markedAsCompleteData, setMarkedAsCompleteData] = useState({ ccl: false, cri: false });
 
-     // td {
-  //     max-height: 32px;
-  //     padding: 0px 12px;
-  //     overflow: hidden;
-  //     text-overflow: ellipsis;
-  // }
-
-  // .oss-ccl-cri-td {
-  //     max-height: 32px;
-  //     display: block;
-  //     // justify-content: flex-start;
-  //     // align-items: center;
-  //     overflow: hidden;
-  //     text-overflow: ellipsis;
-  //     white-space: nowrap;
-  // }
-    .k-grid-toolbar {
-      border-color: inherit;
-      box-shadow: none;
-      background-color: rgb(255, 255, 255);
+    const GetDOCTaskMappingDetails = async (projRegId, cpReportId, businessUnit, discipline) =>{
+       try {
+            const resp = await MainDrawerService.GetDOCTaskMappingDetails(projRegId, cpReportId, businessUnit, discipline);
+            setTaskMapDocDetails(resp.data);
+            return resp.data;
+          } catch (error) {
+            console.error('Error fetching risk class list', error);
+            return [];
+          }
     }
 
-    .k-grid-header th {
-      padding-top: 0px;
-      padding-bottom: 6px;
-    }
+    useEffect(() => {
+        refreshDrawerData();
+    }, []);
+
+    useEffect(()=>{
+        const storageServiceTemp = new StorageService();
+            
+              const bu = storageServiceTemp.getApplicationDataByKey(
+                `${EnvDetail.ParentAppName}-Shell`,
+                "currentbusinessunit"
+              );
+            
+              const di = storageServiceTemp.getApplicationDataByKey(
+                `${EnvDetail.ParentAppName}-Shell`,
+                "currentdiscipline"
+              );
+            
+              const projRegIdValue = storageServiceTemp.getApplicationDataByKey(
+                `${EnvDetail.ParentAppName}-easaActiveSubMenu`,
+                "easamyworkspaceprojectid"
+              );
+            
+              const businessUnit = bu || "";
+              const discipline = di || "";
+              const projRegId = Number(projRegIdValue) || 0;
+              let cpReportId = cpData.reportId;
+              if(cpReportId!=undefined)
+              {
+                GetDOCTaskMappingDetails(projRegId,cpReportId,businessUnit,discipline)
+              }
+    },[cpData])
+
+    useEffect(() => {
+        setActiveTab(location.pathname);
+        const storageService = new StorageService();
+        storageService.setApplicationDataByKey(`${process.env.REACT_PARENT_APP_NAME}-${process.env.REACT_APP_NAME}-data`, `currentActiveTab`, location.pathname);
+    }, [location]);
+
+    const refreshDrawerData = async () => {
+        try {
+            let copy = [...sampleButtonData];
+            let completion = 0;
+            // add logic to call API and update the completion/unlock status of the drawer buttons and stepper here
+            // temp vars, get data from API and store to CCN, CCL, CP data state variables;
+            const storageServiceTemp = new StorageService();
+            const projRegId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+            const cclOldRptId = localStorage.getItem(`${EnvDetail.ParentAppName}-CertToolReportId`)!;
+            const bu = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunit');
+            const di = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentdiscipline');
+            const apiCallResp = await MainDrawerService.GetAllDetails(projRegId, cclOldRptId, bu, di);
+            const allDataTyped: GetAllDetailsResponse = apiCallResp.data;
+            const typedResp = ConvertToUITyping(allDataTyped);
+            const CCNdetails = typedResp.ccn;
+            const CCLdetails = typedResp.ccl;
+            const CPdetails = typedResp.cp;
+            const CCLcomplete = typedResp.cclComp;
+            const CRIcomplete = typedResp.criComp;
+            // end temp
+            // CM, LOI, Cert Plan buttons logic
+            if (compare(CCNdetails.status, ReportStages.Released) && compare(CCLdetails.status, ReportStages.Released)) {
+                const cpdocindex = copy.findIndex(x => x.page == "cpdoc");
+                const loiindex = copy.findIndex(x => x.page == "loi");
+                const cmindex = copy.findIndex(x => x.page == "cm");
+                if (compare(CPdetails.status, ReportStages.Released)) {
+                    copy[cpdocindex] = { ...copy[cpdocindex], disabled: false, state: ButtonStages.Complete };
+                    copy[loiindex] = { ...copy[loiindex], disabled: false, state: ButtonStages.Complete };
+                    copy[cmindex] = { ...copy[cmindex], disabled: false, state: ButtonStages.Complete };
+                    completion += 37.5;
+                } else if (CPdetails.status != "") {
+                    copy[cpdocindex] = { ...copy[cpdocindex], disabled: false, state: ButtonStages.Progress };
+                    copy[loiindex] = { ...copy[loiindex], disabled: false, state: ButtonStages.Progress };
+                    copy[cmindex] = { ...copy[cmindex], disabled: false, state: ButtonStages.Progress };
+                }
+            }
+            // CCL, CRI, CCL Doc buttons logic
+            if (compare(CCNdetails.status, ReportStages.Released)) {
+                const ccldocindex = copy.findIndex(x => x.page == "ccldoc");
+                const criindex = copy.findIndex(x => x.page == "cri");
+                const cclindex = copy.findIndex(x => x.page == "ccl");
+                if (CRIcomplete) {
+                    copy[criindex] = { ...copy[criindex], disabled: false, state: ButtonStages.Complete };
+                    completion += 12.5;
+                } else {
+                    copy[criindex] = { ...copy[criindex], disabled: false, state: ButtonStages.Progress };
+                }
+                if (CCLcomplete) {
+                    copy[cclindex] = { ...copy[cclindex], disabled: false, state: ButtonStages.Complete };
+                    completion += 12.5;
+                } else {
+                    copy[cclindex] = { ...copy[cclindex], disabled: false, state: ButtonStages.Progress };
+                }
+                if (compare(CCLdetails.status, ReportStages.Released)) {
+                    copy[ccldocindex] = { ...copy[ccldocindex], disabled: false, state: ButtonStages.Complete };
+                    completion += 12.5;
+                } else {
+                    copy[ccldocindex] = { ...copy[ccldocindex], disabled: false, state: ButtonStages.Progress };
+                }
+            }
+            // DOC button logic
+            if (compare(CCNdetails.status, ReportStages.Released)) {
+                const docindex = copy.findIndex(x => x.page == "doc");
+                if (compare(CCLdetails.status, ReportStages.Released)) {
+                    copy[docindex] = { ...copy[docindex], disabled: false, state: ButtonStages.Complete };
+                    completion += 12.5;
+                } else if (CPdetails.status != "") {
+                    copy[docindex] = { ...copy[docindex], disabled: false, state: ButtonStages.Progress };
+                }
+            }
+            // CCN button logic
+            const ccnindex = copy.findIndex(x => x.page == "ccn");
+            if (compare(CCNdetails.status, ReportStages.Released)) {
+                copy[ccnindex] = { ...copy[ccnindex], state: ButtonStages.Complete };
+                completion += 12.5;
+            } else {
+                copy[ccnindex] = { ...copy[ccnindex], state: ButtonStages.Progress };
+            }
+            setProgressPercentage(completion);
+            setCcnData(CCNdetails);
+            setCclData(CCLdetails);
+            setCpData(CPdetails);
+            setMarkedAsCompleteData({ ccl: CCLcomplete, cri: CRIcomplete });
+            setButtonData(copy);
+        } catch (e) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error getting report data",
+                })
+            );
+        }
+    };
+
+    return (
+        <div className="ccl-complete-outer">
+            <div className="ccl-drawer-outer" style={{ flex: drawerOpen ? 2 : 0.5 }}>
+                <Drawer open={drawerOpen} setOpen={setDrawerOpen} activeTab={activeTab} setActiveTab={setActiveTab} buttonData={buttonData} progress={progressPercentage} />
+            </div>
+            <div className="ccl-main-outer" style={{ flex: drawerOpen ? 8 : 11.5 }}>
+                <Outlet context={{ ccnData, cclData, cpData, refreshDrawerData, markedAsCompleteData, setTaskOpen, setMarkedAsCompleteData }} />
+            </div>
+            {taskOpen && (
+                <TaskMapping
+                    dataItem={taskMapDocDetails}
+                    onClose={() => setTaskOpen(false)}
+                />
+            )}
+        </div>
+    )
 }
 
-.oss-ccl-crimatrix .k-filterable .k-cell-inner {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
-  margin-bottom: 20px !important;
-  padding-top: 9px !important;
+function compare(a: string | null | undefined, b: string | null | undefined) {
+    if (!a || !b) {
+        return false;
+    }
+    if (a.toLowerCase() === b.toLowerCase()) {
+        return true;
+    }
+    return false;
 }
-.k-grid .k-cell-inner{
-  padding-top: 8px !important;
+
+function ConvertToUITyping(inp: GetAllDetailsResponse): { ccl: DocumentStateProps, ccn: DocumentStateProps, cp: DocumentStateProps, cclComp: boolean, criComp: boolean } {
+    let output: { ccl: DocumentStateProps, ccn: DocumentStateProps, cp: DocumentStateProps, cclComp: boolean, criComp: boolean } = {
+        ccl: { reportType: "ccl" },
+        ccn: { reportType: "ccn" },
+        cp: { reportType: "cp" },
+        cclComp: false,
+        criComp: false
+    };
+    const maxCcn: DocumentResponse = _.maxBy(inp.CCN, "RptId");
+    const maxCcl: DocumentResponse = _.maxBy(inp.CCL, "RptId");
+    const maxCp: DocumentResponse = _.maxBy(inp.CP, "RptId");
+
+    let ccnTotal = 0;
+    let ccnSigned = 0;
+    maxCcn.WorkFlowDetails?.forEach(x => {
+        if (x.StatusColor === "green") {
+            ccnSigned += 1;
+        }
+        ccnTotal += 1;
+    });
+    let cclTotal = 0;
+    let cclSigned = 0;
+    maxCcl.WorkFlowDetails?.forEach(x => {
+        if (x.StatusColor === "green") {
+            cclSigned += 1;
+        }
+        cclTotal += 1;
+    });
+    let cpTotal = 0;
+    let cpSigned = 0;
+    maxCp.WorkFlowDetails?.forEach(x => {
+        if (x.StatusColor === "green") {
+            cpSigned += 1;
+        }
+        cpTotal += 1;
+    });
+
+    output.ccn = {
+        reportType: "ccn",
+        reportId: maxCcn.RptId,
+        revision: maxCcn.Revision,
+        status: maxCcn.RptStatus ?? "",
+        WorkFlowDetails: maxCcn.WorkFlowDetails,
+        comments: (maxCcn.CommentsCount?.UnResolvedCommentCount && maxCcn.CommentsCount?.UnResolvedCommentCount > 0) ? maxCcn.CommentsCount?.UnResolvedCommentCount : undefined,
+        commentsTotal: (maxCcn.CommentsCount?.TotalCommentCount && maxCcn.CommentsCount?.TotalCommentCount > 0) ? maxCcn.CommentsCount?.TotalCommentCount : undefined,
+        signers: ccnSigned > 0 ? ccnSigned : undefined,
+        signerTotal: ccnSigned > 0 ? ccnTotal : undefined,
+        documentNumber: maxCcn.DocumentNumber,
+        createdBy: maxCcn.CreatedByName,
+        Model: maxCcn.Model,
+    };
+    output.ccl = {
+        reportType: "ccl",
+        reportId: maxCcl.RptId,
+        revision: maxCcl.Revision,
+        status: maxCcl.RptStatus ?? "",
+        WorkFlowDetails: maxCcl.WorkFlowDetails,
+        comments: (maxCcl.CommentsCount?.UnResolvedCommentCount && maxCcl.CommentsCount?.UnResolvedCommentCount > 0) ? maxCcl.CommentsCount?.UnResolvedCommentCount : undefined,
+        commentsTotal: (maxCcl.CommentsCount?.TotalCommentCount && maxCcl.CommentsCount?.TotalCommentCount > 0) ? maxCcl.CommentsCount?.TotalCommentCount : undefined,
+        signers: cclSigned > 0 ? cclSigned : undefined,
+        signerTotal: cclSigned > 0 ? cclTotal : undefined,
+        documentNumber: maxCcl.DocumentNumber,
+        createdBy: maxCcl.CreatedByName,
+        Model: maxCcl.Model,
+    };
+    output.cp = {
+        reportType: "cp",
+        reportId: maxCp.RptId,
+        revision: maxCp.Revision,
+        status: maxCp.RptStatus ?? "",
+        WorkFlowDetails: maxCp.WorkFlowDetails,
+        comments: (maxCp.CommentsCount?.UnResolvedCommentCount && maxCp.CommentsCount?.UnResolvedCommentCount > 0) ? maxCp.CommentsCount?.UnResolvedCommentCount : undefined,
+        commentsTotal: (maxCp.CommentsCount?.TotalCommentCount && maxCp.CommentsCount?.TotalCommentCount > 0) ? maxCp.CommentsCount?.TotalCommentCount : undefined,
+        signers: cpSigned > 0 ? cpSigned : undefined,
+        signerTotal: cpSigned > 0 ? cpTotal : undefined,
+        documentNumber: maxCp.DocumentNumber,
+        createdBy: maxCp.CreatedByName,
+        Model: maxCp.Model,
+    };
+    output.cclComp = inp.markAsCompleteDetails.CCL_Complete == "Y" ? true : false;
+    output.criComp = inp.markAsCompleteDetails.CRI_Complete == "Y" ? true : false;
+    return output;
 }
+
+const sampleButtonData: ButtonDataProps[] = [
+    { text: "Overview", url: PathConstants.CCL, state: "", dontShowStatus: true, page: "overview" },
+    { text: "Cert Classification", url: PathConstants.CCN, state: "", page: "ccn" },
+    { text: "Description Of Change", url: PathConstants.DOC, state: "", disabled: true, page: "doc" },
+    { text: "CCL Matrix", url: PathConstants.CCLMATRIX, state: "", disabled: true, page: "ccl" },
+    { text: "CRI Applicability", url: PathConstants.CRI, state: "", disabled: true, page: "cri" },
+    { text: "Cert Checklist", url: PathConstants.CERTCHECKLIST, state: "", disabled: true, page: "ccldoc" },
+    { text: "Cert Memoranda", url: PathConstants.CM, state: "", disabled: true, page: "cm" },
+    { text: "Cert LOI", url: PathConstants.LOI, state: "", disabled: true, page: "loi" },
+    { text: "Cert Plan", url: PathConstants.CP, state: "", disabled: true, page: "cpdoc" },
+];
