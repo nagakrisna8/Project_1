@@ -1,26 +1,231 @@
-<MenuItem
-    key={t.TaskId}
-    value={Number(t.TaskId)}
-    sx={{
-        paddingTop: "2px",
-        paddingBottom: "2px",
-        minHeight: "28px"
-    }}
+<Box
+  sx={{
+    display: "grid",
+    gridTemplateColumns: "2fr 2fr 2fr auto",
+    gap: 2,
+    alignItems: "end",
+    width: "100%",
+    minWidth: 0,
+  }}
 >
-    <Checkbox
-        checked={selectedTasks.includes(
-            Number(t.TaskId)
-        )}
-        sx={{
-            padding: "2px",
-            marginRight: "2px"
-        }}
-    />
+  {/* CVE PANELS */}
+  <Box sx={{ minWidth: 0 }}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+        CVE Panels
+      </Typography>
 
-    <ListItemText
-        primary={t.TaskName}
-        sx={{
-            margin: 0
-        }}
+      <Tooltip title="Search CVE Panels">
+        <IconButton size="small" aria-label="info search cve panels">
+          <InfoOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </Box>
+
+    <TextField
+      fullWidth
+      size="small"
+      value={updatedCve
+        .toSorted((a, b) => a.Cve_Id - b.Cve_Id)
+        .map(x => x.Panel)
+        .join(", ")}
+      onClick={handleOpenCveDialog}
+      InputProps={{
+        endAdornment: (
+          <InputAdornment position="end">
+            <IconButton
+              size="small"
+              onClick={openCveModal}
+              aria-label="open cve panels popup"
+            >
+              <SearchIcon fontSize="small" />
+            </IconButton>
+          </InputAdornment>
+        ),
+        readOnly: true,
+        title: updatedCve
+          .toSorted((a, b) => a.Cve_Id - b.Cve_Id)
+          .map(x => x.Panel)
+          .join(", "),
+      }}
     />
-</MenuItem>
+  </Box>
+
+  {/* CDI */}
+  <Box sx={{ minWidth: 0 }}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+        CDI
+      </Typography>
+
+      <Tooltip title="Search CDI">
+        <IconButton size="small" aria-label="info search cve panels">
+          <InfoOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </Box>
+
+    <FormControl fullWidth size="small">
+      <Select
+        multiple
+        value={editingTask?.cdi
+          .toSorted((a, b) => a.Cdi_Id - b.Cdi_Id)
+          .map(x => x.Cdi_Id)}
+        title={editingTask?.cdi
+          .toSorted((a, b) => a.Cdi_Id - b.Cdi_Id)
+          .map(
+            id =>
+              editingTask?.cdi.find(m => m.Cdi_Id === id.Cdi_Id)
+                ?.Combined_Description ?? ""
+          )
+          .join(", ")}
+        onOpen={cdiDropdown}
+        onChange={cdihandleChange}
+        error={Boolean(errors.selectedCDI)}
+        sx={{
+          width: "100%",
+          minWidth: 0,
+
+          "& .MuiSelect-select": {
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            display: "block",
+          },
+        }}
+        MenuProps={{
+          PaperProps: {
+            style: {
+              maxWidth: 400,
+            },
+          },
+        }}
+        renderValue={(selected) =>
+          (selected as number[])
+            .map(
+              id =>
+                editingTask?.cdi.find(m => m.Cdi_Id === id)
+                  ?.Combined_Description ?? ""
+            )
+            .join(", ")
+        }
+      >
+        <MenuItem value={SELECT_ALL}>
+          <Checkbox
+            checked={
+              cdi.length > 0 &&
+              cdi.every(x =>
+                editingTask?.cdi.some(y => y.Cdi_Id === x.Cdi_Id)
+              )
+            }
+            sx={{ padding: 0, marginRight: 2 }}
+          />
+
+          <ListItemText
+            primary={SELECT_ALL}
+            primaryTypographyProps={{
+              sx: {
+                fontSize: "14px",
+                color: "#253746",
+              },
+            }}
+          />
+        </MenuItem>
+
+        {cdi.map((m) => (
+          <MenuItem
+            key={m.Cdi_Id}
+            value={m.Cdi_Id}
+            sx={{
+              width: "100%",
+              minWidth: 0,
+            }}
+          >
+            <Checkbox
+              checked={editingTask?.cdi.some(
+                (s) => s.Cdi_Id === m.Cdi_Id
+              )}
+              sx={{
+                padding: 0,
+                marginRight: 2,
+                flexShrink: 0,
+              }}
+            />
+
+            <ListItemText
+              primary={m.Combined_Description}
+              primaryTypographyProps={{
+                sx: {
+                  fontSize: "14px",
+                  color: "#253746",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                },
+              }}
+            />
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  </Box>
+
+  {/* REGULATIONS */}
+  <Box sx={{ minWidth: 0 }}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+        Regulations
+      </Typography>
+
+      <Tooltip title="Search Regulations">
+        <IconButton size="small" aria-label="info search cve panels">
+          <InfoOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </Box>
+
+    <TextField
+      fullWidth
+      size="small"
+      value={editingTask?.regulations
+        .map(x => `${x.CS_25_Reg} ${x.Sub_Para ?? ""}`)
+        .join(", ")}
+      onClick={handleOpenRegDialog}
+      error={Boolean(errors.selectedRegulationPanels)}
+      InputProps={{
+        endAdornment: (
+          <IconButton
+            size="small"
+            onClick={openRegulationModal}
+          >
+            <SearchIcon fontSize="small" />
+          </IconButton>
+        ),
+        readOnly: true,
+        title: editingTask?.regulations
+          .map(x => `${x.CS_25_Reg} ${x.Sub_Para ?? ""}`)
+          .join(", "),
+      }}
+    />
+  </Box>
+
+  {/* BUTTON */}
+  <Box
+    sx={{
+      display: "flex",
+      alignItems: "flex-end",
+      flexShrink: 0,
+    }}
+  >
+    <Button
+      variant="outlined"
+      sx={{ textTransform: "capitalize" }}
+      className="oss-ccl-task-mapping-btn"
+      onClick={() => editingTask && handleGenerate(editingTask)}
+      disabled={markedAsCompleteData.ccl}
+      size="small"
+    >
+      Assign CVE &amp; CDI
+    </Button>
+  </Box>
+</Box>
