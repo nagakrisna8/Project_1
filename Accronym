@@ -1,231 +1,1153 @@
-<Box
-  sx={{
-    display: "grid",
-    gridTemplateColumns: "2fr 2fr 2fr auto",
-    gap: 2,
-    alignItems: "end",
-    width: "100%",
-    minWidth: 0,
-  }}
->
-  {/* CVE PANELS */}
-  <Box sx={{ minWidth: 0 }}>
-    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-        CVE Panels
-      </Typography>
+import { useState } from "react";
+import { Box, Button, ButtonTypeMap, ExtendButtonBase, Switch } from "@mui/material";
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import LensIcon from '@mui/icons-material/Lens';
+import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
+import Tcds from "../tcds-home/Tcds"
 
-      <Tooltip title="Search CVE Panels">
-        <IconButton size="small" aria-label="info search cve panels">
-          <InfoOutlinedIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    </Box>
+import "./Overview.scss";
+import { useNavigate, useOutletContext } from "react-router-dom";
+import PathConstants from "../../../routes/PathConstants";
+import { DocumentStateProps, ReportStages } from "../drawer-home/MainDrawer";
+import StorageService from "../../../utils/StorageService";
+import EnvDetail from "../../../utils/EnvDetail";
+import ShellEventRegister from "../../../utils/ShellEventRegister";
+import MainDrawerService from "../drawer-home/MainDrawerService";
+import { AxiosResponse } from "axios";
+import { useDispatch } from "react-redux";
+import { showSnackbar } from "../../core/snackbar/CustomSnackBarSlice";
+import { CSRReportStage, GetCSRReportStatusResponse } from "../../../model/Model";
+import CclBuilderGridService from "../project-grid/CclBuilderGridService";
+import { userDefinedConfirm } from "../utils/ConfirmDialog";
 
-    <TextField
-      fullWidth
-      size="small"
-      value={updatedCve
-        .toSorted((a, b) => a.Cve_Id - b.Cve_Id)
-        .map(x => x.Panel)
-        .join(", ")}
-      onClick={handleOpenCveDialog}
-      InputProps={{
-        endAdornment: (
-          <InputAdornment position="end">
-            <IconButton
-              size="small"
-              onClick={openCveModal}
-              aria-label="open cve panels popup"
-            >
-              <SearchIcon fontSize="small" />
-            </IconButton>
-          </InputAdornment>
-        ),
-        readOnly: true,
-        title: updatedCve
-          .toSorted((a, b) => a.Cve_Id - b.Cve_Id)
-          .map(x => x.Panel)
-          .join(", "),
-      }}
-    />
-  </Box>
+export interface OverallDataContext {
+    cclData: DocumentStateProps,
+    ccnData: DocumentStateProps,
+    cpData: DocumentStateProps,
+    refreshDrawerData: () => Promise<void>,
+    markedAsCompleteData: {
+        ccl: boolean;
+        cri: boolean;
+    },
+    setMarkedAsCompleteData: React.Dispatch<React.SetStateAction<{
+        ccl: boolean;
+        cri: boolean;
+    }>>,
+    setTaskOpen: React.Dispatch<React.SetStateAction<boolean>>,
+}
 
-  {/* CDI */}
-  <Box sx={{ minWidth: 0 }}>
-    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-        CDI
-      </Typography>
+export const CCNTEMPLATEID = 76;
+export const CCNTEMPLATENAME = "Classification Record";
+export const CCNDESIGNATION = "CCN";
+export const CCLTEMPLATEID = 2;
+export const CCLTEMPLATENAME = "Compliance Checklist";
+export const CCLDESIGNATION = "CCL";
+export const CPTEMPLATEID = 13;
+export const CPTEMPLATENAME = "Certification Programme";
+export const CPDESIGNATION = "CP";
 
-      <Tooltip title="Search CDI">
-        <IconButton size="small" aria-label="info search cve panels">
-          <InfoOutlinedIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    </Box>
-
-    <FormControl fullWidth size="small">
-      <Select
-        multiple
-        value={editingTask?.cdi
-          .toSorted((a, b) => a.Cdi_Id - b.Cdi_Id)
-          .map(x => x.Cdi_Id)}
-        title={editingTask?.cdi
-          .toSorted((a, b) => a.Cdi_Id - b.Cdi_Id)
-          .map(
-            id =>
-              editingTask?.cdi.find(m => m.Cdi_Id === id.Cdi_Id)
-                ?.Combined_Description ?? ""
-          )
-          .join(", ")}
-        onOpen={cdiDropdown}
-        onChange={cdihandleChange}
-        error={Boolean(errors.selectedCDI)}
-        sx={{
-          width: "100%",
-          minWidth: 0,
-
-          "& .MuiSelect-select": {
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            display: "block",
-          },
-        }}
-        MenuProps={{
-          PaperProps: {
-            style: {
-              maxWidth: 400,
-            },
-          },
-        }}
-        renderValue={(selected) =>
-          (selected as number[])
-            .map(
-              id =>
-                editingTask?.cdi.find(m => m.Cdi_Id === id)
-                  ?.Combined_Description ?? ""
-            )
-            .join(", ")
+export const navigateToCSRCreateNew = (templateName: string, templateId: number, designation: string) => {
+    const storageServiceTemp = new StorageService();
+    const projectRegisterId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+    const groupId = 19;
+    const tempVersion = "0";
+    let dataToShare = {
+        Action: "CCL_CSR_Create_New_Navigation",
+        Detail: {
+            projectRegisterId,
+            groupId,
+            templateName,
+            templateId,
+            designation,
+            tempVersion,
+            isFromNavigation: true,
         }
-      >
-        <MenuItem value={SELECT_ALL}>
-          <Checkbox
-            checked={
-              cdi.length > 0 &&
-              cdi.every(x =>
-                editingTask?.cdi.some(y => y.Cdi_Id === x.Cdi_Id)
-              )
+    };
+    let appDataEvent = new ShellEventRegister().getShellEvent();
+    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
+    window.dispatchEvent(appDataEvent);
+};
+export const navigateToCSRReportIDPage = (rptId: number, tempName: string, tempId: number) => {
+    const storageServiceTemp = new StorageService();
+    const projRegId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+    const groupId = 19;
+    let dataToShare = {
+        Action: 'CCN_CSR_Navigation',
+        Detail: {
+            projectRegisterId: projRegId,
+            groupId,
+            templateId: tempId,
+            templateName: tempName,
+            reportId: rptId,
+            isFromNavigation: true
+        }
+    };
+    let appDataEvent = new ShellEventRegister().getShellEvent();
+    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
+    window.dispatchEvent(appDataEvent);
+};
+export default function Overview() {
+    const { ccnData, cclData, cpData, refreshDrawerData, markedAsCompleteData } = useOutletContext<OverallDataContext>();
+    return (
+        <>
+            {
+                (!ccnData.status || ccnData.status === "") ?
+                    (<NoCCNExists />)
+                    :
+                    (
+                        <div className="oss-ccl-overview-outer">
+                            <div className="oss-ccl-overview-title">
+                                Cert Strategy
+                            </div>
+                            <div className="oss-ccl-overview-cards">
+                                <Cards ccn={ccnData} ccl={cclData} cp={cpData} markedAsCompleteData={markedAsCompleteData} />
+                            </div>
+                            <div className="oss-ccl-overview-tcds">
+                                <Tcds />
+                            </div>
+                            <div className="oss-ccl-overview-as">
+                                <AuthoringSequence ccn={ccnData} ccl={cclData} cp={cpData} markedAsCompleteData={markedAsCompleteData} />
+                            </div>
+                        </div>
+                    )
             }
-            sx={{ padding: 0, marginRight: 2 }}
-          />
+        </>
 
-          <ListItemText
-            primary={SELECT_ALL}
-            primaryTypographyProps={{
-              sx: {
-                fontSize: "14px",
-                color: "#253746",
-              },
-            }}
-          />
-        </MenuItem>
+    )
+}
 
-        {cdi.map((m) => (
-          <MenuItem
-            key={m.Cdi_Id}
-            value={m.Cdi_Id}
-            sx={{
-              width: "100%",
-              minWidth: 0,
-            }}
-          >
-            <Checkbox
-              checked={editingTask?.cdi.some(
-                (s) => s.Cdi_Id === m.Cdi_Id
-              )}
-              sx={{
-                padding: 0,
-                marginRight: 2,
-                flexShrink: 0,
-              }}
-            />
+interface CardAndAuthoringSequenceProps {
+    ccn: DocumentStateProps,
+    ccl: DocumentStateProps,
+    cp: DocumentStateProps,
+    markedAsCompleteData: {
+        ccl: boolean;
+        cri: boolean;
+    },
+}
 
-            <ListItemText
-              primary={m.Combined_Description}
-              primaryTypographyProps={{
-                sx: {
-                  fontSize: "14px",
-                  color: "#253746",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                },
-              }}
-            />
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
-  </Box>
+function Cards({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthoringSequenceProps) {
+    let ccnProgress = "";
+    let ccnSignProgress = "";
+    if (ccn.status && ccn.status != "") {
+        if (ccn.status.toLowerCase() != ReportStages.Released.toLowerCase()) {
+            ccnProgress = "oss-ccl-card-progress";
+            ccnSignProgress = "oss-ccl-sign-progress"
+        } else {
+            ccnProgress = "oss-ccl-card-completed";
+            ccnSignProgress = "oss-ccl-sign-complete"
+        }
+    }
+    let cclProgress = "";
+    let cclSignProgress = "";
+    if (ccl.status && ccl.status != "") {
+        if (ccl.status.toLowerCase() != ReportStages.Released.toLowerCase()) {
+            cclProgress = "oss-ccl-card-progress";
+            cclSignProgress = "oss-ccl-sign-progress"
+        } else {
+            cclProgress = "oss-ccl-card-completed";
+            cclSignProgress = "oss-ccl-sign-complete"
+        }
+    }
+    let cpProgress = "";
+    let cpSignProgress = "";
+    if (cp.status && cp.status != "" && ccl.status && ccl.status.toLowerCase() == ReportStages.Released.toLowerCase()) {
+        if (cp.status.toLowerCase() != ReportStages.Released.toLowerCase()) {
+            cpProgress = "oss-ccl-card-progress";
+            cpSignProgress = "oss-ccl-sign-progress"
+        } else {
+            cpProgress = "oss-ccl-card-completed";
+            cpSignProgress = "oss-ccl-sign-complete"
+        }
+    }
+    return (
+        <div className="oss-ccl-ov-cards-outer">
+            <div className={`oss-ccl-ccn-card ${ccnProgress}`}>
+                <div className="oss-ccl-overview-card-title">
+                    <span style={{ fontWeight: 'bold' }}>
+                        Cert Classification
+                    </span>
+                    <span>
+                        {
+                            ccn.reportId && !isNaN(ccn.reportId) ? (
+                                <Button
+                                    sx={{ textTransform: "capitalize", padding: 0 }}
+                                    onClick={() => {
+                                        if (ccn.reportId != null) {
+                                            navigateToCSRReportIDPage(ccn.reportId, CCNTEMPLATENAME, CCNTEMPLATEID);
+                                        }
+                                    }}
+                                >
+                                    View Document
+                                </Button>
+                            ) : (
+                                <Button
+                                    sx={{ textTransform: "capitalize", padding: 0 }}
+                                    onClick={() => navigateToCSRCreateNew(CCNTEMPLATENAME, CCNTEMPLATEID, CCNDESIGNATION)}
+                                >
+                                    Create Document
+                                </Button>
+                            )
+                        }
+                    </span>
+                </div>
+                <div className="oss-ccl-overview-progress-section">
+                    <HighlightCard className={ccnSignProgress}>
+                        {ccn.status ? ccn.status : 'Not Started'}
+                    </HighlightCard>
+                    {/* <span className={`oss-ccl-sign ${ccnSignProgress}`}>{ccn.status ? ccn.status : 'Not Started'}</span> */}
+                    {
+                        (ccn.signers && ccn.signerTotal) &&
+                        (
+                            <>
+                                <span>|</span>
+                                <span>{ccn.signers} / {ccn.signerTotal} signed</span>
+                            </>
+                        )
+                    }
+                    {
+                        (ccn.revision) && (
+                            <>
+                                <span>|</span>
+                                <span>Rev {ccn.revision}</span>
+                            </>
+                        )
+                    }
+                </div>
+                <div className="oss-ccl-overview-text-section">
+                    Complete CCN Document to start cert strategy.
+                </div>
+            </div>
+            <div className={`oss-ccl-ccl-card ${cclProgress}`}>
+                <div className="oss-ccl-overview-card-title">
+                    <span style={{ fontWeight: 'bold' }}>
+                        Cert Checklist
+                    </span>
+                    <span>
+                        {
+                            // ccl.reportId && !isNaN(ccl.reportId) && (
+                            (ccl.reportId !== 0 && (typeof ccl.reportId === "number")) && (
+                                <Button
+                                    sx={{ textTransform: "capitalize", padding: 0 }}
+                                    onClick={() => {
+                                        if (ccl.reportId != null) {
+                                            navigateToCSRReportIDPage(ccl.reportId, CCLTEMPLATENAME, CCLTEMPLATEID);
+                                        }
+                                    }}
+                                >
+                                    View Document
+                                </Button>
+                            )
+                        }
+                    </span>
+                </div>
+                <div className="oss-ccl-overview-progress-section">
+                    <HighlightCard className={cclSignProgress}>
+                        {ccl.status ? ccl.status : 'Not Started'}
+                    </HighlightCard>
+                    {
+                        (ccl.signers && ccl.signerTotal) &&
+                        (
+                            <>
+                                <span>|</span>
+                                <span>{ccl.signers} / {ccl.signerTotal} signed</span>
+                            </>
+                        )
+                    }
+                    {
+                        (ccl.revision) && (
+                            <>
+                                <span>|</span>
+                                <span>Rev {ccl.revision}</span>
+                            </>
+                        )
+                    }
+                </div>
+                <div className="oss-ccl-overview-text-section">
+                    Available once CCN Document is released.
+                </div>
+            </div>
+            <div className={`oss-ccl-cp-card ${cpProgress}`}>
+                <div className="oss-ccl-overview-card-title">
+                    <span style={{ fontWeight: 'bold' }}>
+                        Cert Plan
+                    </span>
+                    <span>
+                        {
+                            cp.reportId && !isNaN(cp.reportId) ? (
+                                <Button
+                                    sx={{ textTransform: "capitalize", padding: 0 }}
+                                    onClick={() => {
+                                        if (cp.reportId != null) {
+                                            navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
+                                        }
+                                    }}
+                                >
+                                    View Document
+                                </Button>
+                            ) : (
+                                <Button
+                                    sx={{ textTransform: "capitalize", padding: 0 }}
+                                    onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}
+                                >
+                                    Create Document
+                                </Button>
+                            )
+                        }
+                    </span>
+                </div>
+                <div className="oss-ccl-overview-progress-section">
+                    <HighlightCard className={cpSignProgress}>
+                        {cp.status ? cp.status : 'Not Started'}
+                    </HighlightCard>
+                    {/* <span className={`oss-ccl-sign ${cpSignProgress}`}>{cp.status ? cp.status : 'Not Started'}</span> */}
+                    {
+                        (cp.signers && cp.signerTotal) &&
+                        (
+                            <>
+                                <span>|</span>
+                                <span>{cp.signers} / {cp.signerTotal} signed</span>
+                            </>
+                        )
+                    }
+                    {
+                        (cp.revision) && (
+                            <>
+                                <span>|</span>
+                                <span>Rev {cp.revision}</span>
+                            </>
+                        )
+                    }
+                </div>
+                <div className="oss-ccl-overview-text-section">
+                    Starts after CP DOC is completed.
+                </div>
+            </div>
+        </div>
+    )
+}
 
-  {/* REGULATIONS */}
-  <Box sx={{ minWidth: 0 }}>
-    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-        Regulations
-      </Typography>
+function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthoringSequenceProps) {
+    const navigate = useNavigate();
+    const { refreshDrawerData } = useOutletContext<OverallDataContext>();
+    const dispatch = useDispatch();
 
-      <Tooltip title="Search Regulations">
-        <IconButton size="small" aria-label="info search cve panels">
-          <InfoOutlinedIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    </Box>
+    const markAsComplete = async (of: "ccl" | "cri") => {
+        const storageServiceTemp = new StorageService();
+        const projNum = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+        const projId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easaprojectno');
+        const bu = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunit');
+        const di = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentdiscipline');
+        const buid = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunitid');
+        const discid = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentdisciplineid');
+        const docName = localStorage.getItem(`${EnvDetail.ParentAppName}-CertToolReportId`)!;
 
-    <TextField
-      fullWidth
-      size="small"
-      value={editingTask?.regulations
-        .map(x => `${x.CS_25_Reg} ${x.Sub_Para ?? ""}`)
-        .join(", ")}
-      onClick={handleOpenRegDialog}
-      error={Boolean(errors.selectedRegulationPanels)}
-      InputProps={{
-        endAdornment: (
-          <IconButton
-            size="small"
-            onClick={openRegulationModal}
-          >
-            <SearchIcon fontSize="small" />
-          </IconButton>
-        ),
-        readOnly: true,
-        title: editingTask?.regulations
-          .map(x => `${x.CS_25_Reg} ${x.Sub_Para ?? ""}`)
-          .join(", "),
-      }}
-    />
-  </Box>
 
-  {/* BUTTON */}
-  <Box
-    sx={{
-      display: "flex",
-      alignItems: "flex-end",
-      flexShrink: 0,
-    }}
-  >
-    <Button
-      variant="outlined"
-      sx={{ textTransform: "capitalize" }}
-      className="oss-ccl-task-mapping-btn"
-      onClick={() => editingTask && handleGenerate(editingTask)}
-      disabled={markedAsCompleteData.ccl}
-      size="small"
-    >
-      Assign CVE &amp; CDI
-    </Button>
-  </Box>
-</Box>
+        let bothCompleting = false;
+        if (of == "ccl") {
+            if (markedAsCompleteData.cri) {
+                bothCompleting = true;
+            }
+        } else {
+            if (markedAsCompleteData.ccl) {
+                bothCompleting = true;
+            }
+        }
+        try {
+            if (!bothCompleting) {
+                const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+                    Project_Number: projNum,
+                    Project_Id: projId,
+                    Document_Name: docName,
+                    Business_Unit_Name: bu,
+                    Discipline_Name: di,
+                    Business_Unit_Id: buid,
+                    Discipline_Id: discid,
+                }, of == "ccl", of == "cri");
+                dispatch(
+                    showSnackbar({
+                        snackbarOpen: true,
+                        snackbarType: "success",
+                        snackbarMessage: `Marked ${of == "ccl" ? "CCL Matrix" : "CRI Applicabilty"} as completed successfully`,
+                    })
+                );
+                await refreshDrawerData();
+                return;
+            }
+            const currentStatus = await CclBuilderGridService.GetCSRReportStatus(projNum, bu, di);
+            const reportStatusDetails: GetCSRReportStatusResponse | null = currentStatus.data;
+            if (currentStatus.status == 204) {
+                const response = await CclBuilderGridService.PushToCA({
+                    Project_Number: projNum,
+                    Project_Id: projId,
+                    Document_Name: docName,
+                    Business_Unit_Name: bu,
+                    Discipline_Name: di,
+                    Business_Unit_Id: buid,
+                    Discipline_Id: discid,
+                });
+                const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+                    Project_Number: projNum,
+                    Project_Id: projId,
+                    Document_Name: docName,
+                    Business_Unit_Name: bu,
+                    Discipline_Name: di,
+                    Business_Unit_Id: buid,
+                    Discipline_Id: discid,
+                }, of == "ccl", of == "cri");
+                if (response) {
+                    navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+                    dispatch(
+                        showSnackbar({
+                            snackbarOpen: true,
+                            snackbarType: "success",
+                            snackbarMessage: "Generated CCL Document successfully",
+                        })
+                    );
+                }
+            } else if (reportStatusDetails?.RptStatus == CSRReportStage.CREATE) {
+                const confirmation = await userDefinedConfirm({
+                    message: "Report already exists, do you want to overwrite the data?",
+                    okBtnText: "Confirm",
+                    cancelBtnText: "Cancel",
+                }).catch(() => { });
+                if (confirmation) {
+                    const response = await CclBuilderGridService.DeleteAndPushToCA({
+                        Project_Number: projNum,
+                        Project_Id: projId,
+                        Document_Name: docName,
+                        Business_Unit_Name: bu,
+                        Discipline_Name: di,
+                        Business_Unit_Id: buid,
+                        Discipline_Id: discid,
+                    });
+                    const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+                        Project_Number: projNum,
+                        Project_Id: projId,
+                        Document_Name: docName,
+                        Business_Unit_Name: bu,
+                        Discipline_Name: di,
+                        Business_Unit_Id: buid,
+                        Discipline_Id: discid,
+                    }, of == "ccl", of == "cri");
+                    if (response) {
+                        navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+                        dispatch(
+                            showSnackbar({
+                                snackbarOpen: true,
+                                snackbarType: "success",
+                                snackbarMessage: "Updated CCL Document successfully",
+                            })
+                        );
+                    }
+                } else {
+                    return;
+                }
+            } else if (reportStatusDetails?.RptStatus == CSRReportStage.EDIT) {
+                // create minor revision
+                const confirmation = await userDefinedConfirm({
+                    message: "Report is being Edited, do you want to create a minor revision?",
+                    okBtnText: "Confirm",
+                    cancelBtnText: "Cancel",
+                }).catch(() => { });
+                if (confirmation) {
+                    const response = await CclBuilderGridService.CreateCSRMinorRevision(docName, projId, projNum, buid, discid, bu, di);
+                    const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+                        Project_Number: projNum,
+                        Project_Id: projId,
+                        Document_Name: docName,
+                        Business_Unit_Name: bu,
+                        Discipline_Name: di,
+                        Business_Unit_Id: buid,
+                        Discipline_Id: discid,
+                    }, of == "ccl", of == "cri");
+                    if (response && response.data != 0) {
+                        navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+                        dispatch(
+                            showSnackbar({
+                                snackbarOpen: true,
+                                snackbarType: "success",
+                                snackbarMessage: "Succesfully created minor revision",
+                            })
+                        );
+                    }
+                } else {
+                    return;
+                }
+
+            } else if (reportStatusDetails?.RptStatus == CSRReportStage.RELEASE) {
+                // create revision
+                const confirmation = await userDefinedConfirm({
+                    message: "Report is released, do you want to create a revision?",
+                    okBtnText: "Confirm",
+                    cancelBtnText: "Cancel",
+                }).catch(() => { });
+                if (confirmation) {
+                    const response = await CclBuilderGridService.CreateCSRRevision(docName, projId, projNum, buid, discid, bu, di);
+                    const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+                        Project_Number: projNum,
+                        Project_Id: projId,
+                        Document_Name: docName,
+                        Business_Unit_Name: bu,
+                        Discipline_Name: di,
+                        Business_Unit_Id: buid,
+                        Discipline_Id: discid,
+                    }, of == "ccl", of == "cri");
+                    if (response && response.data != 0) {
+                        navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+                        dispatch(
+                            showSnackbar({
+                                snackbarOpen: true,
+                                snackbarType: "success",
+                                snackbarMessage: "Succesfully created revision",
+                            })
+                        );
+                    }
+                } else {
+                    return;
+                }
+            } else {
+                const confirmation = await userDefinedConfirm({
+                    editorUnSavedDataCheck: true,
+                    message: "Report is already in review",
+                    cancelBtnText: "Ok"
+                }).catch(() => { });;
+                if (confirmation) {
+
+                } else {
+                    return;
+                }
+            }
+        } catch (error) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error marking as complete",
+                })
+            );
+        } finally {
+            await refreshDrawerData();
+        }
+        // const storageServiceTemp = new StorageService();
+        // const projNum = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+        // const projId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easaprojectno');
+        // const bu = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunit');
+        // const di = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentdiscipline');
+        // const buid = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunitid');
+        // const discid = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentdisciplineid');
+        // const docName = localStorage.getItem(`${EnvDetail.ParentAppName}-CertToolReportId`)!;
+        // let resp: AxiosResponse<any, any, {}>;
+        // if (of == "ccl") {
+        //     resp = await MainDrawerService.UpdateMarkAsComplete({
+        //         Project_Number: projNum,
+        //         Project_Id: projId,
+        //         Document_Name: docName,
+        //         Business_Unit_Name: bu,
+        //         Discipline_Name: di,
+        //         Business_Unit_Id: buid,
+        //         Discipline_Id: discid,
+        //     }, true, false);
+        // } else {
+        //     resp = await MainDrawerService.UpdateMarkAsComplete({
+        //         Project_Number: projNum,
+        //         Project_Id: projId,
+        //         Document_Name: docName,
+        //         Business_Unit_Name: bu,
+        //         Discipline_Name: di,
+        //         Business_Unit_Id: buid,
+        //         Discipline_Id: discid,
+        //     }, false, true);
+        // }
+        // await refreshDrawerData();
+        // let status: string = resp.data;
+        // if (status.toUpperCase() === "UPDATED") {
+        //     dispatch(
+        //         showSnackbar({
+        //             snackbarOpen: true,
+        //             snackbarType: "success",
+        //             snackbarMessage: `Marked ${of == "ccl" ? "CCL Matrix" : "CRI Applicabilty"} as completed successfully`,
+        //         })
+        //     );
+        // } else if (status.toLowerCase() == "report already exists") {
+        //     dispatch(
+        //         showSnackbar({
+        //             snackbarOpen: true,
+        //             snackbarType: "error",
+        //             snackbarMessage: `Report already in review`,
+        //         })
+        //     );
+        // } else if (numericStringChecker(status)) {
+        //     console.log('new report id created: ', Number(status));
+        //     dispatch(
+        //         showSnackbar({
+        //             snackbarOpen: true,
+        //             snackbarType: "success",
+        //             snackbarMessage: `Generated CCL Document successfully`,
+        //         })
+        //     );
+        // }
+    };
+
+    let ccnSignProgress = "";
+    if (ccn.status && ccn.status != "") {
+        if (ccn.status.toLowerCase() != ReportStages.Released.toLowerCase()) {
+            ccnSignProgress = "progress"
+        } else {
+            ccnSignProgress = "complete"
+        }
+    }
+    let docProgress = "";
+    if (ccn.status && ccn.status != "" && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) {
+        if ((cp.status && cp.status != "" && cp.status != ReportStages.Released.toLowerCase() && ccl.status?.toLowerCase() != ReportStages.Released.toLowerCase())) {
+            docProgress = "progress";
+        } else if (ccl.status?.toLowerCase() == ReportStages.Released.toLowerCase()) {
+            docProgress = "complete";
+        }
+    }
+    // used for both ccl matrix and cri
+    let cclMatrixProgress = "";
+    let criMatrixProgress = "";
+    if (ccn.status && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) {
+        if (ccl.status && ccl.status.toLowerCase() == ReportStages.Released.toLowerCase() || markedAsCompleteData.ccl) {
+            cclMatrixProgress = "complete";
+        } else {
+            cclMatrixProgress = "progress";
+        }
+        if (ccl.status && ccl.status.toLowerCase() == ReportStages.Released.toLowerCase() || markedAsCompleteData.cri) {
+            criMatrixProgress = "complete";
+        } else {
+            criMatrixProgress = "progress";
+        }
+    }
+    let combinedStatus = "";
+    if (ccn.status && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) {
+        if (markedAsCompleteData.ccl && markedAsCompleteData.cri) {
+            combinedStatus = "complete";
+        } else {
+            combinedStatus = "progress";
+        }
+    }
+    let certChecklistProgress = "";
+    if (ccn.status && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) {
+        if (ccl.status && ccl.status.toLowerCase() == ReportStages.Released.toLowerCase()) {
+            certChecklistProgress = "complete"
+        } else {
+            certChecklistProgress = "progress"
+        }
+    }
+
+    let cpProgress = "";
+    if (cp.status && cp.status != "" && ccl.status && ccl.status.toLowerCase() == ReportStages.Released.toLowerCase()) {
+        if (cp.status.toLowerCase() != ReportStages.Released.toLowerCase()) {
+            cpProgress = "progress";
+        } else {
+            cpProgress = "complete";
+        }
+    }
+    return (
+        <div className="oss-ccl-as-outer">
+            <span className="oss-ccl-overview-title" style={{ marginBottom: 16 }}>Authoring Sequence</span>
+
+            <div className="oss-ccl-ccn-as">
+                {
+                    ccnSignProgress == "" && (
+                        <NotStartedStepper />
+                    )
+                }
+                {
+                    ccnSignProgress == "progress" && (
+                        <InProgressStepper />
+                    )
+                }
+                {
+                    ccnSignProgress == "complete" && (
+                        <CompleteStepper />
+                    )
+                }
+                <div className={`oss-ccl-ccn-as-inner oss-ccl-as-${ccnSignProgress}`}>
+                    <div style={{ display: "inline-flex", gap: 16, alignItems: "center" }}>
+                        <span style={{ fontSize: 18, fontWeight: 'bold' }}>Cert Classification</span>
+                        <HighlightCard className={`oss-ccl-sign-${ccnSignProgress}`}>
+                            {(!ccn.status || ccn.status == "" ? "Not Started" : ccn.status)}
+                        </HighlightCard>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14 }}>Change Classification Note defining the scope and type of change. Must be in released state before anything else can begin.</span>
+                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.CCN)}>
+                            <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
+                        </div>
+                    </div>
+                    {
+                        ccn.reportId && !isNaN(ccn.reportId) ? (
+                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                                onClick={() => {
+                                    if (ccn.reportId != null) {
+                                        navigateToCSRReportIDPage(ccn.reportId, CCNTEMPLATENAME, CCNTEMPLATEID);
+                                    }
+                                }}
+                            >
+                                View Document
+                            </Button>
+                        ) : (
+                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CCNTEMPLATENAME, CCNTEMPLATEID, CCNDESIGNATION)}>Create Document</Button>
+                        )
+                    }
+                </div>
+            </div>
+            <div className="oss-ccl-ccn-as">
+                {
+                    docProgress == "" && (
+                        <NotStartedStepper />
+                    )
+                }
+                {
+                    docProgress == "progress" && (
+                        <InProgressStepper />
+                    )
+                }
+                {
+                    docProgress == "complete" && (
+                        <CompleteStepper />
+                    )
+                }
+                <div className={`oss-ccl-ccn-as-inner oss-ccl-as-${docProgress}`}>
+                    <div style={{ display: "inline-flex", gap: 16, alignItems: "center" }}>
+                        <span style={{ fontSize: 18, fontWeight: 'bold' }}>Description Of Change</span>
+                        <HighlightCard className={`oss-ccl-sign-${docProgress}`}>
+                            {(!ccl.status || ccl.status == "" ? "Not Started" : ccl.status)}
+                        </HighlightCard>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14 }}>Configure subsections and tag each with a CVE Panel, CDI and Regulation. This implicitly builds the panel/CDI list that feeds CCL Matrix and LOI.</span>
+                        {
+                            docProgress !== "" && (
+                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.DOC)}>
+                                    <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
+                                </div>
+                            )
+                        }
+                    </div>
+                    {
+                        cp.reportId && !isNaN(cp.reportId) ? (
+                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                                onClick={() => {
+                                    if (cp.reportId != null) {
+                                        navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
+                                    }
+                                }}
+                            >
+                                View Document
+                            </Button>
+                        ) : (
+                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                        )
+                    }
+                </div>
+            </div>
+            <div className="oss-ccl-ccn-as">
+                {
+                    cclMatrixProgress == "" && (
+                        <NotStartedStepper />
+                    )
+                }
+                {
+                    (combinedStatus == "progress") && (
+                        <InProgressStepper />
+                    )
+                }
+                {
+                    (combinedStatus == "complete") && (
+                        <CompleteStepper />
+                    )
+                }
+                {/* {
+                    (cclMatrixProgress == "progress" || criMatrixProgress == "progress") && (
+                        <InProgressStepper />
+                    )
+                }
+                {
+                    ((cclMatrixProgress == "complete" && criMatrixProgress == "complete") || (markedAsCompleteData.ccl && markedAsCompleteData.cri)) && (
+                        <CompleteStepper />
+                    )
+                } */}
+                <div className={`oss-ccl-ccn-as-inner oss-ccl-as-${combinedStatus}`}>
+                    <div style={{ display: "inline-flex", gap: 16, alignItems: "center" }}>
+                        <span style={{ fontSize: 18, fontWeight: 'bold' }}>CCL Workstream</span>
+                        <HighlightCard className={`oss-ccl-sign-${combinedStatus}`}>
+                            {(!ccl.status || ccl.status == "" ? "Not Started" : ccl.status)}
+                        </HighlightCard>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14 }}>Requires CP DOC to be complete - all two steps below can then be done in parallel.</span>
+                    </div>
+                    <div style={{ display: "flex", flexFlow: "column nowrap", gap: 16 }}>
+                        <Box sx={{ boxShadow: 2 }} className="oss-ccl-subcard">
+                            <div className="oss-ccl-subcard-inner">
+                                <div className={`oss-ccl-dot oss-ccl-dot-${cclMatrixProgress}`} />
+                                <span>CCL Matrix</span>
+                                <HighlightCard className={`oss-ccl-sign-${cclMatrixProgress}`}>
+                                    {(!ccl.status || ccl.status == "" ? "Not Started" : ccl.status)}
+                                </HighlightCard>
+                                {
+                                    (cclMatrixProgress == "progress" || cclMatrixProgress == "complete") && (
+                                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.CCLMATRIX)}>
+                                            <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
+                                        </div>
+                                    )
+                                }
+                            </div>
+                            <div>
+                                {
+                                    (
+                                        ccn.status && ccn.status?.toLowerCase() == ReportStages.Released.toLowerCase()) && (
+                                        <MarkAsCompleteButton complete={markedAsCompleteData.ccl} onClick={() => markAsComplete("ccl")} />
+                                    )
+                                }
+                            </div>
+                        </Box>
+                    </div>
+                    <div style={{ display: "flex", flexFlow: "column nowrap", gap: 16 }}>
+                        <Box sx={{ boxShadow: 2 }} className="oss-ccl-subcard">
+                            <div className="oss-ccl-subcard-inner">
+                                <div className={`oss-ccl-dot oss-ccl-dot-${criMatrixProgress}`} />
+                                <span>CRI Applicability</span>
+                                <HighlightCard className={`oss-ccl-sign-${criMatrixProgress}`}>
+                                    {(!ccl.status || ccl.status == "" ? "Not Started" : ccl.status)}
+                                </HighlightCard>
+                                {
+                                    (criMatrixProgress == "progress" || criMatrixProgress == "complete") && (
+                                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.CRI)}>
+                                            <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
+                                        </div>
+                                    )
+                                }
+                            </div>
+                            <div>
+                                {
+                                    (
+                                        ccn.status && ccn.status?.toLowerCase() == ReportStages.Released.toLowerCase()) && (
+                                        <MarkAsCompleteButton complete={markedAsCompleteData.cri} onClick={() => markAsComplete("cri")} />
+                                    )
+                                }
+                            </div>
+                        </Box>
+                    </div>
+                </div>
+            </div>
+            <div className="oss-ccl-ccn-as">
+                {
+                    certChecklistProgress == "" && (
+                        <NotStartedStepper />
+                    )
+                }
+                {
+                    certChecklistProgress == "progress" && (
+                        <InProgressStepper />
+                    )
+                }
+                {
+                    certChecklistProgress == "complete" && (
+                        <CompleteStepper />
+                    )
+                }
+                <div className={`oss-ccl-ccn-as-inner oss-ccl-as-${certChecklistProgress}`}>
+                    <div style={{ display: "inline-flex", gap: 16, alignItems: "center" }}>
+                        <span style={{ fontSize: 18, fontWeight: 'bold' }}>Cert Checklist</span>
+                        <HighlightCard className={`oss-ccl-sign-${certChecklistProgress}`}>
+                            {(!ccl.status || ccl.status == "" ? "Not Started" : ccl.status)}
+                        </HighlightCard>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14 }}>Auto created when all workstreams are finished - then goes through its own review and release cycle.</span>
+                        {
+                            (certChecklistProgress == "progress" || certChecklistProgress == "complete") && (
+                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }}>
+                                    <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
+                                </div>
+                            )
+                        }
+                    </div>
+                    {
+                        (ccl.reportId !== 0 && (typeof ccl.reportId === "number")) && (
+                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                                onClick={() => {
+                                    if (ccl.reportId != null) {
+                                        navigateToCSRReportIDPage(ccl.reportId, CCLTEMPLATENAME, CCLTEMPLATEID);
+                                    }
+                                }}
+                            >
+                                View Document
+                            </Button>
+                        )
+                    }
+                </div>
+            </div>
+            <div className="oss-ccl-ccn-as">
+                {
+                    cpProgress == "" && (
+                        <NotStartedStepper />
+                    )
+                }
+                {
+                    cpProgress == "progress" && (
+                        <InProgressStepper />
+                    )
+                }
+                {
+                    cpProgress == "complete" && (
+                        <CompleteStepper />
+                    )
+                }
+                <div className={`oss-ccl-ccn-as-inner oss-ccl-as-${cpProgress}`}>
+                    <div style={{ display: "inline-flex", gap: 16, alignItems: "center" }}>
+                        <span style={{ fontSize: 18, fontWeight: 'bold' }}>CP CM</span>
+                        <HighlightCard className={`oss-ccl-sign-${cpProgress}`}>
+                            {(!cp.status || cp.status == "" ? "Not Started" : cp.status)}
+                        </HighlightCard>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14 }}>Available after CP DOC is complete.</span>
+                        {
+                            (cpProgress == "progress" || cpProgress == "complete") && (
+                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.CM)}>
+                                    <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
+                                </div>
+                            )
+                        }
+                    </div>
+                    {
+                        cp.reportId && !isNaN(cp.reportId) ? (
+                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                                onClick={() => {
+                                    if (cp.reportId != null) {
+                                        navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
+                                    }
+                                }}
+                            >
+                                View Document
+                            </Button>
+                        ) : (
+                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                        )
+                    }
+                </div>
+            </div>
+            <div className="oss-ccl-ccn-as">
+                {
+                    cpProgress == "" && (
+                        <NotStartedStepper />
+                    )
+                }
+                {
+                    cpProgress == "progress" && (
+                        <InProgressStepper />
+                    )
+                }
+                {
+                    cpProgress == "complete" && (
+                        <CompleteStepper />
+                    )
+                }
+                <div className={`oss-ccl-ccn-as-inner oss-ccl-as-${cpProgress}`}>
+                    <div style={{ display: "inline-flex", gap: 16, alignItems: "center" }}>
+                        <span style={{ fontSize: 18, fontWeight: 'bold' }}>CP LOI</span>
+                        <HighlightCard className={`oss-ccl-sign-${cpProgress}`}>
+                            {(!cp.status || cp.status == "" ? "Not Started" : cp.status)}
+                        </HighlightCard>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14 }}>Available after CCL Matrix is completed.</span>
+                        {
+                            (cpProgress == "progress" || cpProgress == "complete") && (
+                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.LOI)}>
+                                    <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
+                                </div>
+                            )
+                        }
+                    </div>
+                    {
+                        cp.reportId && !isNaN(cp.reportId) ? (
+                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                                onClick={() => {
+                                    if (cp.reportId != null) {
+                                        navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
+                                    }
+                                }}
+                            >
+                                View Document
+                            </Button>
+                        ) : (
+                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                        )
+                    }
+                </div>
+            </div>
+            <div className="oss-ccl-ccn-as">
+                {
+                    cpProgress == "" && (
+                        <NotStartedStepper />
+                    )
+                }
+                {
+                    cpProgress == "progress" && (
+                        <InProgressStepper />
+                    )
+                }
+                {
+                    cpProgress == "complete" && (
+                        <CompleteStepper />
+                    )
+                }
+                <div className={`oss-ccl-ccn-as-inner oss-ccl-as-${cpProgress}`}>
+                    <div style={{ display: "inline-flex", gap: 16, alignItems: "center" }}>
+                        <span style={{ fontSize: 18, fontWeight: 'bold' }}>Cert Plan</span>
+                        <HighlightCard className={`oss-ccl-sign-${cpProgress}`}>
+                            {(!cp.status || cp.status == "" ? "Not Started" : cp.status)}
+                        </HighlightCard>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14 }}>When all workstreams are finished - then goes through its own review and release cycle.</span>
+                        {
+                            (cpProgress == "progress" || cpProgress == "complete") && (
+                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }}>
+                                    <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
+                                </div>
+                            )
+                        }
+                    </div>
+                    {
+                        cp.reportId && !isNaN(cp.reportId) ? (
+                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                                onClick={() => {
+                                    if (cp.reportId != null) {
+                                        navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
+                                    }
+                                }}
+                            >
+                                View Document
+                            </Button>
+                        ) : (
+                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                        )
+                    }
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export function HighlightCard({ className, children }: { className?: string, children: React.ReactNode }) {
+    return (
+        <span className={`oss-ccl-sign ${className ?? ""}`}>
+            {children}
+        </span>
+    );
+}
+
+function NotStartedStepper() {
+    return (
+        <div className="oss-ccl-stepper-outer">
+            <LensIcon style={{ color: "#c8c8c8" }} />
+            <div className="oss-ccl-not-stick" />
+        </div>
+    );
+}
+
+function InProgressStepper() {
+    return (
+        <div className="oss-ccl-stepper-outer">
+            <LensIcon style={{ color: "#0033A1" }} />
+            <div className="oss-ccl-progress-stick" />
+        </div>
+    );
+}
+
+function CompleteStepper() {
+    return (
+        <div className="oss-ccl-stepper-outer">
+            <CheckCircleIcon style={{ color: "#1AA45B", backgroundColor: "white", zIndex: 2 }} />
+            <div className="oss-ccl-complete-stick" />
+        </div>
+    );
+}
+
+function NoCCNExists() {
+    return (
+        <div className="oss-ccl-noccn-outer">
+            <span style={{ fontSize: 18, fontWeight: "bold" }}>Cert Strategy</span>
+            <div className="oss-ccl-noccn">
+                <div className="oss-ccl-noccn-inner">
+                    <span style={{ fontSize: 24, color: "#0033A1", fontWeight: "bold" }}>CCN Document Required</span>
+                    <span>Certification Planning cannot begin until the CCN document is created and released</span>
+                    <div style={{ display: 'flex', width: "100%", justifyContent: 'center', alignItems: 'center', marginTop: 16 }}>
+                        <Button
+                            variant="outlined"
+                            color="inherit"
+                            sx={{ textTransform: "capitalize" }}
+                            className="oss-ccl-btn-primary"
+                            size="small"
+                            onClick={() => navigateToCSRCreateNew(CCNTEMPLATENAME, CCNTEMPLATEID, CCNDESIGNATION)}
+                        >
+                            Create CCN Document
+                        </Button>
+                        <div className="oss-ccl-noccn-image">
+                            <img src="assets/images/clipboardImageCalender.svg"
+                                alt="clipboard img"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function numericStringChecker(str) {
+    if (typeof str !== 'string') return false; // Must be a string
+    if (str.trim() === '') return false;       // Reject empty or whitespace-only strings
+
+    // Try converting to number
+    const num = Number(str);
+    return Number.isFinite(num);
+}
+
+export const MarkAsCompleteButton = ({ onClick, complete }: { onClick?: React.MouseEventHandler<HTMLButtonElement>, complete: boolean }) => {
+    return (
+        <>
+            {
+                complete ? (
+                    <div style={{ display: "flex", justifyContent: 'center', alignItems: 'center', gap: 4 }}>
+                        <CheckCircleIcon style={{ color: "#1AA45B", backgroundColor: "white", zIndex: 2, fontSize: 14 }} />
+                        <span style={{ color: "#1AA45B", fontSize: 14 }}>
+                            Complete
+                        </span>
+                    </div>
+                ) : (
+                    <Button
+                        sx={{
+                            "&:hover": { backgroundColor: "#f3f3f3 !important" },
+                            padding: "3px 9px",
+                            height: "32px",
+                            borderColor: "#9e9e9e",
+                            borderWidth: "1px",
+                            borderStyle: "solid",
+                            textTransform: "none",
+                            overflow: 'hidden',
+                            textWrap: 'nowrap',
+                            paddingLeft: "8px",
+                            fontSize: "14px",
+                            color: "#253746",
+                            fontWeight: "normal",
+                            textOverflow: 'ellipsis',
+                        }}
+                        size="small"
+                        onClick={onClick}
+                    >
+                        Mark As Complete
+                    </Button >
+                )
+            }
+        </>
+    )
+}
