@@ -151,7 +151,8 @@ function Cards({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthoringSequenceP
     }
     let cpProgress = "";
     let cpSignProgress = "";
-    if (cp.status && cp.status != "" && ccl.status && ccl.status.toLowerCase() == ReportStages.Released.toLowerCase()) {
+    /*if (cp.status && cp.status != "" && ccl.status && ccl.status.toLowerCase() == ReportStages.Released.toLowerCase()) {*/
+    if (cp.status && cp.status != "") {
         if (cp.status.toLowerCase() != ReportStages.Released.toLowerCase()) {
             cpProgress = "oss-ccl-card-progress";
             cpSignProgress = "oss-ccl-sign-progress"
@@ -160,17 +161,19 @@ function Cards({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthoringSequenceP
             cpSignProgress = "oss-ccl-sign-complete"
         }
     }
+    /*}*/
     return (
         <div className="oss-ccl-ov-cards-outer">
             <div className={`oss-ccl-ccn-card ${ccnProgress}`}>
                 <div className="oss-ccl-overview-card-title">
-                    <span style={{ fontWeight: 'bold' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '18px' }}>
                         Cert Classification
                     </span>
                     <span>
                         {
                             ccn.reportId && !isNaN(ccn.reportId) ? (
                                 <Button
+                                    id="ccn-view-document"
                                     sx={{ textTransform: "capitalize", padding: 0 }}
                                     onClick={() => {
                                         if (ccn.reportId != null) {
@@ -182,6 +185,7 @@ function Cards({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthoringSequenceP
                                 </Button>
                             ) : (
                                 <Button
+                                    id="ccn-create-document"
                                     sx={{ textTransform: "capitalize", padding: 0 }}
                                     onClick={() => navigateToCSRCreateNew(CCNTEMPLATENAME, CCNTEMPLATEID, CCNDESIGNATION)}
                                 >
@@ -201,7 +205,7 @@ function Cards({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthoringSequenceP
                         (
                             <>
                                 <span>|</span>
-                                <span>{ccn.signers} / {ccn.signerTotal} signed</span>
+                                <span>{ccn.signers}/{ccn.signerTotal} signed</span>
                             </>
                         )
                     }
@@ -220,7 +224,7 @@ function Cards({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthoringSequenceP
             </div>
             <div className={`oss-ccl-ccl-card ${cclProgress}`}>
                 <div className="oss-ccl-overview-card-title">
-                    <span style={{ fontWeight: 'bold' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '18px' }}>
                         Cert Checklist
                     </span>
                     <span>
@@ -228,6 +232,7 @@ function Cards({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthoringSequenceP
                             // ccl.reportId && !isNaN(ccl.reportId) && (
                             (ccl.reportId !== 0 && (typeof ccl.reportId === "number")) && (
                                 <Button
+                                    id="ccl-view-document"
                                     sx={{ textTransform: "capitalize", padding: 0 }}
                                     onClick={() => {
                                         if (ccl.reportId != null) {
@@ -250,7 +255,7 @@ function Cards({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthoringSequenceP
                         (
                             <>
                                 <span>|</span>
-                                <span>{ccl.signers} / {ccl.signerTotal} signed</span>
+                                <span>{ccl.signers}/{ccl.signerTotal} signed</span>
                             </>
                         )
                     }
@@ -269,29 +274,33 @@ function Cards({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthoringSequenceP
             </div>
             <div className={`oss-ccl-cp-card ${cpProgress}`}>
                 <div className="oss-ccl-overview-card-title">
-                    <span style={{ fontWeight: 'bold' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '18px' }}>
                         Cert Plan
                     </span>
                     <span>
                         {
-                            cp.reportId && !isNaN(cp.reportId) ? (
-                                <Button
-                                    sx={{ textTransform: "capitalize", padding: 0 }}
-                                    onClick={() => {
-                                        if (cp.reportId != null) {
-                                            navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
-                                        }
-                                    }}
-                                >
-                                    View Document
-                                </Button>
-                            ) : (
-                                <Button
-                                    sx={{ textTransform: "capitalize", padding: 0 }}
-                                    onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}
-                                >
-                                    Create Document
-                                </Button>
+                            (ccn.status && ccn.status != "" && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) && (
+                                (cp.reportId && !isNaN(cp.reportId)) ? (
+                                    <Button
+                                        id="cp-view-document"
+                                        sx={{ textTransform: "capitalize", padding: 0 }}
+                                        onClick={() => {
+                                            if (cp.reportId != null) {
+                                                navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
+                                            }
+                                        }}
+                                    >
+                                        View Document
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        id="cp-create-document"
+                                        sx={{ textTransform: "capitalize", padding: 0 }}
+                                        onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}
+                                    >
+                                        Create Document
+                                    </Button>
+                                )
                             )
                         }
                     </span>
@@ -306,7 +315,7 @@ function Cards({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthoringSequenceP
                         (
                             <>
                                 <span>|</span>
-                                <span>{cp.signers} / {cp.signerTotal} signed</span>
+                                <span>{cp.signers}/{cp.signerTotal} signed</span>
                             </>
                         )
                     }
@@ -607,16 +616,20 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
     }
     // used for both ccl matrix and cri
     let cclMatrixProgress = "";
+    let cclStatusFlag = false;
+    let criStatusFlag = false;
     let criMatrixProgress = "";
     if (ccn.status && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) {
         if (ccl.status && ccl.status.toLowerCase() == ReportStages.Released.toLowerCase() || markedAsCompleteData.ccl) {
             cclMatrixProgress = "complete";
         } else {
+            cclStatusFlag = true;
             cclMatrixProgress = "progress";
         }
         if (ccl.status && ccl.status.toLowerCase() == ReportStages.Released.toLowerCase() || markedAsCompleteData.cri) {
             criMatrixProgress = "complete";
         } else {
+            criStatusFlag = true;
             criMatrixProgress = "progress";
         }
     }
@@ -680,7 +693,7 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                     </div>
                     {
                         ccn.reportId && !isNaN(ccn.reportId) ? (
-                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                            <Button id="Auth-ccn-view" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
                                 onClick={() => {
                                     if (ccn.reportId != null) {
                                         navigateToCSRReportIDPage(ccn.reportId, CCNTEMPLATENAME, CCNTEMPLATEID);
@@ -690,7 +703,7 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                                 View Document
                             </Button>
                         ) : (
-                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CCNTEMPLATENAME, CCNTEMPLATEID, CCNDESIGNATION)}>Create Document</Button>
+                            <Button id="Auth-ccn-create" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CCNTEMPLATENAME, CCNTEMPLATEID, CCNDESIGNATION)}>Create Document</Button>
                         )
                     }
                 </div>
@@ -730,7 +743,7 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                     </div>
                     {
                         cp.reportId && !isNaN(cp.reportId) ? (
-                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                            <Button id="Auth-doc-view" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
                                 onClick={() => {
                                     if (cp.reportId != null) {
                                         navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
@@ -740,7 +753,7 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                                 View Document
                             </Button>
                         ) : (
-                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                            <Button id="Auth-doc-create" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
                         )
                     }
                 </div>
@@ -786,9 +799,6 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                             <div className="oss-ccl-subcard-inner">
                                 <div className={`oss-ccl-dot oss-ccl-dot-${cclMatrixProgress}`} />
                                 <span>CCL Matrix</span>
-                                <HighlightCard className={`oss-ccl-sign-${cclMatrixProgress}`}>
-                                    {(!ccl.status || ccl.status == "" ? "Not Started" : ccl.status)}
-                                </HighlightCard>
                                 {
                                     (cclMatrixProgress == "progress" || cclMatrixProgress == "complete") && (
                                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.CCLMATRIX)}>
@@ -812,9 +822,6 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                             <div className="oss-ccl-subcard-inner">
                                 <div className={`oss-ccl-dot oss-ccl-dot-${criMatrixProgress}`} />
                                 <span>CRI Applicability</span>
-                                <HighlightCard className={`oss-ccl-sign-${criMatrixProgress}`}>
-                                    {(!ccl.status || ccl.status == "" ? "Not Started" : ccl.status)}
-                                </HighlightCard>
                                 {
                                     (criMatrixProgress == "progress" || criMatrixProgress == "complete") && (
                                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.CRI)}>
@@ -870,7 +877,7 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                     </div>
                     {
                         (ccl.reportId !== 0 && (typeof ccl.reportId === "number")) && (
-                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                            <Button id="Auth-Checklist" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
                                 onClick={() => {
                                     if (ccl.reportId != null) {
                                         navigateToCSRReportIDPage(ccl.reportId, CCLTEMPLATENAME, CCLTEMPLATEID);
@@ -901,7 +908,7 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                 }
                 <div className={`oss-ccl-ccn-as-inner oss-ccl-as-${cpProgress}`}>
                     <div style={{ display: "inline-flex", gap: 16, alignItems: "center" }}>
-                        <span style={{ fontSize: 18, fontWeight: 'bold' }}>CP CM</span>
+                        <span style={{ fontSize: 18, fontWeight: 'bold' }}>Cert Memoranda</span>
                         <HighlightCard className={`oss-ccl-sign-${cpProgress}`}>
                             {(!cp.status || cp.status == "" ? "Not Started" : cp.status)}
                         </HighlightCard>
@@ -917,18 +924,20 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                         }
                     </div>
                     {
-                        cp.reportId && !isNaN(cp.reportId) ? (
-                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
-                                onClick={() => {
-                                    if (cp.reportId != null) {
-                                        navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
-                                    }
-                                }}
-                            >
-                                View Document
-                            </Button>
-                        ) : (
-                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                        (ccn.status && ccn.status != "" && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) && (
+                            (cp.reportId && !isNaN(cp.reportId)) ? (
+                                <Button id="Auth-CP-CM-View" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                                    onClick={() => {
+                                        if (cp.reportId != null) {
+                                            navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
+                                        }
+                                    }}
+                                >
+                                    View Document
+                                </Button>
+                            ) : (
+                                <Button id="Auth-CP-CM-Create" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                            )
                         )
                     }
                 </div>
@@ -951,7 +960,7 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                 }
                 <div className={`oss-ccl-ccn-as-inner oss-ccl-as-${cpProgress}`}>
                     <div style={{ display: "inline-flex", gap: 16, alignItems: "center" }}>
-                        <span style={{ fontSize: 18, fontWeight: 'bold' }}>CP LOI</span>
+                        <span style={{ fontSize: 18, fontWeight: 'bold' }}>Cert LOI</span>
                         <HighlightCard className={`oss-ccl-sign-${cpProgress}`}>
                             {(!cp.status || cp.status == "" ? "Not Started" : cp.status)}
                         </HighlightCard>
@@ -967,18 +976,20 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                         }
                     </div>
                     {
-                        cp.reportId && !isNaN(cp.reportId) ? (
-                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
-                                onClick={() => {
-                                    if (cp.reportId != null) {
-                                        navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
-                                    }
-                                }}
-                            >
-                                View Document
-                            </Button>
-                        ) : (
-                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                        (ccn.status && ccn.status != "" && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) && (
+                            (cp.reportId && !isNaN(cp.reportId)) ? (
+                                <Button id="Auth-CP-LOI-View" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                                    onClick={() => {
+                                        if (cp.reportId != null) {
+                                            navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
+                                        }
+                                    }}
+                                >
+                                    View Document
+                                </Button>
+                            ) : (
+                                <Button id="Auth-CP-LOI-Create" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                            )
                         )
                     }
                 </div>
@@ -1017,18 +1028,20 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                         }
                     </div>
                     {
-                        cp.reportId && !isNaN(cp.reportId) ? (
-                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
-                                onClick={() => {
-                                    if (cp.reportId != null) {
-                                        navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
-                                    }
-                                }}
-                            >
-                                View Document
-                            </Button>
-                        ) : (
-                            <Button sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                        (ccn.status && ccn.status != "" && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) && (
+                            (cp.reportId && !isNaN(cp.reportId)) ? (
+                                <Button id="Auth-CP-Create" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                                    onClick={() => {
+                                        if (cp.reportId != null) {
+                                            navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
+                                        }
+                                    }}
+                                >
+                                    View Document
+                                </Button>
+                            ) : (
+                                <Button id="Auth-CP-View" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                            )
                         )
                     }
                 </div>
