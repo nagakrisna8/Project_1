@@ -1,74 +1,27 @@
-export default function Overview() {
-
-    const {
-        ccnData,
-        cclData,
-        cpData,
-        refreshDrawerData,
-        markedAsCompleteData
-    } = useOutletContext<OverallDataContext>();
-
-    // API still loading
-    const isLoading =
-        ccnData === undefined ||
-        ccnData === null ||
-        (ccnData.reportId === 0 &&
-            !ccnData.status &&
-            !ccnData.revision);
-
-    // SHOW ONLY WHITE SCREEN
-    if (isLoading) {
-        return (
-            <div
-                style={{
-                    backgroundColor: "#fff",
-                    minHeight: "100vh",
-                    width: "100%"
-                }}
-            />
-        );
-    }
-
-    return (
-        <>
-            {
+return (
+    <>
+        {
+            (
+                ccnData.reportId === undefined &&
+                ccnData.status === undefined
+            ) ? (
+                <div
+                    style={{
+                        backgroundColor: "#fff",
+                        minHeight: "100vh",
+                        width: "100%"
+                    }}
+                />
+            ) : (
                 (!ccnData.status || ccnData.status === "") ?
-                    (
-                        <NoCCNExists />
-                    )
+                    (<NoCCNExists />)
                     :
                     (
                         <div className="oss-ccl-overview-outer">
-
-                            <div className="oss-ccl-overview-title">
-                                Cert Strategy
-                            </div>
-
-                            <div className="oss-ccl-overview-cards">
-                                <Cards
-                                    ccn={ccnData}
-                                    ccl={cclData}
-                                    cp={cpData}
-                                    markedAsCompleteData={markedAsCompleteData}
-                                />
-                            </div>
-
-                            <div className="oss-ccl-overview-tcds">
-                                <Tcds />
-                            </div>
-
-                            <div className="oss-ccl-overview-as">
-                                <AuthoringSequence
-                                    ccn={ccnData}
-                                    ccl={cclData}
-                                    cp={cpData}
-                                    markedAsCompleteData={markedAsCompleteData}
-                                />
-                            </div>
-
+                            ...
                         </div>
                     )
-            }
-        </>
-    );
-}
+            )
+        }
+    </>
+)
