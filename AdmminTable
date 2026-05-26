@@ -1,4 +1,5 @@
 export default function Overview() {
+
     const {
         ccnData,
         cclData,
@@ -7,8 +8,16 @@ export default function Overview() {
         markedAsCompleteData
     } = useOutletContext<OverallDataContext>();
 
-    // While API is loading show white background
-    if (!ccnData || Object.keys(ccnData).length === 0) {
+    // API still loading
+    const isLoading =
+        ccnData === undefined ||
+        ccnData === null ||
+        (ccnData.reportId === 0 &&
+            !ccnData.status &&
+            !ccnData.revision);
+
+    // SHOW ONLY WHITE SCREEN
+    if (isLoading) {
         return (
             <div
                 style={{
@@ -30,6 +39,7 @@ export default function Overview() {
                     :
                     (
                         <div className="oss-ccl-overview-outer">
+
                             <div className="oss-ccl-overview-title">
                                 Cert Strategy
                             </div>
@@ -55,6 +65,7 @@ export default function Overview() {
                                     markedAsCompleteData={markedAsCompleteData}
                                 />
                             </div>
+
                         </div>
                     )
             }
