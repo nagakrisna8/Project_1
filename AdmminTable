@@ -1,253 +1,345 @@
-.oss-ccl-overview-outer {
-    display: flex;
-    flex-flow: column nowrap;
-    min-height: 100%;
-    max-height: 100%;
-    overflow: auto;
-}
+import * as singleSpa from 'single-spa';
+import * as WorkAppRoutes from '../../js/workAppRoutes.js';
+import UserToken from '../userToken.js';
+import { StorageService } from '../StorageService.js';
+import { checkForCertToolUnsavedChanges } from './easaWorkapp.js';
 
-.oss-ccl-overview-title {
-    font-weight: 600;
-    font-size: 20px;
-    color: #253746;
-}
+const fullShellAppName = `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_NAME}`;
+class easaMenuSubmenu {
+    appName = '';
+    constructor() {
+        this.appName = process.env.REACT_APP_ROOT_NAME;
+    }
 
-.oss-ccl-noccn-outer {
-    display: flex;
-    flex-flow: column nowrap;
-    min-height: 100%;
-}
-
-.oss-ccl-noccn {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding-top: 6rem;
-
-    .oss-ccl-noccn-inner {
-        position: relative;
-        border: 1px solid #dbdbdb;
-        border-radius: 8px;
-        padding: 24px;
-        display: flex;
-        flex-flow: column nowrap;
-        gap: 8px;
-
-        .oss-ccl-noccn-image {
-            position: absolute;
-            bottom: 0px;
-            left: 0px;
-            transform: translate(-50%, 50%);
-            padding: 16px;
-            border-radius: 100%;
-            background-color: #edf2fe;
+    setMenuSectionVisibility(isMenuSectionVisible) {
+        if (isMenuSectionVisible) {
+            // SHOW THE MENU HEADER SECTION AND EASA MENU SECTION, AND HIDE FAA MY WORKSPACE MENU SECTION
+            $("#oss-header-menu-setion").show();
+            $("#oss-nav-tab").hide();
+            $("#oss-easa-nav-tab").show();
+        } else {
+            // HIDE THE MENU HEADER SECTION AND EASA MENU SECTION, AND SHOW FAA MY WORKSPACE MENU SECTION
+            $("#oss-header-menu-setion").hide();
+            $("#oss-nav-tab").show();
+            $("#oss-easa-nav-tab").hide();
         }
     }
 
-}
+    handleSubMenuButtonClick(subMenuId) {
+        const storageServiceTemp = new StorageService();
+        // CHECKS FOR UNSAVED CHANGES POPUP
+        // CERT TOOL CHECKS
+        if (!checkForCertToolUnsavedChanges()) {
+            const newJson = {
+                home: false,
+                easaworkspace: false,
+                projdetails: false,
+                menusubmenu: subMenuId
+            };
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_CertTool}-breadcrumbs`, newJson);
+            $('#unsavedChanges').modal('show');
+            return;
+        }
+        if (!isNaN(Number(subMenuId))) {
+            // NAVIGATE TO CSR USING SUBMENUID AS GROUPID (PASSED AS NUM-STRING THROUGH ARGS)
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+            const registerProjectId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+            const userTokenTemp = new UserToken();
+            userTokenTemp.setGroupBU(GroupBU.EASA);
+            userTokenTemp.setGroupId(subMenuId);
+            singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH.replace(':groupId', subMenuId).replace(":registerId", registerProjectId));
+        } else if (String(subMenuId).toLowerCase() === "projectdetailsbttn") {
+            // NAVIGATE TO EASA PROJECT DETAILS PAGE            
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaProjectDtl-tab");
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            const currentEasaProjId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaMyWorkspaceProjectId');
+            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL + '/' + currentEasaProjId);
+        }
+         else if (String(subMenuId).toLowerCase() === "cclbuilderbttn") {
+            // NAVIGATE TO EASA PROJECT DETAILS PAGE
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+            localStorage.setItem('easaActiveSubMenu', subMenuId);
+            var projectNo = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolProjectNo`);
+            var revision = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolRevision`);
+            var CertToolReportId = "BIL-" + projectNo.trim() + "-" + revision.trim() + "-CCL";
+            localStorage.setItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolReportId`, CertToolReportId);
+            singleSpa.navigateToUrl(WorkAppRoutes.CertTool.APP_ROUTE + "/#" + WorkAppRoutes.CertTool.WORK_APPS_DETAILS);
+        }
+        else if (String(subMenuId).toUpperCase() === "PROJECTSCHEDULEBTN") {
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaProjectDtl-tab");
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            const currentEasaProjId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaMyWorkspaceProjectId');
+            singleSpa.navigateToUrl(WorkAppRoutes.PROJECTSCHEDULE_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.PROJECTSCHEDULE_DETAILS.EASA_SCHEDULE_SUMMARY_PID.replace(":pid", currentEasaProjId));
+        }
+        this.activateSubmenuButton();
+    }
+
+    bindMenuSubmenu = (data) => {
+        var workapps = new UserToken().getWorkapps();
+        $('#oss-easa-nav-tab').empty();
+        $('#oss-nav-tabContent').empty();
+
+        $.each(data, (index, item) => {
+
+            let isShowMainMenuCounter = 0;
+            var menuUIId = item.MenuUIId;
+
+            // add workapp haspermission here, if required
+            // if (true) {
+            let visibleSubMenus = item.SubMenuDetailEntityList;
+            // .filter(subItem => {
+            //     return usPerson || !subItem.IsItar;
+            // });                
+
+            if (visibleSubMenus.length === 0) {
+                return;
+            }
+
+            // Create a wrapper div with dropdown class
+            let mainMenuWrapper = $('<div>').addClass('dropdown').css('display', 'inline-block');
+
+            let newMenuUIIdName = menuUIId;
+            if (menuUIId == "designDoc") {
+                newMenuUIIdName = "easaDesignDoc";
+            } else if (menuUIId == "projectDtl") {
+                newMenuUIIdName = "easaProjectDtl"
+            }
+            let mainMenuButton = $('<button>')
+                .addClass('btn dropdown-toggle')
+                .attr('id', `nav-${this.appName}-${newMenuUIIdName}-tab`)
+                .attr('type', 'button')
+                .attr('data-bs-toggle', 'dropdown')
+                .attr('aria-expanded', 'false')
+                .text(item.MenuTitle);
+
+            let submenuDropdown = $('<div>')
+                .addClass('submenu-dropdown border dropdown-menu rounded mt-0 p-3 bg-white shadow')
+                .attr('id', `nav-${this.appName}-${menuUIId}-dropdown`)
+                .attr('aria-labelledby', `nav-${this.appName}-${menuUIId}-tab`)
+                .css({
+                    'position': 'absolute',
+                    'z-index': 1000,
+                    'display': 'none',
+                    'width': '100%', // full width of parent container
+                    'left': 0,
+                    'top': '100%', // just below the button
+                    'box-sizing': 'border-box'
+                });
+            //mainMenuWrapper.append(mainMenuButton).append(submenuDropdown);
+            $('#oss-easa-nav-tab').append(mainMenuWrapper);
+            $('#oss-easa-nav-tab').css('position', 'relative');
+
+            mainMenuButton.on('click', (e) => {
+                e.stopPropagation();
+                // Hide all other submenu dropdowns except the current one
+                $('.submenu-dropdown').not(submenuDropdown).hide();
+                // Get stored active main menu ID
+                const storedActiveMainMenuId = localStorage.getItem('activeMainMenuId');
+                if (storedActiveMainMenuId !== menuUIId) {
+                    // New main menu clicked, update active main menu ID
+                    //localStorage.setItem('activeMainMenuId', menuUIId);
+
+                    // Clear previous active submenu ID
+                    //localStorage.removeItem('activeEASASubMenuId');
+
+                    // Find the first submenu button inside the current dropdown
+                    const firstSubmenuBtn = submenuDropdown.find('button').first();
+
+                    if (firstSubmenuBtn.length) {
+                        // Cache the container for submenu buttons to limit DOM queries
+                        const submenuContainer = $('#oss-easa-nav-tab');
+
+                        // Remove active class from all submenu buttons within the container
+                        //submenuContainer.find('button').removeClass('activeSubmenuBtn');
+
+                        // Add active class to the first submenu button
+                        //firstSubmenuBtn.addClass('activeSubmenuBtn');
+
+                        // Show the submenu dropdown first
+                        submenuDropdown.show();
+
+                        // Extract submenu ID and store it
+                        const firstSubmenuId = firstSubmenuBtn.attr('id')
+                            .replace(`${this.appName}-`, '')
+                            .replace('nav-div-', '')
+                            .replace('-wrap', '');
+
+                        //localStorage.setItem('activeEASASubMenuId', firstSubmenuId);
 
 
-.oss-ccl-sign {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0px 8px;
-    background-color: rgba(219, 219, 219, 0.6);
-    border: 1px solid #c8c8c8;
-    border-radius: 12px;
-    font-weight: bold;
-    font-size: 13px !important;
-    text-transform: capitalize;
-    height: 20px;
-}
+                        return; // Exit to prevent toggling again below
+                    }
+                } else {
+                    // Same main menu clicked, just toggle the submenu dropdown visibility
+                    submenuDropdown.toggle();
 
-.oss-ccl-sign-progress {
-    background-color: rgba(0, 51, 161, 0.2) !important;
-    border: 1px solid rgb(0, 51, 161) !important;
-}
+                    if (submenuDropdown.is(':visible')) {
+                        // Get currently active submenu button inside this dropdown
+                        const activeSubmenuBtn = submenuDropdown.find('button.activeSubmenuBtn').first();
+                        if (activeSubmenuBtn.length) {
+                            const activeSubmenuId = activeSubmenuBtn.attr('id')
+                                .replace(`${this.appName}-`, '')
+                                .replace('nav-div-', '')
+                                .replace('-wrap', '');
 
-.oss-ccl-sign-complete {
-    background-color: rgba(26, 164, 91, 0.2) !important;
-    border: 1px solid rgb(26, 164, 91) !important;
-    color: rgb(26, 164, 91) !important;
-}
+                        }
+                    }
+                }
+            });
 
-.oss-ccl-card-progress {
-    border-left: 4px solid #0033A1 !important;
-}
+            $(document).on('click', () => {
+                submenuDropdown.hide();
+            });
 
-.oss-ccl-card-completed {
-    border-left: 4px solid #1AA45B !important;
-}
+            // Create a container for columns inside dropdown
+            let columnsContainer = $('<div>').addClass('columncontainerEasa').css({
+                // 'display': 'flex',
+                // 'flex-wrap': 'wrap',
+                // 'gap': '8px'
+            });
 
+            visibleSubMenus.forEach((subItem, idx) => {
+                // const hasPermission = this.hasPermission(workapps, subItem.AppName, subItem.WorkAppName);
+                // add workapp haspermission here, if required
+                // if (true) {
+                isShowMainMenuCounter++;
+                let submenuBtn;
+                submenuBtn = $('<button>')
+                    .addClass('btn btn-sm btn-outline-secondary sub-menu-btn text-start mb-2 d-flex align-items-center')
+                    .css({
+                        'box-sizing': 'border-box'
+                    })
+                    .attr('id', `nav-div-${subItem.SubMenuUIId}-wrap`)
+                    .on('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        $('#oss-easa-nav-tab').find('button').removeClass('activeSubmenuBtn');
+                        //submenuDropdown.find('.sub-menu-btn').removeClass('activeSubmenuBtn');
+                        // Remove active class from all submenu buttons within this dropdown
+                        // submenuDropdown.find('button').removeClass('activeSubmenuBtn');
+                        // Add active class to the clicked button
+                        $(e.currentTarget).addClass('activeSubmenuBtn');
+                        //console.log('Clicked element:', e.currentTarget);
+                        const storageServiceTemp = new StorageService();
 
-.oss-ccl-overview-outer>div {
-    padding: 12px 12px;
-}
+                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
+                        // localStorage.setItem('activeMainMenuId', menuUIId);
+                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
+                        // storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', subItem.Title);
 
-.oss-ccl-ov-cards-outer {
-    display: flex;
-    flex-flow: row nowrap;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-}
+                        submenuDropdown.hide();
+                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', subItem.Title);
+                        this.handleSubMenuButtonClick(subItem.SubMenuUIId);
+                    });
 
-.oss-ccl-ccn-card,
-.oss-ccl-ccl-card,
-.oss-ccl-cp-card {
-    display: flex;
-    flex-flow: column nowrap;
-    gap: 8px;
-    align-self: stretch;
-}
+                // let icon = $('<img>')
+                //     .attr('src', `assets/images/${subItem.ImageName}`)
+                //     .attr('width', 24)
+                //     .attr('height', 24)
+                //     .addClass('me-2');
 
-.oss-ccl-ccn-card>div,
-.oss-ccl-ccl-card>div,
-.oss-ccl-cp-card>div {
-    height: 32px;
-}
+                    console.log(subItem, 'subItem');
+                submenuBtn.append(subItem.Title);
+                const storedActiveSubMenuId = new StorageService().getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu');
+                if (subItem.SubMenuUIId === storedActiveSubMenuId) {
+                    submenuBtn.addClass('activeSubmenuBtn');
+                    new StorageService().setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
+                }
 
-.oss-ccl-ov-cards-outer * {
-    font-size: 14px;
-}
+                if (submenuBtn) {
+                    // Distribute submenu buttons into columns round-robin
+                    columnsContainer.append(submenuBtn);
+                }
+                // }
+            });
 
-.oss-ccl-ov-cards-outer>div {
-    border-radius: 8px;
-    border: 1px solid #dbdbdb;
-    border-left: 4px solid #c8c8c8;
-    padding: 12px;
-    flex: 1;
-}
+            // Append columns to container
+            // Set dynamic column count based on submenu length
+            const maxItemsPerColumn = 8;
+            const totalItems = visibleSubMenus.length;
+            const columnsNeeded = Math.ceil(totalItems / maxItemsPerColumn);
+            columnsContainer.css('column-count', columnsNeeded > 1 ? columnsNeeded : 1);
+            // Create header div with main menu title
+            let submenuHeader = $('<div>')
+                .addClass('submenu-header')
+                .text(item.MenuTitle)
+                .css({
+                    'font-weight': '600',
+                    'font-size': '14px',
+                    'padding-bottom': '8px',
+                    'color': '#0033A1',
+                    'display': 'none'
+                });
+            // Append header and columns container to submenuDropdown
+            submenuDropdown.append(submenuHeader);
+            submenuDropdown.append(columnsContainer);
 
-.oss-ccl-as-outer {
-    display: flex;
-    flex-flow: column nowrap;
-    gap: 16px;
-}
+            // Append Main Menu only when it has atleast 1 submenu is accessible or does not have any sub menu
+            if (isShowMainMenuCounter > 0) {
+                // Append button and dropdown inside wrapper
+                mainMenuWrapper.append(mainMenuButton).append(submenuDropdown);
+                // Append wrapper to main container
+                $('#oss-easa-nav-tab').append(mainMenuWrapper);
+            }
+            // }
+        });
+    }
 
-.oss-ccl-overview-card-title {
-    display: flex;
-    flex-flow: row nowrap;
-    justify-content: space-between;
-    align-items: center;
-}
+    activateSubmenuButton() {
+        const storageServiceTemp = new StorageService();
+        const storedEasaActiveId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu');
+        const storedEasaActiveMenuId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu');
+        if (storedEasaActiveMenuId) {
+            $('#oss-easa-nav-tab').find('.dropdown-toggle').removeClass('active');
+            $('#oss-easa-nav-tab').find(storedEasaActiveMenuId).addClass('active');
+        }
+        if (storedEasaActiveId) {
+            $('#oss-easa-nav-tab').find('button').removeClass('activeSubmenuBtn');
+            $(`[id='nav-div-${storedEasaActiveId}-wrap']`).addClass('activeSubmenuBtn');
+        }
+    }
 
-.oss-ccl-overview-progress-section {
-    display: flex;
-    flex-flow: row nowrap;
-    justify-content: flex-start;
-    align-items: center;
+    hasPermission = (workapps, menuAppName, menuWorkappname) => {
+        if (new UserToken().isCurrentUserAdmin())
+            return true;
 
-    span {
-        margin-right: 16px;
+        if (menuAppName == undefined || menuWorkappname == undefined) return true;
+
+        let hasPermisionToWorkApp = false;
+
+        for (let i = 0; i < workapps?.length; i++) {
+            if (workapps[i].AppName != null) {
+                let appName = workapps[i].AppName.toLowerCase();
+                let workAppName = workapps[i].WorkappName.toLowerCase();
+                let selectedBusinessUnit = new StorageService().getApplicationDataByKey(fullShellAppName, 'CurrentBusinessUnit');
+                let selectedDiscipline = new StorageService().getApplicationDataByKey(fullShellAppName, 'CurrentDiscipline');
+
+                let workAppBusinessUnitDisciplineList = workapps[i].BusinessUnitDisciplineList;
+                for (let j = 0; j < workAppBusinessUnitDisciplineList.length; j++) {
+                    let buDisciplineList = workAppBusinessUnitDisciplineList[j];
+
+                    if (buDisciplineList && buDisciplineList["BusinessunitName"]?.toLowerCase() == selectedBusinessUnit?.toLowerCase()) {
+                        let assignedDiscipline = buDisciplineList?.DisciplineNameList;
+                        if (appName.toLowerCase() == menuAppName.toLowerCase() && workAppName.toLowerCase() == menuWorkappname.toLowerCase()) {
+                            if (assignedDiscipline.indexOf(selectedDiscipline) > -1) {
+                                hasPermisionToWorkApp = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+        return hasPermisionToWorkApp;
     }
 }
 
-.oss-ccl-overview-text-section {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-}
+export default easaMenuSubmenu;
 
-.oss-ccl-ccn-as {
-    display: flex;
-    flex-flow: row nowrap;
-    align-items: center;
-    gap: 16px;
-}
-
-.oss-ccl-ccn-as-inner {
-    display: flex;
-    flex-flow: column nowrap;
-    border: 1px solid #dbdbdb;
-    border-radius: 8px;
-    width: 100%;
-    padding: 16px;
-    gap: 8px;
-}
-
-.oss-ccl-not-stick {
-    width: 2px;
-    height: 100%;
-    background-color: #c8c8c8;
-    position: absolute;
-    left: 50%;
-    top: 0px;
-    transform: translateX(-1px);
-}
-
-.oss-ccl-progress-stick {
-    width: 2px;
-    height: 100%;
-    background-color: #0033A1;
-    position: absolute;
-    left: 50%;
-    top: 0px;
-    transform: translateX(-1px);
-}
-
-.oss-ccl-complete-stick {
-    width: 2px;
-    height: 100%;
-    background-color: #1AA45B;
-    position: absolute;
-    left: 50%;
-    top: 0px;
-    transform: translateX(-1px);
-    z-index: 1;
-}
-
-.oss-ccl-stepper-outer {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    align-self: stretch;
-    position: relative;
-}
-
-.oss-ccl-stepper-outer>svg {
-    transform: translateY(-2px);
-}
-
-.oss-ccl-as-progress {
-    border-left: 4px solid #0033A1 !important;
-    background-color: rgba(0, 51, 161, 0.05) !important;
-}
-
-.oss-ccl-as-complete {
-    border-left: 4px solid #1AA45B !important;
-    background-color: rgba(26, 164, 91, 0.05) !important;
-}
-
-.oss-ccl-subcard {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    background-color: white;
-    padding: 8px 8px;
-    border-radius: 4px;
-}
-
-.oss-ccl-subcard-inner {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.oss-ccl-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 100%;
-    background-color: #c8c8c8;
-}
-
-.oss-ccl-dot-progress {
-    background-color: #0033A1 !important;
-}
-
-.oss-ccl-dot-complete {
-    background-color: #1AA45B !important;
+export const GroupBU = {
+    FAA: "FAA",
+    EASA: "EASA",
 }
