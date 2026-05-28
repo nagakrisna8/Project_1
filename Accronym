@@ -91,25 +91,38 @@ export default function Overview() {
     return (
         <>
             {
-                (!ccnData.status || ccnData.status === "") ?
-                    (<NoCCNExists />)
-                    :
-                    (
-                        <div className="oss-ccl-overview-outer">
-                            <div className="oss-ccl-overview-title">
-                                Cert Strategy
+                (
+                    ccnData.reportId === undefined &&
+                    ccnData.status === undefined
+                ) ? (
+                    <div
+                        style={{
+                            backgroundColor: "#fff",
+                            minHeight: "100vh",
+                            width: "100%"
+                        }}
+                    />
+                ) : (
+                    (!ccnData.status || ccnData.status === "") ?
+                        (<NoCCNExists />)
+                        :
+                        (
+                            <div className="oss-ccl-overview-outer">
+                                <div className="oss-ccl-overview-title">
+                                    Cert Strategy
+                                </div>
+                                <div className="oss-ccl-overview-cards">
+                                    <Cards ccn={ccnData} ccl={cclData} cp={cpData} markedAsCompleteData={markedAsCompleteData} />
+                                </div>
+                                <div className="oss-ccl-overview-tcds">
+                                    <Tcds />
+                                </div>
+                                <div className="oss-ccl-overview-as">
+                                    <AuthoringSequence ccn={ccnData} ccl={cclData} cp={cpData} markedAsCompleteData={markedAsCompleteData} />
+                                </div>
                             </div>
-                            <div className="oss-ccl-overview-cards">
-                                <Cards ccn={ccnData} ccl={cclData} cp={cpData} markedAsCompleteData={markedAsCompleteData} />
-                            </div>
-                            <div className="oss-ccl-overview-tcds">
-                                <Tcds />
-                            </div>
-                            <div className="oss-ccl-overview-as">
-                                <AuthoringSequence ccn={ccnData} ccl={cclData} cp={cpData} markedAsCompleteData={markedAsCompleteData} />
-                            </div>
-                        </div>
-                    )
+                        )
+                )
             }
         </>
 
@@ -608,9 +621,9 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
     }
     let docProgress = "";
     if (ccn.status && ccn.status != "" && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) {
-        if ((cp.status && cp.status != "" && cp.status != ReportStages.Released.toLowerCase() && ccl.status?.toLowerCase() != ReportStages.Released.toLowerCase())) {
+        if ((cp.status && cp.status != "" && cp.status.toLowerCase() != ReportStages.Released.toLowerCase())) {
             docProgress = "progress";
-        } else if (ccl.status?.toLowerCase() == ReportStages.Released.toLowerCase()) {
+        } else if (cp.status == ReportStages.Released.toLowerCase()){
             docProgress = "complete";
         }
     }
@@ -686,10 +699,9 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                         </HighlightCard>
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 14 }}>Change Classification Note defining the scope and type of change. Must be in released state before anything else can begin.</span>
-                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.CCN)}>
-                            <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
-                        </div>
+                        <span style={{ fontSize: 14 }}>Change Classification Note defining the scope and type of change. Must be in released state before anything else can begin.
+                            <ArrowOutwardIcon onClick={() => navigate(PathConstants.CCN)} style={{ marginLeft: "8px", marginBottom: "4px", cursor: 'pointer', color: "#0078b8", fontSize: 16 }} />
+                        </span>
                     </div>
                     {
                         ccn.reportId && !isNaN(ccn.reportId) ? (
@@ -728,32 +740,33 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                     <div style={{ display: "inline-flex", gap: 16, alignItems: "center" }}>
                         <span style={{ fontSize: 18, fontWeight: 'bold' }}>Description Of Change</span>
                         <HighlightCard className={`oss-ccl-sign-${docProgress}`}>
-                            {(!ccl.status || ccl.status == "" ? "Not Started" : ccl.status)}
+                            {(!cp.status || cp.status == "" ? "Not Started" : cp.status)}
                         </HighlightCard>
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 14 }}>Configure subsections and tag each with a CVE Panel, CDI and Regulation. This implicitly builds the panel/CDI list that feeds CCL Matrix and LOI.</span>
-                        {
-                            docProgress !== "" && (
-                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.DOC)}>
-                                    <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
-                                </div>
-                            )
-                        }
+                        <span style={{ fontSize: 14 }}>Configure subsections and tag each with a CVE Panel, CDI and Regulation. This implicitly builds the panel/CDI list that feeds CCL Matrix and LOI.
+                            {
+                                docProgress !== "" && (
+                                    <ArrowOutwardIcon onClick={() => navigate(PathConstants.DOC)} style={{ marginLeft: "8px", marginBottom: "4px", cursor: 'pointer', color: "#0078b8", fontSize: 16 }} />
+                                )
+                            }
+                        </span>
                     </div>
                     {
-                        cp.reportId && !isNaN(cp.reportId) ? (
-                            <Button id="Auth-doc-view" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
-                                onClick={() => {
-                                    if (cp.reportId != null) {
-                                        navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
-                                    }
-                                }}
-                            >
-                                View Document
-                            </Button>
-                        ) : (
-                            <Button id="Auth-doc-create" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                        (ccn.status && ccn.status != "" && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) && (
+                            (cp.reportId && !isNaN(cp.reportId)) ? (
+                                <Button id="Auth-doc-view" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }}
+                                    onClick={() => {
+                                        if (cp.reportId != null) {
+                                            navigateToCSRReportIDPage(cp.reportId, CPTEMPLATENAME, CPTEMPLATEID);
+                                        }
+                                    }}
+                                >
+                                    View Document
+                                </Button>
+                            ) : (
+                                <Button id="Auth-doc-create" sx={{ textTransform: "capitalize", padding: 0, width: 'max-content' }} onClick={() => navigateToCSRCreateNew(CPTEMPLATENAME, CPTEMPLATEID, CPDESIGNATION)}>Create Document</Button>
+                            )
                         )
                     }
                 </div>
@@ -798,14 +811,13 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                         <Box sx={{ boxShadow: 2 }} className="oss-ccl-subcard">
                             <div className="oss-ccl-subcard-inner">
                                 <div className={`oss-ccl-dot oss-ccl-dot-${cclMatrixProgress}`} />
-                                <span>CCL Matrix</span>
-                                {
-                                    (cclMatrixProgress == "progress" || cclMatrixProgress == "complete") && (
-                                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.CCLMATRIX)}>
-                                            <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
-                                        </div>
-                                    )
-                                }
+                                <span>CCL Matrix
+                                    {
+                                        (cclMatrixProgress == "progress" || cclMatrixProgress == "complete") && (
+                                            <ArrowOutwardIcon onClick={() => navigate(PathConstants.CCLMATRIX)} style={{ marginLeft: "8px", marginBottom: "4px", cursor: 'pointer', color: "#0078b8", fontSize: 16 }} />
+                                        )
+                                    }
+                                </span>
                             </div>
                             <div>
                                 {
@@ -821,14 +833,13 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                         <Box sx={{ boxShadow: 2 }} className="oss-ccl-subcard">
                             <div className="oss-ccl-subcard-inner">
                                 <div className={`oss-ccl-dot oss-ccl-dot-${criMatrixProgress}`} />
-                                <span>CRI Applicability</span>
-                                {
-                                    (criMatrixProgress == "progress" || criMatrixProgress == "complete") && (
-                                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.CRI)}>
-                                            <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
-                                        </div>
-                                    )
-                                }
+                                <span>CRI Applicability
+                                    {
+                                        (criMatrixProgress == "progress" || criMatrixProgress == "complete") && (
+                                            <ArrowOutwardIcon onClick={() => navigate(PathConstants.CRI)} style={{ marginLeft: "8px", marginBottom: "4px", cursor: 'pointer', color: "#0078b8", fontSize: 16 }} />
+                                        )
+                                    }
+                                </span>
                             </div>
                             <div>
                                 {
@@ -866,14 +877,13 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                         </HighlightCard>
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 14 }}>Auto created when all workstreams are finished - then goes through its own review and release cycle.</span>
-                        {
-                            (certChecklistProgress == "progress" || certChecklistProgress == "complete") && (
-                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }}>
-                                    <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
-                                </div>
-                            )
-                        }
+                        <span style={{ fontSize: 14 }}>Auto created when all workstreams are finished - then goes through its own review and release cycle.
+                            {
+                                (certChecklistProgress == "progress" || certChecklistProgress == "complete") && (
+                                    <ArrowOutwardIcon onClick={() => navigate(PathConstants.CERTCHECKLIST)} style={{ marginLeft: "8px", marginBottom: "4px", cursor: 'pointer', color: "#0078b8", fontSize: 16 }} />
+                                )
+                            }
+                        </span>
                     </div>
                     {
                         (ccl.reportId !== 0 && (typeof ccl.reportId === "number")) && (
@@ -914,14 +924,13 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                         </HighlightCard>
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 14 }}>Available after CP DOC is complete.</span>
-                        {
-                            (cpProgress == "progress" || cpProgress == "complete") && (
-                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.CM)}>
-                                    <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
-                                </div>
-                            )
-                        }
+                        <span style={{ fontSize: 14 }}>Available after CP DOC is complete.
+                            {
+                                (cpProgress == "progress" || cpProgress == "complete") && (
+                                    <ArrowOutwardIcon onClick={() => navigate(PathConstants.CM)} style={{ marginLeft: "8px", marginBottom: "4px", cursor: 'pointer', color: "#0078b8", fontSize: 16 }} />
+                                )
+                            }
+                        </span>
                     </div>
                     {
                         (ccn.status && ccn.status != "" && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) && (
@@ -966,14 +975,13 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                         </HighlightCard>
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 14 }}>Available after CCL Matrix is completed.</span>
-                        {
-                            (cpProgress == "progress" || cpProgress == "complete") && (
-                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }} onClick={() => navigate(PathConstants.LOI)}>
-                                    <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
-                                </div>
-                            )
-                        }
+                        <span style={{ fontSize: 14 }}>Available after CCL Matrix is completed.
+                            {
+                                (cpProgress == "progress" || cpProgress == "complete") && (
+                                    <ArrowOutwardIcon onClick={() => navigate(PathConstants.LOI)} style={{ marginLeft: "8px", marginBottom: "4px", cursor: 'pointer', color: "#0078b8", fontSize: 16 }} />
+                                )
+                            }
+                        </span>
                     </div>
                     {
                         (ccn.status && ccn.status != "" && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) && (
@@ -1018,14 +1026,13 @@ function AuthoringSequence({ ccn, ccl, cp, markedAsCompleteData }: CardAndAuthor
                         </HighlightCard>
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 14 }}>When all workstreams are finished - then goes through its own review and release cycle.</span>
-                        {
-                            (cpProgress == "progress" || cpProgress == "complete") && (
-                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", cursor: 'pointer' }}>
-                                    <ArrowOutwardIcon style={{ color: "#0078b8", fontSize: 16 }} />
-                                </div>
-                            )
-                        }
+                        <span style={{ fontSize: 14 }}>When all workstreams are finished - then goes through its own review and release cycle.
+                            {
+                                (cpProgress == "progress" || cpProgress == "complete") && (
+                                    <ArrowOutwardIcon onClick={() => navigate(PathConstants.CP)} style={{ marginLeft: "8px", marginBottom: "4px", cursor: 'pointer', color: "#0078b8", fontSize: 16 }} />
+                                )
+                            }
+                        </span>
                     </div>
                     {
                         (ccn.status && ccn.status != "" && ccn.status.toLowerCase() == ReportStages.Released.toLowerCase()) && (
