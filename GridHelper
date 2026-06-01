@@ -1,894 +1,838 @@
-// import * as React from 'react';
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useDispatch } from "react-redux";
+import * as singleSpa from 'single-spa';
+import * as WorkAppRoutes from './workAppRoutes.js';
+import { checkProjectIdFromRoute } from './setProjectIdHelper.js';
+import EASAWorkapp from '../js/easaJs/easaWorkapp.js';
+import UserToken from '../js/userToken';
+import HelpGuideService from '../js/helpGuideService.js';
+import WorkAppRequest from './WorkAppRequest.js';
+import { GetUserFavouritesDetail, handleBreadcrumsNavigation, loadEasaMenuData, updateBUandDiscipline, handleHomeBreadcrumsClick } from '../page-home/home.js';
+import HelpGuideTour from './helpGuideTour.js';
+import { StorageService } from './StorageService.js';
+import easaMenuSubmenu, { GroupBU } from './easaJs/easaMenuSubmenu.js';
+const { NotificationHub } = require('../js/NotificationHub.js');
+let notificationHub = new NotificationHub();
 
-import {
-  fileExcelIcon,
-  filePdfIcon,
-  chevronDoubleDownIcon,
-  chevronDoubleRightIcon,
-  gearIcon,
-  columnsIcon,
-  moreVerticalIcon,
-} from "@progress/kendo-svg-icons";
-import {
-  Grid,
-  GridColumn as Column,
-  getSelectedState,
-  GridToolbar,
-} from "@progress/kendo-react-grid";
-import {
-  setExpandedState,
-  getGroupIds,
-  stringOperator,
-} from "@progress/kendo-react-data-tools";
-import { getter } from "@progress/kendo-react-common";
-import { process } from "@progress/kendo-data-query";
-import { SvgIcon } from "@progress/kendo-react-common";
-import { Checkbox, Input } from "@progress/kendo-react-inputs";
-import { Popup } from "@progress/kendo-react-popup";
-import { GridPDFExport } from "@progress/kendo-react-pdf";
-import { ExcelExport } from "@progress/kendo-react-excel-export";
-import {
-  Button,
-  Card,
-  CardContent,
-  Container,
-  Typography,
-} from "@mui/material";
-import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
+let easaWorkapp = new EASAWorkapp();
 
-import ReactSanitizedHtml from "react-sanitized-html";
+class ShellEventListener {
 
-import "../EasaRegisterList.Component.scss";
+    constructor() {
+    }
 
-export function getNestedValue(fieldName, dataItem) {
-  const path = (fieldName || "").split(".");
-  let data = dataItem;
-  path.forEach((p) => {
-    data = data ? data[p] : undefined;
-  });
-
-  return data;
+    registerShellListener = () => {
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_MY_WORK_SPACE}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_DDTL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_PMDB_ProjectRegister}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_EASAWorkSpace}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_WORK_APPS_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_WORK_SPACE_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_WIRE_WEIGHT}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_PIN_WIRE_SETTING}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_ELA_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FPQ_DEATILS}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FPQ_DETAIL}_CHECKLISTENTRY_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FPQ_DETAIL}_NEW_CHECKLISTENTRY_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_EASA_ApproveDesign}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_EASA_SBDesign}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_BERST_MAINTASK}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_ADMIN_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_MY_PENDING_TASKS_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_SMART_CONFIGURATION_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_SEARCH_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_DESIGN_FORM}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_ESPEC_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_PMDB_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_QMAP_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_WKT_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_AWCERT_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_PMDB_MEL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_BERST_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FPQ_DETAIL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_NCAT_DETAILS}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_PMDB_DELInfo}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_TIPSS_DETAILS}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_Terminal_Tracker}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_CSR}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_PROPOSAL_BUILDER}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_WIRE_WEIGHT_SAV}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_WIREKIT_DETAILS}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_MANAGE_LEASETERMINATION}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_BRIDGEANALYSIS}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_AFMREPORTS}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_PDM_DETAILS}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_ENOVIA_DETAILS}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_NO_OF_CONFIGS}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FLOOR_LOAD_INTERFACE_TOOL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_EASA_CertTool}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_EASA_REGISTER}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_BILDR_TOOL}_EVENT`, ShellListener);
+        window.addEventListener(`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_PROJECT_SCHEDULE_DETAILS}_EVENT`, ShellListener);
+    }
 }
 
-const getHighlight = (value, filter) => {
-  let index = value.toLocaleLowerCase().indexOf(filter.toLocaleLowerCase());
-  if (index >= 0) {
-    let left = value.substr(0, index);
-    let right = value.substring(index + filter.length, value.length);
-    return (
-      <React.Fragment>
-        {left}
-        <span style={{ backgroundColor: "#a8edb3" }}>
-          {value.substr(index, filter.length)}
-        </span>
-        {getHighlight(right, filter)}
-      </React.Fragment>
-    );
-  }
-  return value;
-};
+export default ShellEventListener;
 
-function highlightSearchTextInReactChildren(children, searchText) {
-  function highlightInNode(node: React.ReactNode) {
-    if (typeof node === "string") {
-      const modifiedContent = node.replace(
-        new RegExp(`(${searchText})`, "gi"),
-        '<span style="background-color:#a8edb3">$1</span>'
-      );
-      if (node !== modifiedContent) {
-        return (
-          <span>
-            <ReactSanitizedHtml html={modifiedContent} />
-          </span>
-        );
-      }
-    } else if (React.isValidElement(node)) {
-      const children = node.props.children;
-      if (children != null) {
-        if (Array.isArray(children)) {
-          return React.cloneElement(
-            node,
-            {},
-            children.map((ch, index) => highlightInNode(ch))
-          );
-        } else {
-          return React.cloneElement(node, {}, highlightInNode(children));
+function ShellListener(appEventDetail) {
+    let tempWorkAppData = {};
+    let helpGuideService = new HelpGuideService();
+    if (appEventDetail.type.indexOf(process.env.REACT_APP_MY_WORK_SPACE) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_MY_WORK_SPACE}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_AFMREPORTS) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_AFMREPORTS}_EVENT_DATA`];
+    }
+    //No Of Configs
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_FIND_NO_OF_CONFIGS) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_NO_OF_CONFIGS}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_DDTL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_DDTL}_EVENT_DATA`];
+        if (tempWorkAppData && tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] !== 'API_REQ_COMPLETE') {
+            easaWorkapp.receiveWorkappData(tempWorkAppData);
         }
-      }
+        console.log("received data from workapp :" + tempWorkAppData);
     }
-
-    return node;
-  }
-  return React.Children.map(children, (child: React.ReactNode) => {
-    return highlightInNode(child);
-  });
-}
-
-const getNumberOfItems = (data) => {
-  let count = 0;
-  data.forEach((item) => {
-    if (item.items) {
-      if (item.expanded) {
-        count = count + getNumberOfItems(item.items);
-      }
-    } else {
-      count++;
-    }
-  });
-  return count;
-};
-const getNumberOfSelectedItems = (data) => {
-  let count = 0;
-  data.forEach((item) => {
-    if (item.items) {
-      if (item.expanded) {
-        count = count + getNumberOfSelectedItems(item.items);
-      }
-    } else {
-      count = count + (item.selected === true ? 1 : 0);
-    }
-  });
-  return count;
-};
-
-const generateGroupIds = (data) => {
-  data.forEach((item) => {
-    if (item.aggregates) {
-      item.groupId = item.field + "_" + item.value;
-      generateGroupIds(item.items);
-    }
-  });
-};
-
-const getDataColumnsTitles = (gridChildren) => {
-  let columns = {};
-  gridChildren.forEach((child) => {
-    if (child !== ",") {
-      if (
-        child.type?.displayName === "KendoReactGridColumn" &&
-        child.props.field &&
-        child.props.field !== "selected"
-      ) {
-        var excludedFields: string[] = [
-          "CREATION_DATE",
-          "CREATED_Name",
-          "MODIFICATION_DATE",
-          "MODIFIED_Name",
-          "PREPARED_BY_NAME",
-          "APPROVED_BY_NAME",
-          "ORGANISATION_TYPE",
-          "DO_PO_MO",
-          "COMMENTS",
-        ];
-        const isFieldExcluded = excludedFields.includes(child.props.field);
-        if (!isFieldExcluded) {
-          columns[child.props.title ?? child.props.field] = true;
-        } else {
-          columns[child.props.title ?? child.props.field] = false;
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_PMDB_ProjectRegister) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_PMDB_ProjectRegister}_EVENT_DATA`];
+        if (tempWorkAppData && tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] !== 'API_REQ_COMPLETE') {
+            easaWorkapp.receiveWorkappData(tempWorkAppData);
         }
-      }
+        console.log("received data from workapp :" + tempWorkAppData);
     }
-  });
-  return columns;
-};
-
-const getGridFieldColumns = (gridChildren) => {
-  let fieldColumns: Array<any> = [];
-  gridChildren.map((child: any) => {
-    if (child !== ",") {
-      if (
-        child.type?.displayName === "KendoReactGridColumn" &&
-        child.props &&
-        child.props.field &&
-        child.props.field !== "selected"
-      ) {
-        fieldColumns.push(child.props);
-      }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_EASAWorkSpace) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_EASAWorkSpace}_EVENT_DATA`];
+        if (tempWorkAppData && tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] !== 'API_REQ_COMPLETE') {
+            easaWorkapp.receiveWorkappData(tempWorkAppData);
+        }
+        console.log("received data from workapp :" + tempWorkAppData);
     }
-  });
-  return fieldColumns;
-};
-const TOOLBAR_BUTTON_TYPE = "primary";
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_EASA_CertTool) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_EASA_CertTool}_EVENT_DATA`];
+        if (tempWorkAppData && tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] !== 'API_REQ_COMPLETE') {
+            easaWorkapp.receiveWorkappData(tempWorkAppData);
+        }
+        console.log("received data from workapp :" + tempWorkAppData);
+    }
+    //approve design change
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_EASA_ApproveDesign) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_EASA_ApproveDesign}_EVENT_DATA`];
+        if (tempWorkAppData && tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] !== 'API_REQ_COMPLETE') {
+            easaWorkapp.receiveWorkappData(tempWorkAppData);
+        }
+        console.log("received data from workapp :" + tempWorkAppData);
+    }
+    //service bulletin
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_EASA_SBDesign) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_EASA_SBDesign}_EVENT_DATA`];
+        if (tempWorkAppData && tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] !== 'API_REQ_COMPLETE') {
+            easaWorkapp.receiveWorkappData(tempWorkAppData);
+        }
+        console.log("received data from workapp :" + tempWorkAppData);
+    }
 
-export const GridHelper = (props) => {
-  const {
-    externalFilter,
-    expandCollapseAllButton,
-    excelExportButton,
-    pdfExportButton,
-    showColumnsConfigurator,
-    showFeaturesConfigurator,
-    filterHighlights,
-  } = props.toolbarSettings ?? {};
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_WORK_APPS_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_WORK_APPS_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_WORK_SPACE_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_WORK_SPACE_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.toLocaleLowerCase().indexOf(WorkAppRoutes.WIREWEIGHTSAV_DETAILS.SAV) == -1 && appEventDetail.type.indexOf(process.env.REACT_APP_FIND_WIRE_WEIGHT) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_WIRE_WEIGHT}_EVENT_DATA`];
+    }
 
-  const GridProps = props.children.props;
-  const GridChildrenProps = GridProps.children[2];
+    //Floor Load Interface Tool
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_FLOOR_LOAD_INTERFACE_TOOL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FLOOR_LOAD_INTERFACE_TOOL}_EVENT_DATA`];
+    }
+    //Easa Register
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_EASA_REGISTER) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_EASA_REGISTER}_EVENT_DATA`];
+    }
+    //proposalbuilder
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_FIND_PROPOSAL_BUILDER) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_PROPOSAL_BUILDER}_EVENT_DATA`];
 
-  const [filterValue, setFilterValue] = React.useState<String | null>(null);
+        let tempPageData = tempWorkAppData["Detail"];
+        if (["Create", "Edit", "Save"].includes(tempWorkAppData["Action"])) {
+            $('#oss-menu-breadcrums')
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text(tempPageData["BerdCrumb"]));
+        }
+    }
+    //wirepinsetting
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_FIND_PIN_WIRE_SETTING) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_PIN_WIRE_SETTING}_EVENT_DATA`];
+    }
+    //Design Form
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_DESIGN_FORM) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_DESIGN_FORM}_EVENT_DATA`];
+    }
+    //Wirekit
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_WIREKIT_DETAILS) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_WIREKIT_DETAILS}_EVENT_DATA`]
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_FIND_CSR) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_CSR}_EVENT_DATA`];
+    }
+    //fpq details
+    else if ((tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "FPQDetails_Navigation") || (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "FPQItarDetails_Navigation")) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FPQ_DEATILS}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_FPQ_DETAIL + "_CHECKLISTENTRY_EVENT") > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FPQ_DETAIL}_CHECKLISTENTRY_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_FPQ_DETAIL + "_NEW_CHECKLISTENTRY_EVENT") > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FPQ_DETAIL}_NEW_CHECKLISTENTRY_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_ADMIN_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_ADMIN_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_MY_PENDING_TASKS_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_MY_PENDING_TASKS_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_SMART_CONFIGURATION_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_SMART_CONFIGURATION_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_SEARCH_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_SEARCH_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_ESPEC_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_ESPEC_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_PMDB_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_PMDB_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_QMAP_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_QMAP_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_WKT_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_WKT_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_AWCERT_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_AWCERT_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_PMDB_MEL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_PMDB_MEL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_BERST_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_BERST_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_FPQ_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FPQ_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_PMDB_DELInfo) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_PMDB_DELInfo}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_NCAT_DETAILS) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_NCAT_DETAILS}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_ELA_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_ELA_DETAIL}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_BERST_MAINTASK) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_BERST_MAINTASK}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_TIPSS_DETAILS) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_TIPSS_DETAILS}_EVENT_DATA`];
+        easaWorkapp.receiveWorkappData(tempWorkAppData);
+        console.log("received data from workapp :" + tempWorkAppData);
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_Terminal_Tracker) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_Terminal_Tracker}_EVENT_DATA`];
+        easaWorkapp.receiveWorkappData(tempWorkAppData);
+        console.log("received data from workapp :" + tempWorkAppData);
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_FIND_WIRE_WEIGHT_SAV) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_FIND_WIRE_WEIGHT_SAV}_EVENT_DATA`];
+    }
+    //AFM Reports
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_AFMREPORTS) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_AFMREPORTS}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_MANAGE_LEASETERMINATION) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_MANAGE_LEASETERMINATION}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_BRIDGEANALYSIS) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_BRIDGEANALYSIS}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_PDM_DETAILS) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_PDM_DETAILS}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_ENOVIA_DETAILS) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_ENOVIA_DETAILS}_EVENT_DATA`];
+    }
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_BILDR_TOOL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_BILDR_TOOL}_EVENT_DATA`];
+    }
+    if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "Proj_Detail_Navigation") {
+        let tempDetailData = tempWorkAppData["Detail"];
 
-  // Needed for toggling features from the configurator
-  const [defaultConfiguration, setDefaultConfiguration] = React.useState({
-    filterable: props.filterable ?? GridProps.filterable,
-    selectable: props.selectable ?? GridProps.selectable,
-    sortable: props.sortable ? props.sortable : GridProps.sortable,
-    groupable: props.groupable ?? GridProps.groupable,
-    pageable: props.pageable ?? GridProps.pageable,
-  });
+        // Navigate to Profile Detail page
+        if (tempWorkAppData["AppName"] == process.env.REACT_APP_MY_WORK_SPACE) {
+            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DETAIL.APP_ROUTE + "/#" + WorkAppRoutes.PMDB_DETAIL.PROJECT_DETAIL.replace(":pid", tempDetailData["ProjectId"]));
+        }
+    } else if (tempWorkAppData["Action"] == "HomePageData") {
+        let tempHomePageData = tempWorkAppData["Detail"];
+        $("#dataFromWorkApp").html(tempHomePageData.Id + "   " + tempHomePageData.Name + "--- Data has updated");
+    } else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "Proj_Register_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.PREGISTER_HOME);
+        easaWorkapp.handleBreadcrumsNavigation("Project Register");
+    } else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "EASA_My_Workspace_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_WORKSPACE_HOME);
+        easaWorkapp.handleBreadcrumsNavigation("Easa Workspace");
+    } else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "ddtl_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + WorkAppRoutes.PMDB_DDTL.DDTL_HOME);
+        easaWorkapp.handleBreadcrumsNavigation("Design Data Transmittal Letter");
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "My_Workspace_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.MY_WORK_SPACE.APP_ROUTE + "/#" + WorkAppRoutes.MY_WORK_SPACE.ALL_PROJECTS);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "EASA_design_change_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
+        easaWorkapp.handleBreadcrumsNavigation("EASA Design Change");
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "Approve_design_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_ApproveDesign.EASA_ApproveDesign_HOME);
+        easaWorkapp.handleBreadcrumsNavigation("Approved Design Changes");
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "SB_design_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_SBDesign.EASA_SBDesign_HOME);
+        easaWorkapp.handleBreadcrumsNavigation("SB Design Change");
+    }
+    //wireweight
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "Wireweight_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.WIREWEIGHT_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.WIREWEIGHT_DETAILS.WIREWEIGHT_DETAILS_HOME);
 
-  const [configuration, setConfiguration] = React.useState({
-    ...defaultConfiguration,
-  });
+    }
+    //NoOfConfigs
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "NoOfConfigs_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.NOOFCONFIGS_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.NOOFCONFIGS_DETAILS.NOOFCONFIGS_DETAILS_HOME);
+    }
+    //proposalbuilder
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "proposalbuilder_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.PROPOSALBUILDER_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.PROPOSALBUILDER_DETAILS.PROPOSALBUILDER_DETAILS_HOME);
+    }
 
-  React.useEffect(() => {
-    setConfiguration({
-      ...configuration,
-      pageable: props.pageable ?? GridProps.pageable,
-    });
-  }, [props.pageable, GridProps.pageable]);
+    //wirepinsetting
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "WirePinSetting_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.PIN_SETTING_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.PIN_SETTING_DETAILS.PINWIRESETTING_DETAILS_HOME);
 
-  React.useEffect(() => {
-    setConfiguration({
-      ...configuration,
-      filterable: props.filterable ?? GridProps.filterable,
-    });
-  }, [props.filterable, GridProps.filterable]);
+    }
+    //csr
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "Csr_Navigation") {
+        // TODO: GroupId need to make dynamic
+        new UserToken().setGroupBU(GroupBU.FAA);
+        let currentDisciplineId = new UserToken().getCurrentDisciplineId();
+        let tempGroupIdBasedOnCurDisciplineId = '';
+        if (currentDisciplineId == "1") {
+            tempGroupIdBasedOnCurDisciplineId = "4";
+        } else if (currentDisciplineId == "2") {
+            tempGroupIdBasedOnCurDisciplineId = "5";
+        } else if (currentDisciplineId == "26" || currentDisciplineId == "16" || currentDisciplineId == "17") {
+            tempGroupIdBasedOnCurDisciplineId = "14";
+        } else {
+            tempGroupIdBasedOnCurDisciplineId = "3";
+        };
+        new UserToken().setGroupId(tempGroupIdBasedOnCurDisciplineId.toString());
+        let tempGroupId = new UserToken().getGroupId();
+        singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH.replace(":groupId", tempGroupId).replace(":registerId", "0"));
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CSR_EASA_Breadcrum_Details") {
+        if (tempWorkAppData["Detail"]) {
+            const storageServ = new StorageService();
+            const EASAMenuSubmenu = new easaMenuSubmenu();
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easamyworkspaceprojectid', tempWorkAppData["Detail"]["registerId"]);
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', tempWorkAppData["Detail"]["groupId"]);
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_NAME}`, 'selectedgroup', tempWorkAppData["Detail"]["groupId"]);
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentprojectbreadcrumbs', `Edit Project Register: ${tempWorkAppData["Detail"]["registerNo"]}-${tempWorkAppData["Detail"]["revision"].padStart(2, 0)}`);
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenutitle', tempWorkAppData["Detail"]["reportType"]);
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaprojectno', tempWorkAppData["Detail"]["registerNo"]);
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaRevision', tempWorkAppData["Detail"]["revision"]);
+            const currentTitle = tempWorkAppData["Detail"]["reportType"];
+            const currentProject = `Edit Project Register: ${tempWorkAppData["Detail"]["registerNo"]}-${tempWorkAppData["Detail"]["revision"].padStart(2, 0)}`;
+            const currentActiveDesignDocTab = tempWorkAppData["Detail"]["groupId"];
+            let docNumber = storageServ.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'DocNumber');
+            EASAMenuSubmenu.activateSubmenuButton();
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm clickable")
+                    .click(() => handleHomeBreadcrumsClick(event)))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles clickable").text('EASA My Workspace').attr("id", `oss-csrsearch-breadcrums`)
+                    .click(() => singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_WORKSPACE_HOME)))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles clickable").text(currentProject).attr("id", `oss-csrsearch-breadcrums`).click(() => {
+                    EASAMenuSubmenu.handleSubMenuButtonClick("projectdetailsbttn");
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles clickable").text(currentTitle).attr("id", `oss-csrsearch-breadcrums`).click(() => {
+                    EASAMenuSubmenu.handleSubMenuButtonClick(currentActiveDesignDocTab);
+                    // singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH.replace(':groupId', currentActiveDesignDocTab));
+                }))
+                // .append($('<div>').addClass("gg-chevron-right"))
+                // .append($('<div>').addClass("breadcrumsStyles").text(`Document Number: ${docNumber ? docNumber : ''}`).attr("id", `oss-csr-docnumber`).click(() => {
+                //     if (window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.MANAGE_REGULATION) > -1) {
+                //         let reportId = storageService.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'reportId');
+                //         singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId);
+                //     }
+                // }))
+                ;
+            if (window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.MANAGE_REGULATION) > -1) {
+                $('#oss-menu-breadcrums')
+                    .append($('<div>').addClass("gg-chevron-right"));
+                $('#oss-menu-breadcrums').append($('<div>')
+                    .attr("id", "oss-csr-regulation")
+                    .addClass("font-size-md")
+                    .text(`Regulations`));
+            }
+        }
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["AppName"] == "CertTool") {
+        easaWorkapp.handleBreadcrumsNavigation("Easa Workspace");
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CSR_Breadcrumb_Detail") {
+        // Set CSR BreadCrumb details
+        let docNumber = tempWorkAppData["Detail"]["DocNumber"];
+        let projectId = tempWorkAppData["Detail"]["ProjectId"];
+        let revision = tempWorkAppData["Detail"]["Rev"];
+        let groupId = tempWorkAppData["Detail"]["GroupId"];
+        let tempGroupBU = tempWorkAppData["Detail"]["GroupBU"];
+        let updateProjectId = projectId?.toString().padStart(5, '0');
+        let regProjectId = tempWorkAppData["Detail"]["registerProjectId"];
+        let registerProjectRevision = "";
+        // CSR same variable having 2 names, regProjectIdRev and regProjectIdRevision
+        if (tempWorkAppData["Detail"]["regProjectIdRev"]) {
+            registerProjectRevision = tempWorkAppData["Detail"]["regProjectIdRev"];
+        } else if (tempWorkAppData["Detail"]["regProjectIdRevision"]) {
+            registerProjectRevision = tempWorkAppData["Detail"]["regProjectIdRevision"];
+        }
+        const userTokenTemp = new UserToken();
+        const groupBU = userTokenTemp.getGroupBU();
+        const storageServiceTemp = new StorageService();
+        let deleted = false;
+        if (groupId == "") {
+            deleted = true;
+        }
 
-  React.useEffect(() => {
-    setConfiguration({
-      ...configuration,
-      groupable: props.groupable ?? GridProps.groupable,
-    });
-  }, [props.groupable, GridProps.groupable]);
+        if (deleted) {
+            const easaDeletedGroupId = new StorageService().getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_NAME}`, 'selectedgroup');
+            const subMenuDivWithGroup = document.getElementById(`nav-div-${easaDeletedGroupId}-wrap`);
+            if (subMenuDivWithGroup) {
+                storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenutitle', subMenuDivWithGroup.textContent);
+            }
+            handleBreadcrumsNavigation("DESIGNDOCUMENT");
+            new easaMenuSubmenu().activateSubmenuButton();
+        }
 
-  React.useEffect(() => {
-    setConfiguration({
-      ...configuration,
-      selectable: props.selectable ?? GridProps.selectable,
-    });
-  }, [props.selectable, GridProps.selectable]);
+        if (tempGroupBU && tempGroupBU?.toUpperCase().indexOf(GroupBU.EASA) > -1) {
+            // update BU and Discipline if needed            
+            // TODO: change hardcoded BGS Mods EASA, Electrical by passing from tempWorkAppData
+            const discToUpdate = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_NAME}`, 'currentdiscipline');
+            const updatedBUDIids = updateBUandDiscipline(tempGroupBU, discToUpdate);
+            if (updatedBUDIids) {
+                loadEasaMenuData(new UserToken().getAppToken(), updatedBUDIids[0], updatedBUDIids[1]);
+                GetUserFavouritesDetail(new UserToken().getAppToken(), updatedBUDIids[0], updatedBUDIids[1]);
+            }
+            let newBreadcrumb = `Edit Project Register: ${updateProjectId}`;
+            // const newRevision = new StorageService().getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaRevision');
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaprojectno', updateProjectId);
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaRevision', registerProjectRevision.padStart(2, 0));
+            if (registerProjectRevision != "") {
+                newBreadcrumb += `-${registerProjectRevision.padStart(2, 0)}`;
+            }
+            // setting easaActiveSubMenu local storage data
+            new StorageService().setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentProjectBreadcrumbs', newBreadcrumb);  // need to be dynamic
+            new StorageService().setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+            new StorageService().setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', groupId);
+            new StorageService().setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easamyworkspaceprojectid', regProjectId);
 
-  React.useEffect(() => {
-    setDefaultData(props.data ?? GridProps.data);
-    setData(props.data ?? GridProps.data);
-  }, [props.data, GridProps.data]);
+            // setting shell local storage data
+            // new StorageService().setApplicationDataByKey(`${process.env.REACT_PARENT_APP_NAME}-Shell`, 'groupbu','EASA');
+            new StorageService().setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_NAME}`, 'selectedgroup', groupId);
 
-  // The raw data
-  const [defaultData, setDefaultData] = React.useState(
-    (props.data ?? GridProps.data).map((dataItem) =>
-      Object.assign(
+            // storing data in activeMainMenuId local storage
+            localStorage.setItem('activeMainMenuId', "designDoc");
+            // storing data in activeTest2SubMenuId local storage
+            localStorage.setItem('activeTest2SubMenuId', 'csrBtn');
+
+            $('#oss-menu-breadcrums').empty();
+            storageServiceTemp.setApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'CsrWorkAppFlag', true);
+            new UserToken().setGroupBU(GroupBU.EASA);
+            const activeSubMenuBtnNodes = document.getElementsByClassName("activeSubmenuBtn");
+            let currentGroup = "";
+            for (let i = 0; i < activeSubMenuBtnNodes.length; i++) {
+                if (!isNaN(Number(activeSubMenuBtnNodes[i].id.split('-')[2]))) {
+                    currentGroup = activeSubMenuBtnNodes[i].textContent;
+                    if (currentGroup != "") {
+                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', currentGroup)
+                        break;
+                    }
+                }
+            }
+            handleBreadcrumsNavigation("DESIGNDOCUMENT");
+            new easaMenuSubmenu().activateSubmenuButton();
+        } else {
+            storageServiceTemp.setApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'DocNumber', docNumber);
+            storageServiceTemp.setApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'CsrPmdbProjectId', projectId);
+            // SET FROM WORKAPP
+            // storageServiceTemp.setApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'CsrWorkAppFlag', false);
+            $('#oss-menu-breadcrums').empty();
+            new easaMenuSubmenu().setMenuSectionVisibility(false);
+            if (!groupId == "") {
+
+                new UserToken().setGroupBU(GroupBU.FAA);
+            }
+
+            new UserToken().setGroupBU(GroupBU.FAA);
+            $("#oss-header-menu-setion").show();
+            handleBreadcrumsNavigation("DESIGNDOCUMENT");
+        }
+
+        new StorageService().setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, 'DocRev', revision);
+        // new UserToken().setGroupId(groupId);
+        // new UserToken().setGroupBU(tempGroupBU);
+        //if (!window.projectId)
+        window.projectId = projectId;
+        if (document.getElementById("oss-csr-docnumber")) {
+            document.getElementById("oss-csr-docnumber").innerHTML = `Document Number: ${docNumber ? docNumber : ''}`;
+            if (revision && revision != "" && (revision.toLowerCase() !== 'new' && revision !== '00')) {
+                document.getElementById("oss-csr-docnumber").innerHTML += `<span> Rev ${revision}</span>`;
+            }; // Rev in red
+        }
+        // since if and else useing same condition, commented bellow else part 
+        // else {
+        //     document.getElementById("oss-csr-docnumber").innerHTML = `Document Number: ${docNumber ? docNumber : ''}`;
+        // }
+        if (document.getElementById("oss-csrprojectId-breadcrumb") != null && document.getElementById("oss-csrprojectId-breadcrumb") != undefined) {
+            checkProjectIdFromRoute(projectId).then(({ projectId, itarStatus }) => {
+                if (projectId || projectId == "") {
+                    let projectText = `Project Number ${projectId}`;
+
+                    if (revision && revision.toLowerCase() !== 'new') {
+                        document.getElementById("oss-csr-docnumber").innerHTML += `<span"> Rev ${revision}</span>`;
+                    } // Rev label
+                    if (itarStatus === 1) {
+                        projectText += ` (<span style="color:#EA002A;">ITAR</span>)`; // ITAR in red
+                    }
+
+                    let projectElement = document.getElementById("oss-csrprojectId-breadcrumb");
+                    if (projectElement) {
+                        projectElement.innerHTML = projectText;
+                    }
+                }
+            });
+        }
+        if (document.getElementById("oss-projectId-breadcrumb") != null && document.getElementById("oss-projectId-breadcrumb") != undefined) {
+            checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                if (projectId) {
+                    let projectText = `Project Number ${projectId}`;
+                    if (revision && revision.toLowerCase() !== 'new') {
+                        document.getElementById("oss-csr-docnumber").innerHTML += `<span> Rev ${revision}</span>`;
+                    }
+
+                    if (itarStatus === 1) {
+                        projectText += ` (<span style="color:#EA002A;">ITAR</span>)`; // ITAR in red
+                    }
+
+                    let projectElement = document.getElementById("oss-projectId-breadcrumb");
+                    if (projectElement) {
+                        projectElement.innerHTML = projectText;
+                    }
+                }
+            });
+        }
+    }
+    //ELA
+    else if (appEventDetail.type.indexOf(process.env.REACT_APP_ELA_DETAIL) > -1) {
+        tempWorkAppData = appEventDetail[`${process.env.REACT_APP_ROOT_NAME}_${process.env.REACT_APP_ELA_DETAIL}_EVENT_DATA`];
+    }
+    //fpq details
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "FPQDetails_Navigation" || tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "FPQItarDetails_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_WORKAPP_DETAILS_HOME);
+
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "FPQDetailsCheckListEntry_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_WORKAPP_CHECKLIST_ENTRY_DETAILS + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.ChecklistEntryId);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "FPQDetailsNewCheckListEntry_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_WORKAPP_NEW_CHECKLIST_ENTRY + "/" + tempWorkAppData.Detail.ProjectId);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "QmapFpqCheckListEntryDetails_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_WORKAPP_QMAP_CHECKLIST_ENTRY_DETAILS + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.ChecklistEntryId);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "QmapFpqCreateNewCheckListEntry_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_QMAP_CHECKLIST_ENTRY_NEW_WITH_PARAM + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.DocumentNumber);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "EspecFpqCheckListEntryDetails_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_WORKAPP_ESPEC_CHECKLIST_ENTRY_DETAILS + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.ChecklistEntryId);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "EspecFpqCreateNewCheckListEntry_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_ESPEC_CHECKLIST_ENTRY_NEW_WITH_PARAM + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.DocumentNumber);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "WktFpqCheckListEntryDetails_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_WORKAPP_WKT_CHECKLIST_ENTRY_DETAILS + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.ChecklistEntryId);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "WktFpqCreateNewCheckListEntry_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_WKT_CHECKLIST_ENTRY_NEW_WITH_PARAM + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.DocumentNumber);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "TIPSS_Details_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.TIPSS_DETAILS.APP_ROOT + "/#" + WorkAppRoutes.TIPSS_DETAILS.TIPSS_DETAILS_TIPSS_REPORT);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "WireweightSAV_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.WIREWEIGHTSAV_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.WIREWEIGHTSAV_DETAILS.WIREWEIGHTSAV_DETAILS_HOME);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] === "Notification_Event") {
+        //Invoke signal R connection
+        let userBemsId = new UserToken().getUserBemsId();
+        var workApp = helpGuideService.getWorkAppForRoute(window.location.href);
+
+        let actionMessage =
         {
-          selected: false,
-        },
-        dataItem
-      )
-    )
-  );
-  
-  const [exportColumns, setExportColumns] = React.useState<Array<any>>(
-    getGridFieldColumns(GridChildrenProps)
-  );
-  const [data, setData] = React.useState(defaultData);
-  const idGetter = getter(props.dataItemKey ?? GridProps.dataItemKey);
-  const [dataState, setDataState] = React.useState(
-    props.initialDataState ?? { skip: null }
-  );
-  const [columnsState, setColumnsState] = React.useState(
-    getDataColumnsTitles(GridChildrenProps)
-  );
-  const [selectedState, setSelectedState] = React.useState({});
-  const [collapsedState, setCollapsedState] = React.useState<string[]>([]);
-  const [total, setTotal] = React.useState(data.length);
-
-  // Updates the configuration settings
-  const updateConfiguration = (setting, state) => {
-    let defaultValue = defaultConfiguration[setting];
-    let newSettings = {
-      ...configuration,
-    };
-
-    // if the property state is "true", use the defaultValue (if it was set initially). This handles the case
-    // where "pageable" and "sortable" settings are initially objects
-    newSettings[setting] = state ? (defaultValue ? defaultValue : true) : false;
-    if (setting === "pageable") {
-      setDataState({ ...dataState, take: state ? 10 : null });
-    } else if (setting === "groupable" && !state) {
-      setDataState({ ...dataState, group: null });
-    } else if (setting === "filterable" && !state) {
-      setDataState({ ...dataState, filter: null });
+            NID: tempWorkAppData.Details.NID,
+            AppName: tempWorkAppData.Details.AppName,
+            BemsId: userBemsId
+        };
+        notificationHub.sendNotification(actionMessage);
     }
-    setConfiguration(newSettings);
-  };
-
-  // Updates the columns visibility state
-  const updateColumns = (setting, state) => {
-    let newState = { ...columnsState };
-    newState[setting] = state;
-    setColumnsState(newState);
-  };
-
-  // const onDataStateChange = (ev) => {
-  //
-  //   setDataState(ev.dataState);
-  // };
-
-  const onExpandChange = React.useCallback(
-    (event) => {
-      const item = event.dataItem;
-      if (item.groupId) {
-        const newCollapsedIds = !event.value
-          ? [...collapsedState, item.groupId]
-          : collapsedState.filter((groupId) => groupId !== item.groupId);
-        setCollapsedState(newCollapsedIds);
-      }
-    },
-    [collapsedState]
-  );
-
-  // All data operations, except the external filter, are handled here
-  const finalData = React.useMemo(() => {
-
-    let processedData = data.map((item) => ({
-      ...item,
-      // [props.selectedField ? props.selectedField : 'selected']:
-      //   selectedState[idGetter(item)]
-    }));
-    dataState.sort = GridProps?.sort;
-    dataState.filter = GridProps?.filter;
-    processedData = process(processedData, dataState);
-    processedData.total = GridProps.total;
-    setTotal(processedData.total);
-    generateGroupIds(processedData.data);
-    processedData = setExpandedState({
-      data: processedData.data,
-      collapsedIds: collapsedState,
-    });
-    return processedData;
-  }, [
-    data,
-    dataState,
-    setDataState,
-    selectedState,
-    setSelectedState,
-    collapsedState,
-    setCollapsedState,
-  ]);
-
-  const newProps = {
-    ...props.children.props,
-    children: null,
-    data: finalData,
-    ...dataState,
-    total: total,
-    onExpandChange: onExpandChange,
-    expandField: props.expandedField ?? GridProps.expandedField ?? "expanded",
-    // selectedField: props.selectedField ?? GridProps.selectedField ?? 'selected'
-  };
-
-  const onGroupsToggle = React.useCallback(() => {
-    setCollapsedState(
-      collapsedState.length ? [] : getGroupIds({ data: finalData })
-    );
-  }, [collapsedState, dataState]);
-
-  const onExternalFilterChange = (ev) => {
-    const value = ev.value;
-    setFilterValue(ev.value);
-    let visibleColumnsFields = {};
-    GridProps.children.map((child) => {
-      if (child !== ",") {
-        if (
-          child.type?.displayName === "KendoReactGridColumn" &&
-          columnsState[child.props.title ?? child.props.field]
-        ) {
-          visibleColumnsFields[child.props.field] = true;
-        }
-      }
-    });
-
-    let newData = defaultData.filter((item) => {
-      let match = false;
-
-      for (const property in visibleColumnsFields) {
-        if (visibleColumnsFields[property]) {
-          if (
-            getNestedValue(property, item)
-              .toString()
-              .toLocaleLowerCase()
-              .indexOf(value.toLocaleLowerCase()) >= 0
-          ) {
-            match = true;
-          }
-
-          if (
-            getNestedValue(property, item).toLocaleDateString &&
-            getNestedValue(property, item)
-              .toLocaleDateString()
-              .indexOf(value) >= 0
-          ) {
-            match = true;
-          }
-        }
-      }
-      return match;
-    });
-    setData(newData);
-  };
-
-  const cellRender = React.useCallback(
-    (td, props) => {
-      if (props.rowType === "data") {
-        const value = getNestedValue(props.field, props.dataItem)?.toString();
-
-        if (!value) {
-          return td;
-        }
-        if (
-          filterValue &&
-          filterValue.length > 0 &&
-          value.toLocaleLowerCase().indexOf(filterValue.toLocaleLowerCase()) >=
-          0
-        ) {
-          const children = highlightSearchTextInReactChildren(
-            td.props.children,
-            filterValue
-          );
-          return React.cloneElement(td, [props], [children]);
-        }
-      }
-
-      return td;
-    },
-    [filterValue]
-  );
-
-  const _pdfExport = React.useRef<GridPDFExport | null>(null);
-  const exportToPdf = () => {
-    if (_pdfExport.current) {
-      _pdfExport.current.save();
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "Terminaltracker_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.TERMINAL_TRACKER.APP_ROOT + "/#" + WorkAppRoutes.TERMINAL_TRACKER.TERMINAL_TRACKER_HOME);
     }
-  };
-  const dispatch = useDispatch();
-
-  const ExportfetchData = async (dataState) => {
-    var DdtlExcelData = [];
-    try {
-      //dispatch(incrementApiCount());
-      const sortVal = {
-        field:
-          dataState?.sort != undefined && dataState?.sort?.length != 0
-            ? dataState?.sort[0].field
-            : null,
-        dir:
-          dataState?.sort != undefined && dataState?.sort?.length != 0
-            ? dataState?.sort[0].dir
-            : null,
-      };
-
-      // let filterVal: ParameterObject[] = [];
-      // let filterObjects: FilterParam[] = [];
-      //dataState.filter.filters[0].filters[0].field
-      // if (dataState.filter != undefined && dataState.filter.length != 0) {
-      //     if (dataState.filter.filters.length != 0) {
-      //         for (let i = 0; i < dataState.filter.filters.length; i++) {
-
-      //             if (dataState.filter.filters[i].filters.length != 0) {
-      //                 filterVal = [];
-      //                 for (let j = 0; j < dataState.filter.filters[i].filters.length; j++) {
-      //                     const parameterObject: ParameterObject = {
-      //                         field: dataState.filter.filters[i].filters[j].field,
-      //                         operator: dataState.filter.filters[i].filters[j].operator,
-      //                         value: dataState.filter.filters[i].filters[j].value
-      //                     };
-
-      //                     filterVal.push(parameterObject);
-      //                 }
-
-      //                 const filterObj: FilterParam = {
-      //                     filterObject: filterVal,
-      //                     logic: dataState.filter.filters[i].logic
-      //                 };
-      //                 filterObjects.push(filterObj);
-
-      //             }
-
-      //         }
-      //     }
-      // }
-
-      const gridDataModel = {
-        skip: 0,
-        take: 0,
-        sort: sortVal,
-        filter: [],
-      };
-
-      // console.log(document.getElementById("removeFavBtn") != null ? true : false, "export")
-
-      // await DdtlService.exportDDTLData(document.getElementById("removeFavBtn") != null ? true : false, gridDataModel).then((response) => {
-      //     const responseData = response;
-      //     DdtlExcelData = response.data.Result;
-
-      //     DdtlExcelData.forEach(data => {
-
-      //         if (data.APPROVAL_DATE) {
-      //             var val = data.APPROVAL_DATE;
-      //             const DateVal = new Date(val);
-      //             const formattedDate = `${(DateVal.getMonth() + 1).toString().padStart(2, '0')}/${DateVal.getDate().toString().padStart(2, '0')}/${DateVal.getFullYear().toString()}`;
-      //             data.APPROVAL_DATE = formattedDate;
-      //         }
-      //         if (data.DATE_SENT) {
-      //             var val = data.DATE_SENT;
-      //             const DateVal = new Date(val);
-      //             const formattedDate = `${(DateVal.getMonth() + 1).toString().padStart(2, '0')}/${DateVal.getDate().toString().padStart(2, '0')}/${DateVal.getFullYear().toString()}`;
-      //             data.DATE_SENT = formattedDate;
-      //         }
-      //         if (data.CREATION_DATE) {
-      //             var val = data.CREATION_DATE;
-      //             const DateVal = new Date(val);
-      //             const formattedDate = `${(DateVal.getMonth() + 1).toString().padStart(2, '0')}/${DateVal.getDate().toString().padStart(2, '0')}/${DateVal.getFullYear().toString()}`;
-      //             data.CREATION_DATE = formattedDate;
-      //         }
-      //         if (data.MODIFICATION_DATE) {
-      //             var val = data.MODIFICATION_DATE;
-      //             const DateVal = new Date(val);
-      //             const formattedDate = `${(DateVal.getMonth() + 1).toString().padStart(2, '0')}/${DateVal.getDate().toString().padStart(2, '0')}/${DateVal.getFullYear().toString()}`;
-      //             data.MODIFICATION_DATE = formattedDate;
-      //         }
-
-      //     });
-      //     dispatch(decrementApiCount());
-      // });
-    } catch (error) {
-      console.error("Error", error);
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "RRManageLeaseTermination_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.MANAGE_LEASETERMINATION.APP_ROOT + "/#" + WorkAppRoutes.MANAGE_LEASETERMINATION.MANAGE_LEASETERMINATION_HOME);
     }
-    return DdtlExcelData;
-  };
+    //Floop Load Interface Tool
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "WindFlip_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FLOOR_LOAD_INTERFACE_TOOL.APP_ROUTE + "/#" + WorkAppRoutes.FLOOR_LOAD_INTERFACE_TOOL.FLOOR_LOAD_INTERFACE_TOOL_HOME);
+    }
+    //NoOfConfigs Effectivity Comparison
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "FindNoOfConfigsEffComp_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.NOOFCONFIGS_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.NOOFCONFIGS_DETAILS.NOOFCONFIGS_EFFCOMP_HOME);
+    }
+    //EASA Register Tool
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "EasaRegister_Navigation") {
+        new UserToken().setGroupBU(GroupBU.EASA);
+        // let currentDisciplineId = new UserToken().getCurrentDisciplineId();
+        // let tempGroupIdBasedOnCurDisciplineId = '';
+        // if(currentDisciplineId === "1"){
+        //     tempGroupIdBasedOnCurDisciplineId = "4";
+        // }else if(currentDisciplineId === "2"){
+        //     tempGroupIdBasedOnCurDisciplineId = "5";
+        // }else if(currentDisciplineId === "26" || currentDisciplineId === "16" || currentDisciplineId === "17"){
+        //     tempGroupIdBasedOnCurDisciplineId = "14";
+        // } else{
+        //     tempGroupIdBasedOnCurDisciplineId = "3";
+        // };
+        let tempGroupIdBasedOnCurDisciplineId = "3"
+        new UserToken().setGroupId(tempGroupIdBasedOnCurDisciplineId.toString());
+        let tempGroupId = new UserToken().getGroupId();
 
-  function getProjectRegisterfilename() {
-    var today = new Date();
-    var y = today.getFullYear();
-    var m = today.getMonth() + 1;
-    var d = today.getDate();
-    var h = today.getHours();
-    var mi = today.getMinutes();
-    var s = today.getSeconds();
-    return (
-      "DDTL_" + m + "-" + d + "-" + y + "-" + h + "-" + mi + "-" + s + ".xlsx"
-    );
-  }
 
-  const _excelExport = React.useRef<ExcelExport | null>(null);
-  const exportToExcel = () => {
-    dataState.sort = newProps.sort;
-    dataState.filter = newProps.filter;
-    var DdtlExcelDatasList = ExportfetchData(dataState).then((response) => {
-      if (_excelExport.current) {
-        _excelExport.current.save(response);
-      }
-    });
-  };
-
-  const gridChildren = React.useMemo(() => {
-    const toolBar = GridProps.children.find(
-      (c) => c.type?.displayName === "KendoReactGridToolbar"
-    );
-    const gridToolBar = (
-      <GridToolbar key="grid-toolbar" {...toolBar?.props}>
-        {expandCollapseAllButton && configuration.groupable && (
-          <div>
-            <ExpandCollapseButton
-              onClick={onGroupsToggle}
-              collapse={!collapsedState.length}
-            />
-          </div>
-        )}
-
-        {externalFilter && (
-          <div>
-            <ExternalFilter
-              filterValue={filterValue}
-              onChange={onExternalFilterChange}
-            />
-          </div>
-        )}
-
-        {toolBar && toolBar.props.children && <div>{toolBar.props.children}</div>}
-
-        <div
-          className="grid-right-icons"
-          style={{
-            right: "-11px",
-            float: "right",
-            position: "absolute",
-            display: "flex",
-          }}
-        >
-          <div>
-            {excelExportButton && (
-              <Button
-                className="exportBtn"
-                onClick={exportToExcel}
-                variant={"outlined"}
-                size={"small"}
-                color={"inherit"}
-                title={"Export to Excel"}
-              >
-                {/* <FontAwesomeIcon icon={faDownload}  /> */}
-                {/* {<img src={icon_download} alt="React Image" /> } */}
-                <FileDownloadOutlinedIcon color="disabled" className="iconClass" />
-                <Typography variant={"button"} sx={{ textTransform: "none" }}>
-                  Export
-                </Typography>
-              </Button>
-            )}
-          </div>
-          <div>
-            {pdfExportButton && (
-              <Button
-                onClick={exportToPdf}
-                variant={"outlined"}
-                size={"small"}
-                color={"inherit"}
-                title={"Export to PDF"}
-              >
-                <SvgIcon icon={filePdfIcon} size="medium" />
-              </Button>
-            )}
-          </div>
-          <div className="showHideDiv" style={{ marginTop: "5px" }}>
-            {showColumnsConfigurator && (
-              <ColumnsButton onChange={updateColumns} options={columnsState} />
-            )}
-          </div>
-
-          <div>
-            {showFeaturesConfigurator && (
-              <ConfiguratorButton
-                onChange={updateConfiguration}
-                options={configuration}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* <div>
-            {(
-              <Button disabled={deleteButton} className="displayBlock  marginLeft10" id="deleteBtn" title="Delete" onClick={onOpenModal}><FontAwesomeIcon icon={faTrash} /> Delete</Button>
-            )}
-          </div> */}
-      </GridToolbar>
-    );
-    let children: any[] = [];
-    const checkboxCol = GridProps.children?.[1];
-    if (checkboxCol?.type?.displayName === "KendoReactGridColumn") {
-      children.push(<Column {...checkboxCol.props} key={"select-col"} />);
+        singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.EASA_REGISTER_HOME.replace(":groupId", tempGroupId));
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] === "API_REQ_COMPLETE") {
+        console.log(appEventDetail.type, " API_REQ_COMPLETE event captured")
+        if (WorkAppRequest.eventAppName.length === 0) {
+            WorkAppRequest.incrementeventCount();
+            WorkAppRequest.eventAppName.push(appEventDetail.type);
+        }
+        else if (WorkAppRequest.eventAppName.length > 0 && !WorkAppRequest.eventAppName.find(x => x === appEventDetail.type)) {
+            WorkAppRequest.incrementeventCount();
+            WorkAppRequest.eventAppName.push(appEventDetail.type);
+        }
+        if (WorkAppRequest.appCount === WorkAppRequest.eventCount) {
+            while (WorkAppRequest.shellActiveApiCall > 0) {
+            }
+            if (WorkAppRequest.isRouteChanged) {
+                console.log("Initating HelpGuide Tour")
+                WorkAppRequest.isRouteChanged = false;
+                let helpGuideTour = new HelpGuideTour();
+                helpGuideTour.takeTour(true);
+            }
+        }
     }
 
-    GridChildrenProps?.forEach((child: any, index: number) => {
-      if (child !== ",") {
-        if (child.type?.displayName === "KendoReactGridColumn") {
-          if (columnsState[child.props.title ?? child.props.field]) {
-            children.push(<Column {...child.props} key={index} />);
-          } else if (!child.props.field) {
-            children.push(<Column {...child.props} key={index} />);
-          }
-        } else if (child.type?.displayName === "KendoReactGridToolbar") {
-          return null;
-        } else {
-          children.push(child);
-        }
-      }
-    });
-
-    if (props.toolbarSettings) {
-      children.push(gridToolBar);
-    } else if (toolBar) {
-      children.push(toolBar);
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CSR_Rev_Upload_Signature") {
+        // Open Upload Signature Popup
+        $("#oss-uploadSignatureModal").modal('show');
     }
 
-    return children;
-  }, [
-    GridProps.children,
-    columnsState,
-    collapsedState,
-    configuration,
-    dataState,
-    filterValue,
-  ]);
-
-  const gridRef = React.useRef<any>(null);
-  const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
-  const [multipleSelected, setmultipleSelected] = useState(false);
-  const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
-
-  useEffect(() => {
-    if (gridRef?.current) {
-      const headerCells = gridRef.current.element.querySelectorAll(".k-header");
-      let calculatedFixedColumnWidth = 0;
-      let dynamicWidth = 0;
-      headerCells.forEach((cell, index) => {
-        if (gridRef.current.columns[index].width != undefined) {
-          if (
-            gridRef.current.columns[index].width.toString().indexOf("px") > -1
-          ) {
-            calculatedFixedColumnWidth =
-              calculatedFixedColumnWidth +
-              parseInt(gridRef.current.columns[index].width);
-          } else {
-            dynamicWidth = dynamicWidth + gridRef.current.columns[index].width;
-          }
-        }
-        const columnHeader = gridRef.current.columns[index].title;
-        cell.title = columnHeader;
-      });
-      setCalculatedDynamicColWidth(dynamicWidth);
-      setTotalColumnFixedWidth(calculatedFixedColumnWidth);
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "BridgeAnalysis_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.BRIDGE_ANALYSIS.APP_ROUTE + "/#" + WorkAppRoutes.BRIDGE_ANALYSIS.BRIDGE_ANALYSIS_HOME);
     }
-  }, [gridRef, data, columnsState]);
+    //AFMreports
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "AFMReports_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.AFMREPORTS_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.AFMREPORTS_DETAILS.AFMREPORTS_LIST);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "Find_Elog_Navigation") {
+        let tempDetailData = tempWorkAppData["Detail"];
+        // Navigate to Elog page
+        if (tempWorkAppData["AppName"] == process.env.REACT_APP_AFMREPORTS) {
+            //setting the oss-cache for elog open from afm report
+            const storageService = new StorageService();
+            storageService.setApplicationDataByKey(
+                `${process.env.REACT_APP_ROOT_NAME}`,
+                `${process.env.REACT_APP_ELOG}`,
+                JSON.stringify([{ NavigationFrom: "FROM_AFM" }])
+            );
+            singleSpa.navigateToUrl(WorkAppRoutes.ELOG_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.ELOG_DETAILS.ELOG_LIST.replace(":pid", tempDetailData["ProjectId"]));
+        }
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "PdmFpqCreateNewCheckListEntry_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_PDM_CHECKLIST_ENTRY_NEW_WITH_PARAM + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.DocumentNumber);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "PdmFpqCreateNewCheckListEntryTEDNumber_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_PDM_CHECKLIST_ENTRY_NEW_WITH_PARAM_TED_NUMBER + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.tedNumber);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "PdmFpqCheckListEntryDetails_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_WORKAPP_PDM_CHECKLIST_ENTRY_DETAILS + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.ChecklistEntryId);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "EnoviaFpqCreateNewCheckListEntry_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_ENOVIA_CHECKLIST_ENTRY_NEW_WITH_PARAM + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.PartNumber);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "EnoviaFpqCheckListEntryDetails_Navigation") {
+        singleSpa.navigateToUrl(WorkAppRoutes.FPQ_WORKAPP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_WORKAPP_DETAILS.FPQ_WORKAPP_ENOVIA_CHECKLIST_ENTRY_DETAILS + "/" + tempWorkAppData.Detail.ProjectId + "/" + tempWorkAppData.Detail.ChecklistEntryId);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "Bildr_Tool_Navigation") {
+        let reportId = tempWorkAppData["Detail"]["reportId"];
+        let drawingId = tempWorkAppData["Detail"]["drawingId"];
+        let action = tempWorkAppData["Detail"]["action"];
 
-  const renderedGridProps = {
-    ...newProps,
-    ...configuration,
-    children: gridChildren,
-    ref: gridRef,
-  };
+        if (action == "view") {
+            singleSpa.navigateToUrl(WorkAppRoutes.BILDR_TOOL.APP_ROUTE + "/#" + WorkAppRoutes.BILDR_TOOL.BILDR_TOOL_VIEW.replace(':rid', reportId).replace(':drawid', drawingId));
+        }
+        else if (action == "review") {
+            singleSpa.navigateToUrl(WorkAppRoutes.BILDR_TOOL.APP_ROUTE + "/#" + WorkAppRoutes.BILDR_TOOL.BILDR_TOOL_REVIEW.replace(':rid', reportId).replace(':drawid', drawingId));
+        }
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "BILDR_EASA_Breadcrum_Details") {
+        if (tempWorkAppData["Detail"]) {
+            const storageServ = new StorageService();
+            const EASAMenuSubmenu = new easaMenuSubmenu();
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', tempWorkAppData["Detail"]["easaactivesubmenu"]);
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentprojectbreadcrumbs', `Edit Project Register: ${tempWorkAppData["Detail"]["registerId"]}-${tempWorkAppData["Detail"]["revision"].padStart(2, 0)}`);
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenutitle', tempWorkAppData["Detail"]["easaactivesubmenutitle"]);
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaMyWorkspaceProjectId', tempWorkAppData["Detail"]["easaProjectId"]);
+            storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'bildrTitle', tempWorkAppData["Detail"]["bildrTitle"]);
+            storageServ.setApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'DocNumber', tempWorkAppData["Detail"]["docNumber"]);
+            storageServ.setApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'reportId', tempWorkAppData["Detail"]["reportId"]);
+            const currentTitle = tempWorkAppData["Detail"]["easaactivesubmenutitle"];
+            const currentProject = `Edit Project Register: ${tempWorkAppData["Detail"]["registerId"]}-${tempWorkAppData["Detail"]["revision"].padStart(2, 0)}`;
+            const currentActiveDesignDocTab = tempWorkAppData["Detail"]["easaactivesubmenu"];
+            const docNumber = tempWorkAppData["Detail"]["docNumber"];
+            const bildrTitle = tempWorkAppData["Detail"]["bildrTitle"];
+            EASAMenuSubmenu.activateSubmenuButton();
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm clickable")
+                    .click(() => handleHomeBreadcrumsClick(event)))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles clickable").text('EASA My Workspace').attr("id", `oss-csrsearch-breadcrums`)
+                    .click(() => singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_WORKSPACE_HOME)))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles clickable").text(currentProject).attr("id", `oss-csrsearch-breadcrums`).click(() => {
+                    EASAMenuSubmenu.handleSubMenuButtonClick("projectdetailsbttn");
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles clickable").text(currentTitle).attr("id", `oss-csrsearch-breadcrums`).click(() => {
+                    EASAMenuSubmenu.handleSubMenuButtonClick(currentActiveDesignDocTab);
+                    // singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH.replace(':groupId', currentActiveDesignDocTab));
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles clickable").text(`Document Number: ${docNumber ? docNumber : ''}`).attr("id", `oss-csr-docnumber`).click(() => {
+                    let reportId = tempWorkAppData["Detail"]["reportId"];
+                    singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId);
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles clickable").text(bildrTitle).attr("id", `oss-csrsearch-breadcrums`));
+        }
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "Bildr_Back_Navigation") {
+        let reportId = tempWorkAppData["Detail"]["reportId"];
+        let action = tempWorkAppData["Detail"]["App"];
 
-  if (filterHighlights) {
-    renderedGridProps.cellRender = cellRender;
-  }
-
-  const GridComponent = <Grid {...renderedGridProps} />;
-
-  return (
-    <React.Fragment>
-      <GridPDFExport ref={_pdfExport} margin="1cm">
-        {GridComponent}
-      </GridPDFExport>
-      <ExcelExport
-        data={finalData}
-        ref={_excelExport}
-        columns={exportColumns.filter(
-          (col) => columnsState[col.title ?? col.field]
-        )}
-        group={dataState.group}
-        fileName={getProjectRegisterfilename()}
-      />
-      {GridComponent}
-    </React.Fragment>
-  );
-};
-
-// ExternalFilter
-const ExternalFilter = (props) => {
-  return (
-    <React.Fragment>
-      <span style={{ padding: "5px" }}>Search: </span>
-      <span>
-        <Input
-          value={props.filterValue}
-          onChange={props.onChange}
-          style={{
-            border: "2px solid #ccc",
-            boxShadow: "inset 0px 0px 0.5px 0px rgba(0,0,0,0.0.1)",
-          }}
-        />
-      </span>
-    </React.Fragment>
-  );
-};
-// Expand/Collapse All Groups button
-const ExpandCollapseButton = (props) => {
-  return (
-    <Button
-      onClick={props.onClick}
-      // themeColor={TOOLBAR_BUTTON_TYPE}
-      size="small"
-      color={"inherit"}
-      title={(!props.collapse ? "Expand" : "Collapse") + " all groups"}
-    >
-      {props.collapse ? (
-        <SvgIcon icon={chevronDoubleDownIcon} size="medium" />
-      ) : (
-        <SvgIcon icon={chevronDoubleRightIcon} size="medium" />
-      )}
-    </Button>
-  );
-};
-
-// Columns show/hide
-const ColumnsButton = (props) => {
-  return (
-    <ConfiguratorButtonBase
-      {...props}
-      icon={moreVerticalIcon}
-      title="Show/Hide Columns"
-    />
-  );
-};
-
-// Settings button
-const ConfiguratorButton = (props) => {
-  return <ConfiguratorButtonBase {...props} icon={gearIcon} title="Settings" />;
-};
-
-// Button showing popup with all properties of an object
-// props.options is the object with the properties that will be rendered in the checkbox list
-// props.icon is the name of the button icon
-// props.title sets the title of the button
-// props.onChange returns the toggled option/property
-const ConfiguratorButtonBase = (props) => {
-  const anchor = React.useRef(null);
-  const [show, setShow] = React.useState(false);
-  const onClick = () => {
-    setShow(!show);
-  };
-
-  const onChange = (ev) => {
-    let setting = ev.target.element.attributes["data-attr"].value;
-    props.onChange(setting, ev.value);
-  };
-
-  React.useEffect(() => {
-    const onMouseDown = (event) => {
-      let wrappingEl = document.querySelector(".configurator-wrap-element");
-      if (wrappingEl && !wrappingEl.contains(event.target)) {
-        setShow(false);
-      }
-    };
-
-    window.addEventListener("mousedown", onMouseDown);
-    return () => window.removeEventListener("mousedown", onMouseDown);
-  }, []);
-
-  return (
-    <React.Fragment>
-      <span ref={anchor} title={props.title}>
-        <Button
-          onClick={onClick}
-          // themeColor={TOOLBAR_BUTTON_TYPE}
-          size={"small"}
-          color={"inherit"}
-        >
-          <SvgIcon icon={props.icon} size="medium" />
-        </Button>
-      </span>
-      <Popup
-        margin={{ horizontal: 10, vertical: 10 }}
-        anchor={anchor.current}
-        anchorAlign={{ vertical: "bottom", horizontal: "right" }}
-        popupAlign={{ vertical: "top", horizontal: "right" }}
-        show={show}
-      >
-        <div
-          className="configurator-wrap-element"
-          style={{
-            padding: "10px",
-            backgroundColor: "#fefefe",
-            border: "1px solid #ddd",
-          }}
-        >
-          <div style={{ paddingBottom: "5px" }}>{props.title}:</div>
-          <div>
-            {Object.keys(props.options).map((setting, index) => {
-              let checked =
-                props.options[setting] != null &&
-                props.options[setting] !== false;
-              return (
-                <div style={{ padding: "3px 5px 5px 0px" }} key={index}>
-                  <Checkbox
-                    value={checked}
-                    onChange={onChange}
-                    data-attr={setting}
-                  />{" "}
-                  {setting.charAt(0).toUpperCase() + setting.slice(1)}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </Popup>
-    </React.Fragment>
-  );
-};
+        if (action == "csr") {
+            const storageServ = new StorageService();
+            let lastSelectedTab = storageServ.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'lastDynamicTabSelecetd');
+            if (lastSelectedTab) {
+                storageServ.removeApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'lastDynamicTabSelecetd');
+                singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId + "/tab/" + lastSelectedTab);
+            }
+            else {
+                singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId);
+            }
+        }
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CCL_CSR_Navigation") {
+        let projectRegisterId = tempWorkAppData["Detail"]["projectRegisterId"];
+        let reportId = tempWorkAppData["Detail"]["reportId"];
+        let groupId = tempWorkAppData["Detail"]["groupId"];
+        let templateId = tempWorkAppData["Detail"]["templateId"];
+        const templateName = tempWorkAppData["Detail"]["templateName"];
+        const storageServ = new StorageService();
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, 'selectedeasareporttype', templateName);
+        new easaMenuSubmenu().setMenuSectionVisibility(true);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', groupId);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+        const userTokenTemp = new UserToken();
+        userTokenTemp.setGroupBU(GroupBU.EASA);
+        userTokenTemp.setGroupId(groupId);
+        singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CCL_CSR_Create_New_Navigation") {
+        let projectRegisterId = tempWorkAppData["Detail"]["projectRegisterId"];
+        let groupId = tempWorkAppData["Detail"]["groupId"];
+        const templateName = tempWorkAppData["Detail"]["templateName"];
+        let templateId = tempWorkAppData["Detail"]["templateId"];
+        let designation = tempWorkAppData["Detail"]["designation"];
+        let tempVersion = tempWorkAppData["Detail"]["tempVersion"];
+        let storageServ = new StorageService();
+        const reportTemplate = {
+            "TemplateId": templateId,
+            "GroupId": groupId,
+            "TemplateTitle": templateName,
+            "MasterType": templateName,
+            "TempVersion": tempVersion,
+            "Designation": designation
+        };
+        const isFromNavigation = tempWorkAppData["Detail"]["isFromNavigation"];
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "isFromNavigation", isFromNavigation);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "reportTemplate", reportTemplate);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, 'selectedeasareporttype', templateName);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_NAME}`, 'selectedgroup', groupId);
+        new easaMenuSubmenu().setMenuSectionVisibility(true);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', groupId);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+        const userTokenTemp = new UserToken();
+        userTokenTemp.setGroupBU(GroupBU.EASA);
+        singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + '0' + '/tab/' + '-1');
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CCN_CSR_Navigation") {
+        let projectRegisterId = tempWorkAppData["Detail"]["projectRegisterId"];
+        let reportId = tempWorkAppData["Detail"]["reportId"];
+        let groupId = tempWorkAppData["Detail"]["groupId"];
+        let templateId = tempWorkAppData["Detail"]["templateId"];
+        const templateName = tempWorkAppData["Detail"]["templateName"];
+        const isFromNavigation = tempWorkAppData["Detail"]["isFromNavigation"];
+        const storageServ = new StorageService();
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "isFromNavigation", isFromNavigation);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, 'selectedeasareporttype', templateName);
+        new easaMenuSubmenu().setMenuSectionVisibility(true);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', groupId);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+        const userTokenTemp = new UserToken();
+        userTokenTemp.setGroupBU(GroupBU.EASA);
+        userTokenTemp.setGroupId(groupId);
+        singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId);
+    }
+    else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CSR_CERT_Navigation") {
+        const storageServ = new StorageService();
+        const ProjectNo = storageServ.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, "easaprojectno");
+        const Revision = storageServ.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, "easarevision");
+        const dynamicpath = storageServ.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_EASA_CertTool}-data`, "currentactivetab");
+        localStorage.setItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolProjectNo`, ProjectNo);
+        localStorage.setItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolReportId`, `BIL-${ProjectNo}-${Revision}-CCL`);
+        localStorage.setItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolRevision`, Revision);
+        new easaMenuSubmenu().setMenuSectionVisibility(true);
+        singleSpa.navigateToUrl(WorkAppRoutes.CertTool.APP_ROUTE + "/#" + dynamicpath);
+    }
+}
