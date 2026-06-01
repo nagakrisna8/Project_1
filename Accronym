@@ -1,345 +1,1916 @@
-import * as singleSpa from 'single-spa';
-import * as WorkAppRoutes from '../../js/workAppRoutes.js';
-import UserToken from '../userToken.js';
-import { StorageService } from '../StorageService.js';
-import { checkForCertToolUnsavedChanges } from './easaWorkapp.js';
-
-const fullShellAppName = `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_NAME}`;
-class easaMenuSubmenu {
-    appName = '';
-    constructor() {
-        this.appName = process.env.REACT_APP_ROOT_NAME;
+export function handleBreadcrumsNavigation(value) {
+  
+    // on page load set dirty flag to false
+    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}`, `IsTabDirty`, false);
+    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, `IsTabDirty`, false);
+    var jsonValue = [{ dirtyFlag: false }];
+    var newJson = JSON.stringify(jsonValue);
+    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DESIGN_FORM}`, newJson);
+    //Appending breadcrums 
+    if (value === "MYWORKSPACE") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`)
+                .click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`)));
     }
+    else if (value === "PROJECTDETAILS" || value === "DESIGNDOCUMENT" || value === "FPQ" || value === "TIPSS" || value === "Terminal Track Mapper") {
+        if (window.location.pathname.indexOf(WorkAppRoutes.DESIGN_FORM_DETAILS.APP_ROUTE) > -1 &&
+            window.location.hash.indexOf(WorkAppRoutes.DESIGN_FORM_DETAILS.DF_LIST.replace('/:pid', '')) == -1) {
 
-    setMenuSectionVisibility(isMenuSectionVisible) {
-        if (isMenuSectionVisible) {
-            // SHOW THE MENU HEADER SECTION AND EASA MENU SECTION, AND HIDE FAA MY WORKSPACE MENU SECTION
-            $("#oss-header-menu-setion").show();
-            $("#oss-nav-tab").hide();
-            $("#oss-easa-nav-tab").show();
-        } else {
-            // HIDE THE MENU HEADER SECTION AND EASA MENU SECTION, AND SHOW FAA MY WORKSPACE MENU SECTION
-            $("#oss-header-menu-setion").hide();
-            $("#oss-nav-tab").show();
-            $("#oss-easa-nav-tab").hide();
+            var url = window.location.href;
+            var segments = url.split('/');
+            var docNumber = segments.pop();
+            var projId = segments[segments.length - 1];
+            window.projectId = (window.projectId == undefined) || (window.projectId == null) ? projId : window.projectId;
+
+            checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                $('#oss-menu-breadcrums').html('');
+                $('#oss-menu-breadcrums')
+                    .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm")
+                        .click(() => handleHomeBreadcrumsClick(event)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                // Project Number with ITAR condition
+                let projectElement = $('<div>')
+                    .attr("id", "oss-projectId-breadcrumb")
+                    .addClass("breadcrumsStyles")
+                    .text(`Project Number ${projectId}`)
+                    .click(() => handleBreadcrumsClick(`oss-dflists-breadcrums`));
+
+                if (itarStatus === 1) {
+                    projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                    projectElement.append(
+                        $('<span>')
+                            .addClass("bold-red-text")
+                            .text('ITAR')
+                    );
+                    projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+                }
+
+                $('#oss-menu-breadcrums')
+                    .append(projectElement)
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div id="oss-df-docnumber">').addClass("font-size-md breadcrumsStyles").text(`Design Form`).click(() => handleBreadcrumsClick(`oss-dflists-breadcrums-df`)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div id="oss-df-docnumber">').addClass("font-size-md").text(`${docNumber ? docNumber : ''}`))
+                    ;
+            });
+            appendAdditionalBreadcrumb();
         }
-    }
+        else if (window.location.pathname.indexOf(WorkAppRoutes.QMAP_DETAILS.APP_ROUTE) > -1 &&
+            window.location.hash.indexOf(WorkAppRoutes.QMAP_DETAILS.QMAP_DETAILS.replace('/:pid', '')) == -1) {
+            var url = window.location.href;
+            var segments = url.split('/');
+            var docNumber = segments.pop();
+            if (docNumber != null) {
+                let routeDataArray = window.location.hash.split('/');
+                let projectIdFromUrl = routeDataArray[routeDataArray.length - 3];
+                if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+                    window.projectId = projectIdFromUrl;
+                }
+                checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                    console.log(itarStatus)
+                    $('#oss-menu-breadcrums').html('');
+                    $('#oss-menu-breadcrums')
+                        .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+                        .append($('<div>').addClass("gg-chevron-right"))
+                        .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`)))
+                        .append($('<div>').addClass("gg-chevron-right"))
+                    // Project Number with ITAR condition
+                    let projectElement = $('<div>')
+                        .attr("id", "oss-projectId-breadcrumb")
+                        .addClass("breadcrumsStyles")
+                        .text(`Project Number ${projectId}`)
+                        .click(() => {
+                            localStorage.setItem('activeTest2SubMenuId', 'projectDetailsBttn');
+                            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DETAIL.APP_ROUTE + "/#" + WorkAppRoutes.PMDB_DETAIL.PROJECT_DETAIL.replace(":pid", window.projectId));
+                        });
 
-    handleSubMenuButtonClick(subMenuId) {
-        const storageServiceTemp = new StorageService();
-        // CHECKS FOR UNSAVED CHANGES POPUP
-        // CERT TOOL CHECKS
-        if (!checkForCertToolUnsavedChanges()) {
-            const newJson = {
-                home: false,
-                easaworkspace: false,
-                projdetails: false,
-                menusubmenu: subMenuId
-            };
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_CertTool}-breadcrumbs`, newJson);
-            $('#unsavedChanges').modal('show');
-            return;
+                    if (itarStatus === 1) {
+                        projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                        projectElement.append(
+                            $('<span>')
+                                .addClass("bold-red-text")
+                                .text('ITAR')
+                        );
+                        projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+                    }
+
+                    $('#oss-menu-breadcrums')
+                        .append(projectElement)
+                        .append($('<div>').addClass("gg-chevron-right"))
+                        .append($("<div>")
+                            .addClass("breadcrumsStyles")
+                            .text("QMAP")
+                            .attr("id", `oss-myworkspace-breadcrums`)
+                            .click(() =>
+                                singleSpa.navigateToUrl(WorkAppRoutes.QMAP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.QMAP_DETAILS.QMAP_DETAILS.replace(":pid", window.projectId))
+                            ))
+                        .append($("<div>").addClass("gg-chevron-right"))
+                        .append($('<div id="oss-df-docnumber">').addClass("font-size-md").text(`Document Number ${docNumber ? docNumber : ''}`));
+                });
+            } else {
+                $('#oss-menu-breadcrums').html('');
+                $('#oss-menu-breadcrums')
+                    .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').attr("id", "oss-projectId-breadcrumb").addClass("breadcrumsStyles").text('Project Number ' + window.projectId)
+                        .click(() => {
+                            localStorage.setItem('activeTest2SubMenuId', 'projectDetailsBttn');
+                            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DETAIL.APP_ROUTE + "/#" + WorkAppRoutes.PMDB_DETAIL.PROJECT_DETAIL.replace(":pid", window.projectId));
+                        }));
+            }
+            appendAdditionalBreadcrumb();
         }
-        if (!isNaN(Number(subMenuId))) {
-            // NAVIGATE TO CSR USING SUBMENUID AS GROUPID (PASSED AS NUM-STRING THROUGH ARGS)
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
-            const registerProjectId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
-            const userTokenTemp = new UserToken();
-            userTokenTemp.setGroupBU(GroupBU.EASA);
-            userTokenTemp.setGroupId(subMenuId);
-            singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH.replace(':groupId', subMenuId).replace(":registerId", registerProjectId));
-        } else if (String(subMenuId).toLowerCase() === "projectdetailsbttn") {
-            // NAVIGATE TO EASA PROJECT DETAILS PAGE            
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaProjectDtl-tab");
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
-            const currentEasaProjId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaMyWorkspaceProjectId');
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL + '/' + currentEasaProjId);
+        else if (window.location.pathname.indexOf(WorkAppRoutes.QMAP_DETAILS.APP_ROUTE) > -1) {
+            var url = window.location.href;
+            let routeDataArray = window.location.hash.split('/');
+            let projectIdFromUrl = routeDataArray[routeDataArray.length - 1];
+            if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+                window.projectId = projectIdFromUrl;
+            }
+            checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                $('#oss-menu-breadcrums').html('');
+                $('#oss-menu-breadcrums')
+                    .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                // Project Number with ITAR condition
+                let projectElement = $('<div>')
+                    .attr("id", "oss-projectId-breadcrumb")
+                    .addClass("breadcrumsStyles")
+                    .text(`Project Number ${projectId}`)
+                    .click(() => {
+                        localStorage.setItem('activeTest2SubMenuId', 'projectDetailsBttn');
+                        singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DETAIL.APP_ROUTE + "/#" + WorkAppRoutes.PMDB_DETAIL.PROJECT_DETAIL.replace(":pid", window.projectId));
+                    });
+
+                if (itarStatus === 1) {
+                    projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                    projectElement.append(
+                        $('<span>')
+                            .addClass("bold-red-text")
+                            .text('ITAR')
+                    );
+                    projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+                }
+
+                $('#oss-menu-breadcrums')
+                    .append(projectElement)
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($("<div>")
+                        .addClass("breadcrumsStyles")
+                        .text("QMAP")
+                        .attr("id", `oss-myworkspace-breadcrums`)
+                        .click(() =>
+                            singleSpa.navigateToUrl(WorkAppRoutes.QMAP_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.QMAP_DETAILS.QMAP_DETAILS.replace(":pid", window.projectId))
+                        ));
+            });
+            appendAdditionalBreadcrumb();
         }
-         else if (String(subMenuId).toLowerCase() === "cclbuilderbttn") {
-            // NAVIGATE TO EASA PROJECT DETAILS PAGE
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
-            localStorage.setItem('easaActiveSubMenu', subMenuId);
-            var projectNo = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolProjectNo`);
-            var revision = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolRevision`);
-            var CertToolReportId = "BIL-" + projectNo.trim() + "-" + revision.trim() + "-CCL";
-            localStorage.setItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolReportId`, CertToolReportId);
-            singleSpa.navigateToUrl(WorkAppRoutes.CertTool.APP_ROUTE + "/#" + WorkAppRoutes.CertTool.WORK_APPS_DETAILS);
+        else if (window.location.pathname.indexOf(WorkAppRoutes.PDM_DETAILS.APP_ROUTE) > -1) {
+            var url = window.location.href;
+            let routeDataArray = window.location.hash.split('/');
+            let projectIdFromUrl = routeDataArray[routeDataArray.length - 1];
+            if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+                window.projectId = projectIdFromUrl;
+            }
+            checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                $('#oss-menu-breadcrums').html('');
+                $('#oss-menu-breadcrums')
+                    .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                // Project Number with ITAR condition
+                let projectElement = $('<div>')
+                    .attr("id", "oss-projectId-breadcrumb")
+                    .addClass("breadcrumsStyles")
+                    .text(`Project Number ${projectId}`)
+                    .click(() => {
+                        localStorage.setItem('activeTest2SubMenuId', 'projectDetailsBttn');
+                        singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DETAIL.APP_ROUTE + "/#" + WorkAppRoutes.PMDB_DETAIL.PROJECT_DETAIL.replace(":pid", window.projectId));
+                    });
+
+                if (itarStatus === 1) {
+                    projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                    projectElement.append(
+                        $('<span>')
+                            .addClass("bold-red-text")
+                            .text('ITAR')
+                    );
+                    projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+                }
+
+                $('#oss-menu-breadcrums')
+                    .append(projectElement)
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($("<div>")
+                        .addClass("breadcrumsStyles")
+                        .text("PDM")
+                        .attr("id", `oss-myworkspace-breadcrums`)
+                        .click(() =>
+                            singleSpa.navigateToUrl(WorkAppRoutes.PDM_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.PDM_DETAILS.PDM_DETAILS.replace(":pid", window.projectId))
+                        ));
+            });
+            appendAdditionalBreadcrumb();
         }
-        else if (String(subMenuId).toUpperCase() === "PROJECTSCHEDULEBTN") {
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaProjectDtl-tab");
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
-            const currentEasaProjId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaMyWorkspaceProjectId');
-            singleSpa.navigateToUrl(WorkAppRoutes.PROJECTSCHEDULE_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.PROJECTSCHEDULE_DETAILS.EASA_SCHEDULE_SUMMARY_PID.replace(":pid", currentEasaProjId));
+        else if (window.location.pathname.indexOf(WorkAppRoutes.ENOVIA_DETAILS.APP_ROUTE) > -1) {
+            var url = window.location.href;
+            let routeDataArray = window.location.hash.split('/');
+            let projectIdFromUrl = routeDataArray[routeDataArray.length - 1];
+            if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+                window.projectId = projectIdFromUrl;
+            }
+            checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                $('#oss-menu-breadcrums').html('');
+                $('#oss-menu-breadcrums')
+                    .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                // Project Number with ITAR condition
+                let projectElement = $('<div>')
+                    .attr("id", "oss-projectId-breadcrumb")
+                    .addClass("breadcrumsStyles")
+                    .text(`Project Number ${projectId}`)
+                    .click(() => {
+                        localStorage.setItem('activeTest2SubMenuId', 'projectDetailsBttn');
+                        singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DETAIL.APP_ROUTE + "/#" + WorkAppRoutes.PMDB_DETAIL.PROJECT_DETAIL.replace(":pid", window.projectId));
+                    });
+
+                if (itarStatus === 1) {
+                    projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                    projectElement.append(
+                        $('<span>')
+                            .addClass("bold-red-text")
+                            .text('ITAR')
+                    );
+                    projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+                }
+
+                $('#oss-menu-breadcrums')
+                    .append(projectElement)
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($("<div>")
+                        .addClass("breadcrumsStyles")
+                        .text("ENOVIA")
+                        .attr("id", `oss-myworkspace-breadcrums`)
+                        .click(() =>
+                            singleSpa.navigateToUrl(WorkAppRoutes.ENOVIA_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.ENOVIA_DETAILS.ENOVIA_DETAILS.replace(":pid", window.projectId))
+                        ));
+            });
+            appendAdditionalBreadcrumb();
         }
-        this.activateSubmenuButton();
-    }
+        else if (window.location.pathname.indexOf(WorkAppRoutes.FPQ_DETAILS.APP_ROUTE) > -1) {
+            var url = window.location.href;
+            let routeDataArray = window.location.hash.split('/');
+            let projectIdFromUrl = routeDataArray[routeDataArray.length - 1];
+            if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+                window.projectId = projectIdFromUrl;
+            }
+            checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                $('#oss-menu-breadcrums').html('');
+                $('#oss-menu-breadcrums')
+                    .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                // Project Number with ITAR condition
+                let projectElement = $('<div>')
+                    .attr("id", "oss-projectId-breadcrumb")
+                    .addClass("breadcrumsStyles")
+                    .text(`Project Number ${projectId}`)
+                    .click(() => {
+                        localStorage.setItem('activeTest2SubMenuId', 'projectDetailsBttn');
+                        singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DETAIL.APP_ROUTE + "/#" + WorkAppRoutes.PMDB_DETAIL.PROJECT_DETAIL.replace(":pid", window.projectId));
+                    });
 
-    bindMenuSubmenu = (data) => {
-        var workapps = new UserToken().getWorkapps();
-        $('#oss-easa-nav-tab').empty();
-        $('#oss-nav-tabContent').empty();
+                if (itarStatus === 1) {
+                    projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                    projectElement.append(
+                        $('<span>')
+                            .addClass("bold-red-text")
+                            .text('ITAR')
+                    );
+                    projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+                }
 
-        $.each(data, (index, item) => {
+                $('#oss-menu-breadcrums')
+                    .append(projectElement)
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($("<div>")
+                        .addClass("breadcrumsStyles")
+                        .text("FPQ")
+                        .attr("id", `oss-myworkspace-breadcrums`)
+                        .click(() =>
+                            singleSpa.navigateToUrl(WorkAppRoutes.FPQ_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.FPQ_DETAILS.FPQ_DETAILS.replace(":pid", window.projectId))
+                        ));
+            });
+            appendAdditionalBreadcrumb();
+        }
+        else if (window.location.pathname.indexOf(WorkAppRoutes.MEL_PARTLEADTIME.APP_ROUTE) > -1) {
+            setProjectIdFromRoutes();
+            checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                $('#oss-menu-breadcrums').empty();
 
-            let isShowMainMenuCounter = 0;
-            var menuUIId = item.MenuUIId;
+                $('#oss-menu-breadcrums')
+                    .append(
+                        $('<a>')
+                            .text('Home')
+                            .attr("id", "idhomeBreadcurm")
+                            .addClass("homeBreadcurm")
+                            .click(() => handleHomeBreadcrumsClick(event))
+                    )
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append(
+                        $('<div>')
+                            .addClass("breadcrumsStyles")
+                            .text('My Workspace')
+                            .attr("id", `oss-myworkspace-breadcrums`)
+                            .click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`))
+                    )
+                    .append($('<div>').addClass("gg-chevron-right"));
 
-            // add workapp haspermission here, if required
-            // if (true) {
-            let visibleSubMenus = item.SubMenuDetailEntityList;
-            // .filter(subItem => {
-            //     return usPerson || !subItem.IsItar;
-            // });                
+                // Add Project Number with ITAR condition
+                let projectText = `Project Number ${projectId}`;
+                let projectElement = $('<div>')
+                    .addClass("font-size-md").addClass("breadcrumsStyles")
+                    .text(projectText)
+                    .click(() => handleBreadcrumsClick(`oss-melpartprojectid-breadcrums`));
+                if (itarStatus === 1) {
+                    projectElement.append($('<span>').addClass("font-size-md").text(' ('));
+                    projectElement.append(
+                        $('<span>')
+                            .addClass("bold-red-text")
+                            .text('ITAR')
+                    );
+                    projectElement.append($('<span>').addClass("font-size-md").text(')'));
+                }
 
-            if (visibleSubMenus.length === 0) {
+                $('#oss-menu-breadcrums').append(projectElement);
+            });
+            appendAdditionalBreadcrumb();
+        }
+        // Set Different Breadcrumb for CSR Details Navigation
+        else if (window.location.pathname.indexOf(WorkAppRoutes.FIND_CSR.APP_ROUTE) > -1 &&
+            window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.CSR_LIST.replace('/:pid', '').replace('/:groupId', '')) == -1) {
+            console.log("===========");
+            console.log("Inside Find CSR Route");
+            // Get BradCrumb Detail
+            let docNumber = storageService.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'DocNumber');
+            let templateTitle = storageService.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR,'TemplateTitle');
+            let csrPmdbProjectId = storageService.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'CsrPmdbProjectId');
+            let csrWorkappflag = storageService.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'CsrWorkAppFlag');
+            let docRev = storageService.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'DocRev');
+            // EASA REGISTER CASE ---  Start
+            let EditProjectRegister = storageService.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'EditProjectRegisterId');
+            let AssessmentRef = storageService.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'AssessmentRef');
+            let easaRegisterDetails = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-EasaRegisterWorkApp`,`easaRegisterDetails`);
+            let isEasaRegister = easaRegisterDetails.isEasaRegister;
+
+            if (window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.CSR_REPORT) > -1) {
+                const showsnackbar = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "showsnackbar");
+                const snackbarmessage = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "snackbarmessage");
+                if (showsnackbar === true) {
+                    showSnackbar(snackbarmessage, "success");
+
+                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "showsnackbar", false);
+                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "snackbarmessage", "");
+                }
+            }
+
+            if (isEasaRegister || window.location.hash.includes(WorkAppRoutes.FIND_CSR.EASA_REGISTER_HOME.replace(':groupId', ''))) {
+                setMenuSectionVisibility(false);
+                $('#oss-menu-breadcrums').html('');
+            
+                // Append Home breadcrumb
+                $('#oss-menu-breadcrums')
+                    .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm")
+                        .click(() => handleHomeBreadcrumsClick(event)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text('Coordination Register').attr("id", `oss-csrsearch-breadcrums`)
+                        .click(() => handleBreadcrumsClick('oss-easa-register-breadcrums')));
+                        // .click(() => singleSpa.navigateToUrl(singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.EASA_REGISTER_HOME.replace(":groupId", tempGroupId)))));    
+
+                // Check if the current URL matches the CSR Report route
+                if (window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.CSR_REPORT) > -1) {
+                    let registerType = easaRegisterDetails.registerType; // Get the register type
+                    let assessmentRefText = (registerType == EasaMasterType.Supplier || registerType == EasaMasterType.WorkingArrangement) ?`Assessment Reference : ${AssessmentRef ? AssessmentRef : ''}` : `Document Number : ${AssessmentRef ? AssessmentRef : ''}`; // Prepare assessment reference text
+                    let editProjectRegisterText = `Edit Project Register: ${EditProjectRegister ? EditProjectRegister : ''}`
+
+                    // Determine the breadcrumb based on registerType
+                    // if (registerType == EasaMasterType.Supplier) {
+                    //     $('#oss-menu-breadcrums')
+                    //         .append($('<div>').addClass("gg-chevron-right"))
+                    //         .append($('<div>').addClass("breadcrumsStyles").text('Supplier Assessment'));
+                    // } else if (registerType == EasaMasterType.WorkingArrangement) {
+                    //     $('#oss-menu-breadcrums')
+                    //         .append($('<div>').addClass("gg-chevron-right"))
+                    //         .append($('<div>').addClass("breadcrumsStyles").text('Working Arrangement'));
+                    // } else if (registerType == EasaMasterType.MRO) {
+                    //     $('#oss-menu-breadcrums')
+                    //         .append($('<div>').addClass("gg-chevron-right"))
+                    //         .append($('<div>').addClass("breadcrumsStyles").text(editProjectRegisterText))
+                    //         .append($('<div>').addClass("gg-chevron-right"))
+                    //         .append($('<div>').addClass("breadcrumsStyles").text('DO MO Arrangement'));
+                    // }
+
+                    // Append the assessment reference
+                    $('#oss-menu-breadcrums')
+                        .append($('<div>').addClass("gg-chevron-right"))
+                        .append($('<div>').addClass("breadcrumsStyles").text(assessmentRefText));
+                }
                 return;
             }
 
-            // Create a wrapper div with dropdown class
-            let mainMenuWrapper = $('<div>').addClass('dropdown').css('display', 'inline-block');
-
-            let newMenuUIIdName = menuUIId;
-            if (menuUIId == "designDoc") {
-                newMenuUIIdName = "easaDesignDoc";
-            } else if (menuUIId == "projectDtl") {
-                newMenuUIIdName = "easaProjectDtl"
+            const userTokenTemp = new UserToken();
+            const currentGroupBU = userTokenTemp.getGroupBU();
+            if (currentGroupBU === GroupBU.EASA) {
+                setMenuSectionVisibility(false);
+                EASAMenuSubmenu.setMenuSectionVisibility(true);
+                const storageServiceTemp = new StorageService();
+                const currentTitle = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle');
+                const currentProject = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentProjectBreadcrumbs');
+                const currentActiveDesignDocTab = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu');
+                $('#oss-menu-breadcrums').html('');
+                $('#oss-menu-breadcrums')
+                    .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm")
+                        .click(() => handleHomeBreadcrumsClick(event)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text('EASA My Workspace').attr("id", `oss-csrsearch-breadcrums`)
+                        .click(() => singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_WORKSPACE_HOME)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text(currentProject).attr("id", `oss-csrsearch-breadcrums`).click(() => {
+                        EASAMenuSubmenu.handleSubMenuButtonClick("projectdetailsbttn");
+                    }))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles ").text(currentTitle).attr("id", `oss-csrsearch-breadcrums`).click(() => {
+                        EASAMenuSubmenu.handleSubMenuButtonClick(currentActiveDesignDocTab);
+                        // singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH.replace(':groupId', currentActiveDesignDocTab));
+                    }))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text(`Document Number: ${docNumber ? docNumber : ''}`).attr("id", `oss-csr-docnumber`).click(() => {
+                        if (window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.MANAGE_REGULATION) > -1) {
+                            let reportId = storageService.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'reportId');
+                            singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId);
+                        }
+                    }))
+                    ;
+                    if (docRev && docRev != "" && docRev.toLowerCase() !== '00') {
+                        document.getElementById("oss-csr-docnumber").innerHTML += `<span> Rev ${docRev}</span>`;
+                    } // Rev in red
+                if (window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.MANAGE_REGULATION) > -1) {
+                    $('#oss-menu-breadcrums')
+                        .append($('<div>').addClass("gg-chevron-right"));
+                    $('#oss-menu-breadcrums').append($('<div>')
+                        .attr("id", "oss-csr-regulation")
+                        .addClass("font-size-md")
+                        .text(`Regulations`));
+                }
+                return;
             }
-            let mainMenuButton = $('<button>')
-                .addClass('btn dropdown-toggle')
-                .attr('id', `nav-${this.appName}-${newMenuUIIdName}-tab`)
-                .attr('type', 'button')
-                .attr('data-bs-toggle', 'dropdown')
-                .attr('aria-expanded', 'false')
-                .text(item.MenuTitle);
+            if (csrWorkappflag) {
+                setMenuSectionVisibility(false);
+                if (!window.projectId)
+                    window.projectId = csrPmdbProjectId;
 
-            let submenuDropdown = $('<div>')
-                .addClass('submenu-dropdown border dropdown-menu rounded mt-0 p-3 bg-white shadow')
-                .attr('id', `nav-${this.appName}-${menuUIId}-dropdown`)
-                .attr('aria-labelledby', `nav-${this.appName}-${menuUIId}-tab`)
-                .css({
-                    'position': 'absolute',
-                    'z-index': 1000,
-                    'display': 'none',
-                    'width': '100%', // full width of parent container
-                    'left': 0,
-                    'top': '100%', // just below the button
-                    'box-sizing': 'border-box'
-                });
-            //mainMenuWrapper.append(mainMenuButton).append(submenuDropdown);
-            $('#oss-easa-nav-tab').append(mainMenuWrapper);
-            $('#oss-easa-nav-tab').css('position', 'relative');
+                checkProjectIdFromRoute(csrPmdbProjectId).then(({ projectId, itarStatus }) => {
+                    $('#oss-menu-breadcrums').html('');
 
-            mainMenuButton.on('click', (e) => {
-                e.stopPropagation();
-                // Hide all other submenu dropdowns except the current one
-                $('.submenu-dropdown').not(submenuDropdown).hide();
-                // Get stored active main menu ID
-                const storedActiveMainMenuId = localStorage.getItem('activeMainMenuId');
-                if (storedActiveMainMenuId !== menuUIId) {
-                    // New main menu clicked, update active main menu ID
-                    //localStorage.setItem('activeMainMenuId', menuUIId);
+                    $('#oss-menu-breadcrums')
+                        .append(
+                            $('<a>')
+                                .text('Home')
+                                .attr("id", "idhomeBreadcurm")
+                                .addClass("homeBreadcurm")
+                                .click(() => handleHomeBreadcrumsClick(event))
+                        )
+                        .append($('<div>').addClass("gg-chevron-right"))
+                        .append(
+                            $('<div>')
+                                .addClass("breadcrumsStyles")
+                                .text('Compliance Summary Report')
+                                .attr("id", `oss-csrsearch-breadcrums`)
+                                .click(() => handleBreadcrumsClick(`oss-csrsearch-breadcrums`))
+                        )
+                        .append($('<div>').addClass("gg-chevron-right"));
 
-                    // Clear previous active submenu ID
-                    //localStorage.removeItem('activeEASASubMenuId');
+                    // Project Number with ITAR condition
+                    let projectElement = $('<div>')
+                        .attr("id", "oss-csrprojectId-breadcrumb")
+                        .addClass("breadcrumsStyles")
+                        .text(`Project Number ${projectId}`)
+                        .click(() => handleBreadcrumsClick(`oss-csrprojectId-breadcrumb`));
 
-                    // Find the first submenu button inside the current dropdown
-                    const firstSubmenuBtn = submenuDropdown.find('button').first();
-
-                    if (firstSubmenuBtn.length) {
-                        // Cache the container for submenu buttons to limit DOM queries
-                        const submenuContainer = $('#oss-easa-nav-tab');
-
-                        // Remove active class from all submenu buttons within the container
-                        //submenuContainer.find('button').removeClass('activeSubmenuBtn');
-
-                        // Add active class to the first submenu button
-                        //firstSubmenuBtn.addClass('activeSubmenuBtn');
-
-                        // Show the submenu dropdown first
-                        submenuDropdown.show();
-
-                        // Extract submenu ID and store it
-                        const firstSubmenuId = firstSubmenuBtn.attr('id')
-                            .replace(`${this.appName}-`, '')
-                            .replace('nav-div-', '')
-                            .replace('-wrap', '');
-
-                        //localStorage.setItem('activeEASASubMenuId', firstSubmenuId);
-
-
-                        return; // Exit to prevent toggling again below
+                    if (itarStatus === 1) {
+                        projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                        projectElement.append(
+                            $('<span>')
+                                .addClass("bold-red-text")
+                                .text('ITAR')
+                        );
+                        projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
                     }
-                } else {
-                    // Same main menu clicked, just toggle the submenu dropdown visibility
-                    submenuDropdown.toggle();
 
-                    if (submenuDropdown.is(':visible')) {
-                        // Get currently active submenu button inside this dropdown
-                        const activeSubmenuBtn = submenuDropdown.find('button.activeSubmenuBtn').first();
-                        if (activeSubmenuBtn.length) {
-                            const activeSubmenuId = activeSubmenuBtn.attr('id')
-                                .replace(`${this.appName}-`, '')
-                                .replace('nav-div-', '')
-                                .replace('-wrap', '');
+                    // Breadcrumb for Project Regulation
+                    if (window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.MANAGE_REGULATION) > -1) {
+                        $('#oss-menu-breadcrums')
+                            .append(projectElement)
+                            .append($('<div>').addClass("gg-chevron-right"));
 
+                        if (docNumber) {
+                            $('#oss-menu-breadcrums').append($('<div>')
+                                .attr("id", "oss-csr-docnumber")
+                                .addClass("font-size-md breadcrumsStyles")
+                                .text(`Document Number: ${docNumber ? docNumber : ''}`)
+                                .click(() => handleBreadcrumsClick(`oss-csrDocNum-breadcrums`))
+                            ).append($('<div>').addClass("gg-chevron-right"));
+
+                            if (docRev && docRev.toLowerCase() !== 'new') {
+                                document.getElementById("oss-csr-docnumber").innerHTML += `<span> Rev ${docRev}</span>`;
+                            } // Rev in red
+                        }
+
+                        $('#oss-menu-breadcrums').append($('<div>')
+                            .attr("id", "oss-csr-regulation")
+                            .addClass("font-size-md")
+                            .text(`Regulations`));
+                    } else {
+                        $('#oss-menu-breadcrums')
+                            .append(projectElement)
+                            .append($('<div>').addClass("gg-chevron-right"))
+                            .append(
+                                $('<div>')
+                                    .attr("id", "oss-csr-docnumber")
+                                    .addClass("font-size-md")
+                                    .text(`Document Number: ${docNumber ? docNumber : ''}`)
+                            );
+
+                        if (docRev && docRev.toLowerCase() !== 'new') {
+                            document.getElementById("oss-csr-docnumber").innerHTML += `<span> Rev ${docRev}</span>`;
                         }
                     }
-                }
-            });
-
-            $(document).on('click', () => {
-                submenuDropdown.hide();
-            });
-
-            // Create a container for columns inside dropdown
-            let columnsContainer = $('<div>').addClass('columncontainerEasa').css({
-                // 'display': 'flex',
-                // 'flex-wrap': 'wrap',
-                // 'gap': '8px'
-            });
-
-            visibleSubMenus.forEach((subItem, idx) => {
-                // const hasPermission = this.hasPermission(workapps, subItem.AppName, subItem.WorkAppName);
-                // add workapp haspermission here, if required
-                // if (true) {
-                isShowMainMenuCounter++;
-                let submenuBtn;
-                submenuBtn = $('<button>')
-                    .addClass('btn btn-sm btn-outline-secondary sub-menu-btn text-start mb-2 d-flex align-items-center')
-                    .css({
-                        'box-sizing': 'border-box'
-                    })
-                    .attr('id', `nav-div-${subItem.SubMenuUIId}-wrap`)
-                    .on('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        $('#oss-easa-nav-tab').find('button').removeClass('activeSubmenuBtn');
-                        //submenuDropdown.find('.sub-menu-btn').removeClass('activeSubmenuBtn');
-                        // Remove active class from all submenu buttons within this dropdown
-                        // submenuDropdown.find('button').removeClass('activeSubmenuBtn');
-                        // Add active class to the clicked button
-                        $(e.currentTarget).addClass('activeSubmenuBtn');
-                        //console.log('Clicked element:', e.currentTarget);
-                        const storageServiceTemp = new StorageService();
-
-                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
-                        // localStorage.setItem('activeMainMenuId', menuUIId);
-                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
-                        // storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', subItem.Title);
-
-                        submenuDropdown.hide();
-                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', subItem.Title);
-                        this.handleSubMenuButtonClick(subItem.SubMenuUIId);
-                    });
-
-                // let icon = $('<img>')
-                //     .attr('src', `assets/images/${subItem.ImageName}`)
-                //     .attr('width', 24)
-                //     .attr('height', 24)
-                //     .addClass('me-2');
-
-
-                submenuBtn.append(subItem.Title);
-                const storedActiveSubMenuId = new StorageService().getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu');
-                if (subItem.SubMenuUIId === storedActiveSubMenuId) {
-                    submenuBtn.addClass('activeSubmenuBtn');
-                    new StorageService().setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
-                }
-
-                if (submenuBtn) {
-                    // Distribute submenu buttons into columns round-robin
-                    columnsContainer.append(submenuBtn);
-                }
-                // }
-            });
-
-            // Append columns to container
-            // Set dynamic column count based on submenu length
-            const maxItemsPerColumn = 8;
-            const totalItems = visibleSubMenus.length;
-            const columnsNeeded = Math.ceil(totalItems / maxItemsPerColumn);
-            columnsContainer.css('column-count', columnsNeeded > 1 ? columnsNeeded : 1);
-            // Create header div with main menu title
-            let submenuHeader = $('<div>')
-                .addClass('submenu-header')
-                .text(item.MenuTitle)
-                .css({
-                    'font-weight': '600',
-                    'font-size': '14px',
-                    'padding-bottom': '8px',
-                    'color': '#0033A1',
-                    'display': 'none'
                 });
-            // Append header and columns container to submenuDropdown
-            submenuDropdown.append(submenuHeader);
-            submenuDropdown.append(columnsContainer);
-
-            // Append Main Menu only when it has atleast 1 submenu is accessible or does not have any sub menu
-            if (isShowMainMenuCounter > 0) {
-                // Append button and dropdown inside wrapper
-                mainMenuWrapper.append(mainMenuButton).append(submenuDropdown);
-                // Append wrapper to main container
-                $('#oss-easa-nav-tab').append(mainMenuWrapper);
             }
-            // }
+            else {
+                setMenuSectionVisibility(true);  //Visible MenuSection for Workspace.
+                // Set PID in window object in case of Project Regulation
+                if (!window.projectId && window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.MANAGE_REGULATION) > -1) {
+                    let routeDataArray = window.location.hash.split('/');
+                    window.projectId = routeDataArray[routeDataArray.length - 1];
+                }
+
+                checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                    $('#oss-menu-breadcrums').html('');
+
+                    $('#oss-menu-breadcrums')
+                        .append(
+                            $('<a>')
+                                .text('Home')
+                                .attr("id", "idhomeBreadcurm")
+                                .addClass("homeBreadcurm")
+                                .click(() => handleHomeBreadcrumsClick(event))
+                        )
+                        .append($('<div>').addClass("gg-chevron-right"))
+                        .append(
+                            $('<div>')
+                                .addClass("breadcrumsStyles")
+                                .text('My Workspace')
+                                .attr("id", `oss-myworkspace-breadcrums`)
+                                .click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`))
+                        )
+                        .append($('<div>').addClass("gg-chevron-right"));
+
+                    // Project Number with ITAR condition
+                    let projectElement = $('<div>')
+                        .attr("id", "oss-projectId-breadcrumb")
+                        .addClass("breadcrumsStyles")
+                        .text(`Project Number ${projectId}`)
+                        .click(() => handleBreadcrumsClick(`oss-csrprojId-breadcrums`));
+
+                    if (itarStatus === 1) {
+                        projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                        projectElement.append(
+                            $('<span>')
+                                .addClass("bold-red-text")
+                                .text('ITAR')
+                        );
+                        projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+                    };
+
+                    $('#oss-menu-breadcrums')
+                        .append(projectElement)
+                        .append($('<div>').addClass("gg-chevron-right"))
+                        .append($('<div>').addClass("breadcrumsStyles").text('Compliance Summary Report').attr("id", `oss-csrsearch-breadcrums`).click(() => {
+                            localStorage.setItem('activeTest2SubMenuId', 'csrBtn');
+                            handleBreadcrumsClick(`oss-csrlists-breadcrums`)
+                        }))
+
+                    // Breadcrumb for Project Regulation
+                    if (window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.MANAGE_REGULATION) > -1) {
+                        $('#oss-menu-breadcrums')
+                            //.append(projectElement)
+                            .append($('<div>').addClass("gg-chevron-right"));
+
+                        if (docNumber) {
+                            $('#oss-menu-breadcrums').append($('<div>')
+                                .attr("id", "oss-csr-docnumber")
+                                .addClass("font-size-md breadcrumsStyles")
+                                .text(`Document Number: ${docNumber ? docNumber : ''}`)
+                                .click(() => handleBreadcrumsClick(`oss-csrDocNum-breadcrums`))
+                            ).append($('<div>').addClass("gg-chevron-right"));
+
+                            if (docRev && docRev != "" && docRev.toLowerCase() !== 'new') {
+                                document.getElementById("oss-csr-docnumber").innerHTML += `<span> Rev ${docRev}</span>`;
+                            }
+                        }
+
+                        $('#oss-menu-breadcrums').append(
+                            $('<div>')
+                                .attr("id", "oss-csr-regulation")
+                                .addClass("font-size-md")
+                                .text(`Regulations`));
+                    } else {
+                        $('#oss-menu-breadcrums')
+                            .append($('<div>').addClass("gg-chevron-right"))
+                            .append($('<div>').addClass("font-size-md")
+                                .attr("id", "oss-csr-docnumber")
+                                .text(`Document Number: ${docNumber ? docNumber : ''}`));
+                        if (docRev && docRev != "" && docRev.toLowerCase() !== 'new') {
+                            document.getElementById("oss-csr-docnumber").innerHTML += `<span> Rev ${docRev}</span>`;
+                        } // Rev in red
+                    }
+                });
+                const storedActiveTest2SubMenuId = localStorage.getItem('activeTest2SubMenuId');
+                if (storedActiveTest2SubMenuId) {
+                    var additionalBreadcrumText = $(`#nav-div-${storedActiveTest2SubMenuId}-wrap`).text().trim();
+                    $('[id^="nav-div-"][id$="-wrap"]').removeClass('activeSubmenuBtn');
+                    $(`#nav-div-${storedActiveTest2SubMenuId}-wrap`).addClass('activeSubmenuBtn');
+                }
+            }
+        }
+        else if (window.location.pathname.indexOf(WorkAppRoutes.TERMINAL_TRACKER.APP_ROOT) > -1 &&
+            window.location.hash.indexOf(WorkAppRoutes.TERMINAL_TRACKER.TERMINAL_TRACKER_SEARCH.replace('/:pid', '')) == -1) {
+            $('#oss-menu-breadcrums').empty();
+            if (window.projectId == undefined) {
+                $("#oss-header-menu-setion").hide();
+                $('#oss-menu-breadcrums')
+                    .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text(value)
+                        .attr("id", value)
+                        .click(() => handleBreadcrumsClick(value)));
+            }
+            else {
+                checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                    $('#oss-menu-breadcrums')
+                        .append(
+                            $('<a>')
+                                .text('Home')
+                                .attr("id", "idhomeBreadcurm")
+                                .addClass("homeBreadcurm")
+                                .click(() => handleHomeBreadcrumsClick(event))
+                        )
+                        .append($('<div>').addClass("gg-chevron-right"))
+                        .append(
+                            $('<div>')
+                                .addClass("breadcrumsStyles")
+                                .text('My Workspace')
+                                .attr("id", `oss-myworkspace-breadcrums`)
+                                .click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`))
+                        )
+                        .append($('<div>').addClass("gg-chevron-right"));
+
+                    // Add Project Number with ITAR condition
+                    let projectText = `Project Number ${projectId}`;
+                    let projectElement = $('<div>')
+                        .attr("id", "oss-projectId-breadcrumb")
+                        .addClass("font-size-md").addClass("breadcrumsStyles")
+                        .text(projectText)
+                        .click(() => {
+                            localStorage.setItem('activeTest2SubMenuId', 'projectDetailsBttn');
+                            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DETAIL.APP_ROUTE + "/#" + WorkAppRoutes.PMDB_DETAIL.PROJECT_DETAIL.replace(":pid", window.projectId));
+                        });
+                    if (itarStatus === 1) {
+                        projectElement.append($('<span>').addClass("font-size-md").text(' ('));
+                        projectElement.append(
+                            $('<span>')
+                                .addClass("bold-red-text")
+                                .text('ITAR')
+                        );
+                        projectElement.append($('<span>').addClass("font-size-md").text(')'));
+                    }
+
+                    $('#oss-menu-breadcrums').append(projectElement);
+                });
+                appendAdditionalBreadcrumb();
+                $("#oss-header-menu-setion").show();
+            }
+
+
+
+        } else if (window.location.pathname.indexOf(WorkAppRoutes.FPQ_DETAILS.APP_ROUTE) > -1) {
+            setProjectIdFromRoutes();
+            checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                $('#oss-menu-breadcrums').empty();
+
+                $('#oss-menu-breadcrums')
+                    .append(
+                        $('<a>')
+                            .text('Home')
+                            .attr("id", "idhomeBreadcurm")
+                            .addClass("homeBreadcurm")
+                            .click(() => handleHomeBreadcrumsClick(event))
+                    )
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append(
+                        $('<div>')
+                            .addClass("breadcrumsStyles")
+                            .text('My Workspace')
+                            .attr("id", `oss-myworkspace-breadcrums`)
+                            .click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`))
+                    )
+                    .append($('<div>').addClass("gg-chevron-right"));
+
+                // Add Project Number with ITAR condition
+                let projectText = `Project Number ${projectId}`;
+                let projectElement = $('<div>')
+                    .attr("id", "oss-projectId-breadcrumb")
+                    .addClass("font-size-md").addClass("breadcrumsStyles")
+                    .text(projectText)
+                    .click(() => {
+                        localStorage.setItem('activeTest2SubMenuId', 'projectDetailsBttn');
+                        singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DETAIL.APP_ROUTE + "/#" + WorkAppRoutes.PMDB_DETAIL.PROJECT_DETAIL.replace(":pid", window.projectId));
+                    });
+                if (itarStatus === 1) {
+                    projectElement.append($('<span>').addClass("font-size-md").text(' ('));
+                    projectElement.append(
+                        $('<span>')
+                            .addClass("bold-red-text")
+                            .text('ITAR')
+                    );
+                    projectElement.append($('<span>').addClass("font-size-md").text(')'));
+                }
+
+                $('#oss-menu-breadcrums').append(projectElement);
+                //.append($('<div>').addClass("gg-chevron-right"))
+                //.append(
+                //    $('<div>')
+                //        .addClass("breadcrumsStyles")
+                //        .text('FPQ')
+                //        .attr("id", `oss-myworkspace-breadcrums-fpq`)
+                //        .click(() => { })
+                //);
+            });
+            appendAdditionalBreadcrumb();
+        }
+        else {
+            setProjectIdFromRoutes();
+            checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                $('#oss-menu-breadcrums').html('');
+
+                $('#oss-menu-breadcrums')
+                    .append(
+                        $('<a>')
+                            .text('Home')
+                            .attr("id", "idhomeBreadcurm")
+                            .addClass("homeBreadcurm")
+                            .click(() => handleHomeBreadcrumsClick(event))
+                    )
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append(
+                        $('<div>')
+                            .addClass("breadcrumsStyles")
+                            .text('My Workspace')
+                            .attr("id", `oss-myworkspace-breadcrums`)
+                            .click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`))
+                    )
+                    .append($('<div>').addClass("gg-chevron-right"));
+
+                // Add Project Number with ITAR condition
+                let projectText = `Project Number ${projectId}`;
+                let projectElement = $('<div>').attr("id", "oss-projectId-breadcrumb").addClass("breadcrumsStyles").text(projectText)
+                    .click(() => {
+                        localStorage.setItem('activeTest2SubMenuId', 'projectDetailsBttn');
+                        singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DETAIL.APP_ROUTE + "/#" + WorkAppRoutes.PMDB_DETAIL.PROJECT_DETAIL.replace(":pid", window.projectId));
+                    });;
+
+                if (itarStatus === 1) {
+                    projectElement.append($('<span>').addClass("font-size-md").text(' ('));
+                    projectElement.append(
+                        $('<span>')
+                            .addClass("bold-red-text")
+                            .text('ITAR')
+                    );
+                    projectElement.append($('<span>').addClass("font-size-md").text(')'));
+                }
+
+                $('#oss-menu-breadcrums').append(projectElement);
+            });
+            appendAdditionalBreadcrumb();
+        }
+    } else if (value == "Approved Design Changes") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text(value)
+                .attr("id", value)
+                .click(() => handleBreadcrumsClick(value)));
+    } else if (value == "SB Design Change") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text(value)
+                .attr("id", value)
+                .click(() => handleBreadcrumsClick(value)));
+    }
+    else if (value === "Wireweight") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('Wire Weight').attr("id", `oss-wireweight-breadcrums`)
+                .click(() => handleBreadcrumsClick(`oss-wireweight-breadcrums`)));
+    }
+
+    //proposal builder
+    else if (value === "ProposalBuilder") {
+        if (window.location.hash.indexOf(WorkAppRoutes.PROPOSALBUILDER_DETAILS.PROPOSALBUILDER_DETAILS_PROJECT_HOURSFLOW.replace('/:pid', '')) > -1
+            || window.location.hash.indexOf(WorkAppRoutes.PROPOSALBUILDER_DETAILS.PROPOSALBUILDER_DETAILS_PROJECT_CREATE_PB.replace('/:pid', '')) > -1
+            || window.location.hash.indexOf(WorkAppRoutes.PROPOSALBUILDER_DETAILS.PROPOSALBUILDER_DETAILS_PROJECT_MODULE_SUBMODULE.replace('/:pid', '')) > -1
+            || window.location.hash.indexOf(WorkAppRoutes.PROPOSALBUILDER_DETAILS.PROPOSALBUILDER_DETAILS_PROJECT_GANTT_CHART.replace('/:pid', '')) > -1) {
+            var url = window.location.href;
+            var segments = url.split('/');
+            var docNumber = segments.pop();
+            if (docNumber != null) {
+                if (!window.projectId) {
+                    let routeDataArray = window.location.hash.split('/');
+                    window.projectId = routeDataArray[routeDataArray.length - 3];
+                }
+                checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+                    $('#oss-menu-breadcrums').html('');
+                    $('#oss-menu-breadcrums')
+                        .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+                        .append($('<div>').addClass("gg-chevron-right"))
+                        .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`)))
+                        .append($('<div>').addClass("gg-chevron-right"))
+                    // Project Number with ITAR condition
+                    let projectElement = $('<div>')
+                        .attr("id", "oss-projectId-breadcrumb")
+                        .addClass("breadcrumsStyles")
+                        .text(`Project Number ${projectId}`)
+                        .click(() => handleBreadcrumsClick(`oss-proposalbuilder-project-breadcrums`));
+
+                    $('#oss-menu-breadcrums')
+                        .append(projectElement)
+                        .append($('<div>').addClass("gg-chevron-right"))
+                        .append($('<div>').addClass("breadcrumsStyles").text('Proposal Builder').attr("id", `oss-proposalbuilder-project-breadcrums`)
+                            .click(() => handleBreadcrumsClick(`oss-proposalbuilder-project-breadcrums`)));
+                });
+            }
+        }
+        else {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm")
+                    .click(() => handleHomeBreadcrumsClick(event)))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('Proposal Builder').attr("id", `oss-proposalbuilder-breadcrums`)
+                    .click(() => handleBreadcrumsClick(`oss-proposalbuilder-breadcrums`)));
+        }
+    }
+
+    //WirePinSetting
+    else if (value === "WirePinSetting") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('Wire PinSettings').attr("id", `oss-pinsetting-breadcrums`)
+                .click(() => handleBreadcrumsClick(`oss-pinsetting-breadcrums`)));
+    }
+    //fpq details
+    else if (value === "FPQDetails") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').addClass("homeBreadcurm").attr("id", "idhomeBreadcurm").click(() => {
+                setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                handleHomeBreadcrumsClick(event);
+            }))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('First Pass Quality').attr("id", `oss-fpqdetails-breadcrums`).click(() => {
+                setFPQBreadcrumbFlags(false, false, false, false, false, false, false, true, false, false);
+                handleBreadcrumsClick(`oss-fpqdetails-breadcrums`);
+            }));
+    }
+    else if (value === "FPQDetailsChecklistBuilder") {
+        var checklistBuilderName = JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistBuilderName`)) !== null ? JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistBuilderName`)).ChecklistBuilderName : "Template Builder";
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').addClass("homeBreadcurm").attr("id", "idhomeBreadcurm").click(() => {
+                setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                handleHomeBreadcrumsClick(event);
+            }))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('First Pass Quality').attr("id", `oss-fpqdetails-breadcrums`).click(() => {
+                setFPQBreadcrumbFlags(false, false, false, false, false, false, false, true, false, false);
+                handleBreadcrumsClick(`oss-fpqdetails-breadcrums`);
+            }))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('Admin').attr("id", `oss-fpqdetails-breadcrums`).click(() => {
+                setFPQBreadcrumbFlags(false, false, false, false, false, false, false, true, false, false);
+                handleBreadcrumsClick(`oss-fpqdetails-breadcrums`);
+            }))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistBuilder`).text(checklistBuilderName));
+    }
+    else if (value === "FPQDetailsChecklistEntry") {
+        var checklistEntryTitle = "";
+        checklistEntryTitle = JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)) !== null ? JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)).ChecklistEntryTitle : "New Checklist";
+
+        var checklistEntryProjectId = "";
+        checklistEntryProjectId = JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryProjectId`)) !== null ? JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryProjectId`)).ChecklistEntryProjectId : "";
+
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').addClass("homeBreadcurm").attr("id", "idhomeBreadcurm").click(() => {
+                setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                handleHomeBreadcrumsClick(event);
+            }))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('First Pass Quality').attr("id", `oss-fpqdetails-breadcrums`).click(() => {
+                setFPQBreadcrumbFlags(false, false, false, false, false, false, false, true, false, false);
+                handleBreadcrumsClick(`oss-fpqdetails-breadcrums`);
+            }))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+    }
+    else if (value === "FPQDetailsNewChecklistEntry") {
+        // const getWindowProjectId = () => {
+        //     if (Number(window.projectId) > 0) return Number(window.projectId)
+        //     const splittedURL = window.location.href.split('/')
+        //     return Number(splittedURL[splittedURL.length - 1]) ?? null
+        // }
+        let routeDataArray = window.location.href.split('/');
+        let projectIdFromUrl = routeDataArray[routeDataArray.length - 1];
+        if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+            window.projectId = projectIdFromUrl;
+        }
+
+        var checklistEntryTitle = "New Checklist";
+        checkProjectIdFromRoute(window.projectId).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').addClass("homeBreadcurm").attr("id", "idhomeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                    handleHomeBreadcrumsClick(event)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`oss-myworkspace-breadcrums`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false, false);
+                    localStorage.setItem('activeTest2SubMenuId', 'qualityfpqBtn');
+                    handleBreadcrumsClick(`OSS-FPQCHECKLIST-BREADCRUMS`)
+                });
+
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('FPQ').attr("id", `oss-myworkspace-breadcrums-fpq-new`).click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, true, false, false, false, false, false, false);
+                    localStorage.setItem('activeTest2SubMenuId', 'qualityfpqBtn');
+                    handleBreadcrumsClick(`OSS-FPQCHECKLIST-BREADCRUMS`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+        });
+    }
+    else if (value === "FPQDetailsViewChecklistEntry") {
+        // const getWindowProjectId = () => {
+        //     if (Number(window.projectId) > 0) return Number(window.projectId)
+
+        //     const splittedURL = window.location.href.split('/')
+        //     return Number(splittedURL[splittedURL.length - 2]) ?? null
+        // }
+        let routeDataArray = window.location.href.split('/');
+        let projectIdFromUrl = routeDataArray[routeDataArray.length - 2];
+        if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+            window.projectId = projectIdFromUrl;
+        }
+
+        var checklistEntryTitle = "";
+        checklistEntryTitle = JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)) !== null ? JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)).ChecklistEntryTitle : "New Checklist";
+
+        checkProjectIdFromRoute(window.projectId).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').addClass("homeBreadcurm").attr("id", "idhomeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false, false,);
+                    handleHomeBreadcrumsClick(event)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`oss-myworkspace-breadcrums`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false, false, false, false);
+                    localStorage.setItem('activeTest2SubMenuId', 'qualityfpqBtn');
+                    handleBreadcrumsClick(`OSS-FPQCHECKLIST-BREADCRUMS`)
+                });
+
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('FPQ').attr("id", `oss-myworkspace-breadcrums-fpq-new`).click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, true, false, false, false, false, false, false, false, false);
+                    localStorage.setItem('activeTest2SubMenuId', 'qualityfpqBtn');
+                    handleBreadcrumsClick(`OSS-FPQCHECKLIST-BREADCRUMS`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+        });
+    }
+    else if (value === "FPQSupplementary") {
+        var supplementaryName = JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-SupplementaryName`)) !== null ? JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-SupplementaryName`)).SupplementaryName : "Create New Supplementary";
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').addClass("homeBreadcurm").attr("id", "idhomeBreadcurm").click(() => {
+                setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false);
+                handleHomeBreadcrumsClick(event);
+            }))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('First Pass Quality').attr("id", `oss-fpqdetails-breadcrums`).click(() => {
+                setFPQBreadcrumbFlags(false, false, false, false, false, false, false, true, false, false);
+                handleBreadcrumsClick(`oss-fpqdetails-breadcrums`);
+            }))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('Admin').attr("id", `oss-fpqdetails-breadcrums`).click(() => {
+                setFPQBreadcrumbFlags(false, false, false, false, false, false, false, true, false, false);
+                handleBreadcrumsClick(`oss-fpqdetails-breadcrums`);
+            }))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-supplementary`).text(supplementaryName));
+    }
+    else if (value === "FPQDetailsQmapNewChecklistEntry") {
+        // const getWindowProjectId = () => {
+        //     if (Number(window.projectId) > 0) return Number(window.projectId)
+        //     const splittedURL = window.location.href.split('/')
+        //     return Number(splittedURL[splittedURL.length - 2]) ?? null
+        // }
+        let routeDataArray = window.location.href.split('/');
+        let projectIdFromUrl = routeDataArray[routeDataArray.length - 2];
+        if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+            window.projectId = projectIdFromUrl;
+        }
+
+        var checklistEntryTitle = "New Checklist";
+        checkProjectIdFromRoute(window.projectId).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-QMAPPROJECTID-BREADCRUMS`)
+                })
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-QMAPPROJECTID-BREADCRUMS`)
+                })
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-QMAPPROJECTID-BREADCRUMS`)
+                });
+
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").addClass("breadcrumsStyles").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-fpqqmap`).text("QMAP").click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, false, true, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-QMAPPROJECTID-BREADCRUMS`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+        });
+    } else if (value === "FPQDetailsEspecNewChecklistEntry") {
+        // const getWindowProjectId = () => {
+        //     if (Number(window.projectId) > 0) return Number(window.projectId)
+        //     const splittedURL = window.location.href.split('/')
+        //     return Number(splittedURL[splittedURL.length - 2]) ?? null
+        // }
+        let routeDataArray = window.location.href.split('/');
+        let projectIdFromUrl = routeDataArray[routeDataArray.length - 2];
+        if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+            window.projectId = projectIdFromUrl;
+        }
+
+        var checklistEntryTitle = "New Checklist";
+        checkProjectIdFromRoute(window.projectId).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-ESPECPROJECTID-BREADCRUMS`)
+                })
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-ESPECPROJECTID-BREADCRUMS`)
+                })
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-ESPECPROJECTID-BREADCRUMS`)
+                });
+
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").addClass("breadcrumsStyles").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-fpqqmap`).text("eSPEC").click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, false, false, false, false, false, true);
+                    handleBreadcrumsClick(`OSS-ESPECPROJECTID-BREADCRUMS`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+        });
+    } else if (value === "FPQDetailsWktNewChecklistEntry") {
+        const getWindowProjectId = () => {
+            if (Number(window.projectId) > 0) return Number(window.projectId)
+            const splittedURL = window.location.href.split('/')
+            return Number(splittedURL[splittedURL.length - 2]) ?? null
+        }
+        var checklistEntryTitle = "New Checklist";
+        checkProjectIdFromRoute(getWindowProjectId()).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-WKTPROJECTID-BREADCRUMS`)
+                })
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-WKTPROJECTID-BREADCRUMS`)
+                })
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-WKTPROJECTID-BREADCRUMS`)
+                });
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").addClass("breadcrumsStyles").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-fpqqmap`).text("WKT").click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, false, false, false, false, false, false, true);
+                    handleBreadcrumsClick(`OSS-WKTPROJECTID-BREADCRUMS`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+        });
+    } else if (value === "FPQDetailsPdmNewChecklistEntry") {
+        // const getWindowProjectId = () => {
+        //     if (Number(window.projectId) > 0) return Number(window.projectId)
+        //     const splittedURL = window.location.href.split('/')
+        //     return Number(splittedURL[splittedURL.length - 2]) ?? null
+        // }
+
+        let routeDataArray = window.location.href.split('/');
+        let projectIdFromUrl = routeDataArray[routeDataArray.length - 2];
+        if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+            window.projectId = projectIdFromUrl;
+        }
+        var checklistEntryTitle = "New Checklist";
+        checkProjectIdFromRoute(window.projectId).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-PDMPROJECTID-BREADCRUMS`)
+                })
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-PDMPROJECTID-BREADCRUMS`)
+                })
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-PDMPROJECTID-BREADCRUMS`)
+                });
+
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").addClass("breadcrumsStyles").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-fpqpdm`).text("PDM").click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, false, false, true, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-PDMPROJECTID-BREADCRUMS`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+        });
+    }
+    else if (value === "FPQDetailsViewQmapChecklistEntry") {
+        // const getWindowProjectId = () => {
+        //     if (Number(window.projectId) > 0) return Number(window.projectId)
+        //     const splittedURL = window.location.href.split('/')
+        //     return Number(splittedURL[splittedURL.length - 2]) ?? null
+        // }
+        let routeDataArray = window.location.href.split('/');
+        let projectIdFromUrl = routeDataArray[routeDataArray.length - 2];
+        if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+            window.projectId = projectIdFromUrl;
+        }
+
+        var checklistEntryTitle = "";
+        checklistEntryTitle = JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)) !== null ? JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)).ChecklistEntryTitle : "New Checklist";
+        checkProjectIdFromRoute(window.projectId).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                    handleHomeBreadcrumsClick(event);
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`oss-myworkspace-breadcrums`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-QMAPPROJECTID-BREADCRUMS`)
+                });
+
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").addClass("breadcrumsStyles").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-fpqqmap`).text("QMAP").click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, false, true, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-QMAPPROJECTID-BREADCRUMS`)
+                }))
+                .append($("<div>").addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+        });
+    } else if (value === "FPQDetailsViewESPECChecklistEntry") {
+        // const getWindowProjectId = () => {
+        //     if (Number(window.projectId) > 0) return Number(window.projectId)
+        //     const splittedURL = window.location.href.split('/')
+        //     return Number(splittedURL[splittedURL.length - 2]) ?? null
+        // }
+
+        let routeDataArray = window.location.href.split('/');
+        let projectIdFromUrl = routeDataArray[routeDataArray.length - 2];
+        if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+            window.projectId = projectIdFromUrl;
+        }
+
+        var checklistEntryTitle = "";
+        checklistEntryTitle = JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)) !== null ? JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)).ChecklistEntryTitle : "New Checklist";
+        checkProjectIdFromRoute(window.projectId).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                    handleHomeBreadcrumsClick(event);
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`oss-myworkspace-breadcrums`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-ESPECPROJECTID-BREADCRUMS`)
+                });
+
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").addClass("breadcrumsStyles").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-fpqqmap`).text("eSPEC").click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, false, false, false, false, false, true, false);
+                    handleBreadcrumsClick(`OSS-ESPECPROJECTID-BREADCRUMS`)
+                }))
+                .append($("<div>").addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+        });
+    } else if (value === "FPQDetailsViewWKTChecklistEntry") {
+        const getWindowProjectId = () => {
+            if (Number(window.projectId) > 0) return Number(window.projectId)
+            const splittedURL = window.location.href.split('/')
+            return Number(splittedURL[splittedURL.length - 2]) ?? null
+        }
+        var checklistEntryTitle = "";
+        checklistEntryTitle = JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)) !== null ? JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)).ChecklistEntryTitle : "New Checklist";
+        checkProjectIdFromRoute(getWindowProjectId()).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                    handleHomeBreadcrumsClick(event);
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`oss-myworkspace-breadcrums`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-WKTPROJECTID-BREADCRUMS`)
+                });
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").addClass("breadcrumsStyles").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-fpqqmap`).text("WKT").click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, false, false, false, false, false, false, true);
+                    handleBreadcrumsClick(`OSS-WKTPROJECTID-BREADCRUMS`)
+                }))
+                .append($("<div>").addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+        });
+    }
+    else if (value === "FPQDetailsViewPdmChecklistEntry") {
+        // const getWindowProjectId = () => {
+        //     if (Number(window.projectId) > 0) return Number(window.projectId)
+        //     const splittedURL = window.location.href.split('/')
+        //     return Number(splittedURL[splittedURL.length - 2]) ?? null
+        // }
+
+        let routeDataArray = window.location.href.split('/');
+        let projectIdFromUrl = routeDataArray[routeDataArray.length - 2];
+        if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+            window.projectId = projectIdFromUrl;
+        }
+
+        var checklistEntryTitle = "";
+        checklistEntryTitle = JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)) !== null ? JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)).ChecklistEntryTitle : "New Checklist";
+        checkProjectIdFromRoute(window.projectId).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                    handleHomeBreadcrumsClick(event);
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`oss-myworkspace-breadcrums`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-PDMPROJECTID-BREADCRUMS`)
+                });
+
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").addClass("breadcrumsStyles").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-fpqpdm`).text("PDM").click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, false, false, true, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-PDMPROJECTID-BREADCRUMS`)
+                }))
+                .append($("<div>").addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+        });
+    }
+    else if (value === "FPQDetailsEnoviaNewChecklistEntry") {
+        // const getWindowProjectId = () => {
+        //     if (Number(window.projectId) > 0) return Number(window.projectId)
+        //     const splittedURL = window.location.href.split('/')
+        //     return Number(splittedURL[splittedURL.length - 2]) ?? null
+        // }
+
+        let routeDataArray = window.location.href.split('/');
+        let projectIdFromUrl = routeDataArray[routeDataArray.length - 2];
+        if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+            window.projectId = projectIdFromUrl;
+        }
+
+        var checklistEntryTitle = "New Checklist";
+        checkProjectIdFromRoute(window.projectId).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-ENOVIAPROJECTID-BREADCRUMS`)
+                })
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-ENOVIAPROJECTID-BREADCRUMS`)
+                })
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-ENOVIAPROJECTID-BREADCRUMS`)
+                });
+
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").addClass("breadcrumsStyles").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-fpqenovia`).text("ENOVIA").click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, false, false, false, true, false, false, false);
+                    handleBreadcrumsClick(`OSS-ENOVIAPROJECTID-BREADCRUMS`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
+        });
+    }
+    else if (value === "FPQDetailsViewEnoviaChecklistEntry") {
+        // const getWindowProjectId = () => {
+        //     if (Number(window.projectId) > 0) return Number(window.projectId)
+        //     const splittedURL = window.location.href.split('/')
+        //     return Number(splittedURL[splittedURL.length - 2]) ?? null
+        // }
+
+        let routeDataArray = window.location.href.split('/');
+        let projectIdFromUrl = routeDataArray[routeDataArray.length - 2];
+        if (!window.projectId || window.projectId.toString() != projectIdFromUrl.toString()) {
+            window.projectId = projectIdFromUrl;
+        }
+
+        var checklistEntryTitle = "";
+        checklistEntryTitle = JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)) !== null ? JSON.parse(localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-ChecklistEntryTitle`)).ChecklistEntryTitle : "New Checklist";
+        checkProjectIdFromRoute(window.projectId).then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm").click(() => {
+                    setFPQBreadcrumbFlags(true, false, false, false, false, false, false, false, false, false);
+                    handleHomeBreadcrumsClick(event);
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => {
+                    setFPQBreadcrumbFlags(false, true, false, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`oss-myworkspace-breadcrums`)
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => {
+                    setFPQBreadcrumbFlags(false, false, true, false, false, false, false, false, false, false);
+                    handleBreadcrumsClick(`OSS-ENOVIAPROJECTID-BREADCRUMS`)
+                });
+
+            if (itarStatus === 1) {
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(' ('));
+                projectElement.append(
+                    $('<span>')
+                        .addClass("bold-red-text")
+                        .text('ITAR')
+                );
+                projectElement.append($('<span>').addClass("breadcrumsStyles").text(')'));
+            }
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").addClass("breadcrumsStyles").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-fpqenovia`).text("ENOVIA").click(() => {
+                    setFPQBreadcrumbFlags(false, false, false, false, false, false, true, false, false, false);
+                    handleBreadcrumsClick(`OSS-ENOVIAPROJECTID-BREADCRUMS`)
+                }))
+                .append($("<div>").addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").attr("id", `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FPQ_DEATILS}-checklistEntry`).text(checklistEntryTitle));
         });
     }
 
-    activateSubmenuButton() {
+
+    else if (value == "TIPSS Details") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text(value)
+                .attr("id", value)
+                .click(() => handleBreadcrumsClick(value)));
+    }
+    //Bridge Analysis
+    else if (value === "BridgeAnalysis") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('Bridge Analysis').attr("id", `oss-bridgeanalysis-breadcrums`)
+                .click(() => handleBreadcrumsClick(`oss-bridgeanalysis-breadcrums`)));
+    }
+    else if (value == "Terminal Track Mapper") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text(value)
+                .attr("id", value)
+                .click(() => handleBreadcrumsClick(value)));
+    }
+    //CSR
+    else if (value === "CSR") {
+        const userTokenTemp = new UserToken();
+        const groupBU = userTokenTemp.getGroupBU();
+        if (groupBU === GroupBU.EASA) {
+            const storageServiceTemp = new StorageService();
+            const currentTitle = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle');
+            const currentProject = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentProjectBreadcrumbs');
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm")
+                    .click(() => handleHomeBreadcrumsClick(event)))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('EASA My Workspace').attr("id", `oss-csrsearch-breadcrums`)
+                    .click(() => singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_WORKSPACE_HOME)))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text(currentProject).attr("id", `oss-csrsearch-breadcrums`).click(() => {
+                    EASAMenuSubmenu.handleSubMenuButtonClick("projectdetailsbttn");
+                }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text(currentTitle).attr("id", `oss-csrsearch-breadcrums`));
+        } else {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm")
+                    .click(() => handleHomeBreadcrumsClick(event)))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('Compliance Summary Report').attr("id", `oss-csrsearch-breadcrums`)
+                    .click(() => handleBreadcrumsClick(`oss-csrsearch-breadcrums`)));
+        }
+    }
+    //Wire Weight SAV
+    else if (value === "WireweightSAV") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('Wire Weight SAV - BETA').attr("id", `oss-wireweightsav-breadcrums`)
+                .click(() => handleBreadcrumsClick(`oss-wireweightsav-breadcrums`)));
+    }
+    else if (value == "Manage Lease Termination") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text(value)
+                .attr("id", value)
+                .click(() => handleBreadcrumsClick(value)));
+    }
+    //AfmReports
+    else if (value == "AFM Reports") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text("AFM")
+                .attr("id", value)
+                .click(() => handleBreadcrumsClick(value)));
+                $('AFM Reports').addClass('clickable')
+    }
+    //AFM to Elog navigation
+    else if (value === "AFM_ELOG") {
+        setProjectIdFromRoutes();
+        checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append(
+                    $('<a>')
+                        .text('Home')
+                        .attr("id", "idhomeBreadcurm")
+                        .addClass("homeBreadcurm")
+                        .click(() => handleHomeBreadcrumsClick(event))
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append(
+                    $('<div>')
+                        .addClass("breadcrumsStyles")
+                        .text('AFM Reports')
+                        .attr("id", `oss-afmereports-breadcrums`)
+                        .click(() => handleBreadcrumsClick(`oss-afmereports-breadcrums`))
+                )
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("font-size-md").text(`Project Number ${projectId}`));
+        });
+    }
+    //NoOfConfigs
+    else if (value == "No of Configurations") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm")
+                .click(() => handleHomeBreadcrumsClick(event)))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('No of Configurations').attr("id", `oss-noofconifg-breadcrums`)
+                .click(() => handleBreadcrumsClick(`oss-noofconifg-breadcrums`)));
+    }
+    //Bridge Analysis
+    else if (value === "Bridge Analysis") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('Bridge Analysis').attr("id", `oss-bridgeanalysis-breadcrums`)
+                .click(() => handleBreadcrumsClick(`oss-bridgeanalysis-breadcrums`)));
+    }
+    //Floor Load Interface Tool
+    else if (value === "Floor Load Interface Tool") {
+        $('#oss-menu-breadcrums').html('');
+        $('#oss-menu-breadcrums')
+            .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+            .append($('<div>').addClass("gg-chevron-right"))
+            .append($('<div>').addClass("breadcrumsStyles").text('Floor Load Interface Program').attr("id", `oss-floorloadinterfacetool-breadcrums`)
+                .click(() => handleBreadcrumsClick(`oss-floorloadinterfacetool-breadcrums`)));
+    }
+
+    //Easa Register Tool     
+    //else if (value == "EASA Register") {
+    //    $('#oss-menu-breadcrums').html('');
+    //    $('#oss-menu-breadcrums')
+    //        .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+    //        .append($('<div>').addClass("gg-chevron-right"))
+    //        // .append($('<div>').addClass("breadcrumsStyles").text(value)
+    //        //     .attr("id", value)
+    //        //     .click(() => handleBreadcrumsClick(value)));
+    //        .append(
+    //            $('<div>')
+    //                .addClass("breadcrumsStyles")
+    //                .text('EASA Register')
+    //                .attr("id", 'oss-easa-register-breadcrums')
+    //                .click(() => handleBreadcrumsClick('oss-easa-register-breadcrums'))
+    //        );
+
+    //          let pathName = window.location?.hash;
+            
+    //          const createRoutes = [
+    //            WorkAppRoutes.EASA_REGISTER.Easa_Create_New,
+    //            WorkAppRoutes.EASA_REGISTER.Easa_Create_New_Mro,
+    //            WorkAppRoutes.EASA_REGISTER.Easa_Create_New_Wa
+    //          ];
+    //          if (pathName && createRoutes.some(r => pathName.indexOf(r) > -1))
+    //            {
+    //                $('#oss-menu-breadcrums')
+    //                    .append($('<div>').addClass("gg-chevron-right"))
+    //                    .append(
+    //                        $('<div>')
+    //                            .addClass("breadcrumsStyles")
+    //                            .text('Create')
+    //                            .attr("id", 'oss-easa-register-create-breadcrums')
+    //                            // .click(() => handleBreadcrumsClick('oss-easa-register-create-breadcrums'))
+    //                    );
+                    
+            
+    //            }
+
+    
+    //}
+
+    else if (value === "Cert Tool") {
+       $('#oss-menu-breadcrums').html('');
+       $('#oss-menu-breadcrums')
+           .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+           .append($('<div>').addClass("gg-chevron-right"))
+           .append($('<div>').addClass("breadcrumsStyles").text('Cert Tool').attr("id", `easa-certtool-breadcrums`)
+               .click(() => handleBreadcrumsClick(`easa-certtool-breadcrums`)));
+    }
+    else if (value === "BILDR Tool") {
+    // Get BradCrumb Detail
+        setMenuSectionVisibility(false);
+        EASAMenuSubmenu.setMenuSectionVisibility(true);
         const storageServiceTemp = new StorageService();
-        const storedEasaActiveId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu');
-        const storedEasaActiveMenuId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu');
-        if (storedEasaActiveMenuId) {
-            $('#oss-easa-nav-tab').find('.dropdown-toggle').removeClass('active');
-            $('#oss-easa-nav-tab').find(storedEasaActiveMenuId).addClass('active');
-        }
-        if (storedEasaActiveId) {
-            $('#oss-easa-nav-tab').find('button').removeClass('activeSubmenuBtn');
-            $(`[id='nav-div-${storedEasaActiveId}-wrap']`).addClass('activeSubmenuBtn');
-        }
+        const currentTitle = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle');
+        const currentProject = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentProjectBreadcrumbs');
+        const currentActiveDesignDocTab = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu');
+        const bildrTitle = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'bildrTitle');
+        const docNumber = storageServiceTemp.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'DocNumber');
+                $('#oss-menu-breadcrums').html('');
+                $('#oss-menu-breadcrums')
+                    .append($('<a>').text('Home').attr("id", "idhomeBreadcurm").addClass("homeBreadcurm")
+                        .click(() => handleHomeBreadcrumsClick(event)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text('EASA My Workspace').attr("id", `oss-csrsearch-breadcrums`)
+                        .click(() => singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_WORKSPACE_HOME)))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text(currentProject).attr("id", `oss-csrsearch-breadcrums`).click(() => {
+                        EASAMenuSubmenu.handleSubMenuButtonClick("projectdetailsbttn");
+                    }))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text(currentTitle).attr("id", `oss-csrsearch-breadcrums`).click(() => {
+                        EASAMenuSubmenu.handleSubMenuButtonClick(currentActiveDesignDocTab);
+                        // singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH.replace(':groupId', currentActiveDesignDocTab));
+                    }))
+                    .append($('<div>').addClass("gg-chevron-right"))
+                    .append($('<div>').addClass("breadcrumsStyles").text(`Document Number: ${docNumber ? docNumber : ''}`).attr("id", `oss-csr-docnumber`).click(() => {
+                        let reportId = storageService.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'reportId');
+                        singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId);
+                    }))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text(bildrTitle).attr("id", `oss-csrsearch-breadcrums`));
     }
-
-    hasPermission = (workapps, menuAppName, menuWorkappname) => {
-        if (new UserToken().isCurrentUserAdmin())
-            return true;
-
-        if (menuAppName == undefined || menuWorkappname == undefined) return true;
-
-        let hasPermisionToWorkApp = false;
-
-        for (let i = 0; i < workapps?.length; i++) {
-            if (workapps[i].AppName != null) {
-                let appName = workapps[i].AppName.toLowerCase();
-                let workAppName = workapps[i].WorkappName.toLowerCase();
-                let selectedBusinessUnit = new StorageService().getApplicationDataByKey(fullShellAppName, 'CurrentBusinessUnit');
-                let selectedDiscipline = new StorageService().getApplicationDataByKey(fullShellAppName, 'CurrentDiscipline');
-
-                let workAppBusinessUnitDisciplineList = workapps[i].BusinessUnitDisciplineList;
-                for (let j = 0; j < workAppBusinessUnitDisciplineList.length; j++) {
-                    let buDisciplineList = workAppBusinessUnitDisciplineList[j];
-
-                    if (buDisciplineList && buDisciplineList["BusinessunitName"]?.toLowerCase() == selectedBusinessUnit?.toLowerCase()) {
-                        let assignedDiscipline = buDisciplineList?.DisciplineNameList;
-                        if (appName.toLowerCase() == menuAppName.toLowerCase() && workAppName.toLowerCase() == menuWorkappname.toLowerCase()) {
-                            if (assignedDiscipline.indexOf(selectedDiscipline) > -1) {
-                                hasPermisionToWorkApp = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-        }
-        return hasPermisionToWorkApp;
+    else if (value === "HOME" || value === "ShellAdmin" || value === "SearchResult") {
+        $('#oss-menu-breadcrums').html('');
     }
-}
+    else if(value === "Project Schedule"){
+        if (!window.projectId) {
+            let routeDataArray = window.location.hash.split('/');
+            window.projectId = routeDataArray[routeDataArray.length - 3];
+        }
+        checkProjectIdFromRoute().then(({ projectId, itarStatus }) => {
+            $('#oss-menu-breadcrums').html('');
+            $('#oss-menu-breadcrums')
+                .append($('<a>').text('Home').attr("href", "#").addClass("homeBreadcurm"))
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('My Workspace').attr("id", `oss-myworkspace-breadcrums`).click(() => handleBreadcrumsClick(`oss-myworkspace-breadcrums`)))
+                .append($('<div>').addClass("gg-chevron-right"))
+            // Project Number with ITAR condition
+            let projectElement = $('<div>')
+                .attr("id", "oss-projectId-breadcrumb")
+                .addClass("breadcrumsStyles")
+                .text(`Project Number ${projectId}`)
+                .click(() => handleBreadcrumsClick(`oss-projectschedule-breadcrums`));
 
-export default easaMenuSubmenu;
-
-export const GroupBU = {
-    FAA: "FAA",
-    EASA: "EASA",
+            $('#oss-menu-breadcrums')
+                .append(projectElement)
+                .append($('<div>').addClass("gg-chevron-right"))
+                .append($('<div>').addClass("breadcrumsStyles").text('Project Schedule').attr("id", `oss-projectschedule-breadcrums`)
+                    .click(() => handleBreadcrumsClick(`oss-projectschedule-breadcrums`)));
+        });
+    }
+    updateFavoriteIconsVisibility();
 }
