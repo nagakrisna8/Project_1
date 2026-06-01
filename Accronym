@@ -1,641 +1,670 @@
-import * as singleSpa from 'single-spa';
-import { StorageService } from '../StorageService.js';
-import * as WorkAppRoutes from '../workAppRoutes.js'
-import easaMenuSubmenu from './easaMenuSubmenu.js';
-
-class EASAWorkapp {
-
-    handleBreadcrumsNavigation(value) {
-        const menuSubmenu = new easaMenuSubmenu();
-        const storageServiceTemp = new StorageService();
-        if (value === "Easa Workspace") {
-            if (window.location.href.indexOf(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL) > -1)
-                 {
-                // PROJECT DETAILS PAGE OF EASA WORKSPACE
-                let routeDataArray = window.location.hash.split('/');
-                window.easaMyWorkspaceProjectId = routeDataArray[routeDataArray.length - 1];
-                storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaMyWorkspaceProjectId', routeDataArray[routeDataArray.length - 1]);
-                menuSubmenu.setMenuSectionVisibility(true);
-                storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaProjectDtl-tab");
-                storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', "projectDetailsBttn")                
-                menuSubmenu.activateSubmenuButton();
-                $('#oss-menu-breadcrums').html('');
-                $('#oss-menu-breadcrums')
-                    .append($('<a>').text('Home').addClass("homeBreadcurm clickable")
-                        .attr("id", "idhomeBreadcurm")
-                        .click(() => this.handleEASAHomeBreadcrumsClick(value)))
-                    .append($('<div>').addClass("gg-chevron-right"))
-                    .append($('<div>').addClass("breadcrumsStyles clickable").text("EASA My Workspace")
-                        .attr("id", value)
-                        .click(() => this.handleEASABreadcrumsClick(value))
-                    );
-             }
-                else if (window.location.href.indexOf("/#" + WorkAppRoutes.CertTool.WORK_APPS_DETAILS) > -1) {
-                    var projectNo = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolProjectNo`);
-                    var CertToolReportId = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolReportId`);
-                    storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
-                    storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', "cclBuilderBttn")
-                    menuSubmenu.activateSubmenuButton();
-                    const newBreadcrumbs = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentProjectBreadcrumbs');
-                    console.log(newBreadcrumbs, 'newBreadcrumbs');
-                    menuSubmenu.setMenuSectionVisibility(true);
-                    $("#oss-home-gridster").hide();
-                    $('#oss-menu-breadcrums').html('');
-                    $('#oss-menu-breadcrums')
-                        .append($('<a>').text('Home').addClass("homeBreadcurm clickable")
-                            .attr("id", "idhomeBreadcurm")
-                            .click(() => handleCertToolBreadcrumbClick("home", value)))
-                        .append($('<div>').addClass("gg-chevron-right"))
-                        .append($('<div>').addClass("breadcrumsStyles clickable").text("EASA My Workspace")
-                            .attr("id", value)
-                            .click(() => handleCertToolBreadcrumbClick("easaworkspace", value))
-                        ).append($('<div>').addClass("gg-chevron-right"))
-                        .append($('<div>').addClass("breadcrumsStyles clickable").text(newBreadcrumbs)
-                            .attr("id", value)
-                            .click(() => handleCertToolBreadcrumbClick("projdetails", "projectDetailsBttn"))
-                        ).append($('<div>').addClass("gg-chevron-right")).append($('<div>').addClass("breadcrumsStyles").text("Cert Strategy"))
-            }
-            else if (window.location.href.indexOf(WorkAppRoutes.PROJECTSCHEDULE_DETAILS.APP_ROUTE) > -1) {
-                const newBreadcrumbs = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentProjectBreadcrumbs');
-                $('#oss-menu-breadcrums').html('');
-                $('#oss-menu-breadcrums')
-                .append($('<a>').text('Home').addClass("homeBreadcurm clickable")
-                    .attr("id", "idhomeBreadcurm")
-                    .click(() => this.handleEASAHomeBreadcrumsClick(value)))
-                .append($('<div>').addClass("gg-chevron-right"))
-                .append($('<div>').addClass("breadcrumsStyles clickable").text(value)
-                    .attr("id", value)
-                    .click(() => this.handleEASABreadcrumsClick(value))
-                ).append($('<div>').addClass("gg-chevron-right"))
-                .append($('<div>').addClass("breadcrumsStyles clickable").text(newBreadcrumbs)
-                    .attr("id", value)
-                    .click(() => handleCertToolBreadcrumbClick("projdetails", "projectDetailsBttn"))
-                )
-                .append($('<div>').addClass("gg-chevron-right"))
-                .append($('<div>').addClass("breadcrumsStyles clickable").text("Project Schedule")
-                );
-            }
-            else {
-                // HOMEPAGE/PROJECT LIST PAGE OF EASA WORKSPACE
-                $('#oss-menu-breadcrums').html('');
-                $('#oss-menu-breadcrums')
-                    .append($('<a>').text('Home').addClass("homeBreadcurm clickable")
-                        .attr("id", "idhomeBreadcurm")
-                        .click(() => this.handleEASAHomeBreadcrumsClick(value)))
-                    .append($('<div>').addClass("gg-chevron-right"))
-                    .append($('<div>').addClass("breadcrumsStyles clickable").text("EASA My Workspace")
-                        .attr("id", value)
-                        .click(() => this.handleEASABreadcrumsClick(value))
-                    );
-            }
-        }
-        else if (value === "Project Register" || value === "Design Data Transmittal Letter" || value == "Approved Design Changes" || value == "SB Design Change") {
-            $('#oss-menu-breadcrums').html('');
-            $('#oss-menu-breadcrums')
-                .append($('<a>').text('Home').addClass("homeBreadcurm clickable")
-                    .attr("id", "idhomeBreadcurm")
-                    .click(() => this.handleEASAHomeBreadcrumsClick(value)))
-                .append($('<div>').addClass("gg-chevron-right"))
-                .append($('<div>').addClass("breadcrumsStyles clickable").text(value)
-                    .attr("id", value)
-                    .click(() => this.handleEASABreadcrumsClick(value))
-                );
-        }
-        else if (value === "EASA Design Change") {
-            $('#oss-menu-breadcrums').html('');
-        }
-        menuSubmenu.activateSubmenuButton();
-    }
-
-    handleEASABreadcrumsFromPopup(breadcrumsId) {
-        if (breadcrumsId == "Project Register") {
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.PREGISTER_HOME);
-            this.resetApplicationDataByKeyForProjectRegister();
-        }
-        else if (breadcrumsId == "Design Data Transmittal Letter") {
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + WorkAppRoutes.PMDB_DDTL.DDTL_HOME);
-            this.resetApplicationDataByKeyForDDTL();
-        }
-        else if (breadcrumsId == "EASA Design Change") {
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-        }
-        else if (breadcrumsId == "Approved Design Changes") {
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_ApproveDesign.EASA_ApproveDesign_HOME);
-            this.resetApplicationDataByKeyForADC();
-        }
-        else if (breadcrumsId == "SB Design Change") {
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_SBDesign.EASA_SBDesign_HOME);
-
-        }
-
-        this.handleBreadcrumsNavigation(breadcrumsId);
-    }
-
-    handleEASAHomeBreadcrumsFromPopup(breadcrumsId) {
-        var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-        a.href = "#";
-        document.getElementById('idhomeBreadcurm').click();
-    }
-
-    handleEASAHomeBreadcrumsClick(breadcrumsId) {
-        var storageService = new StorageService();
-        if (breadcrumsId == "Project Register" || breadcrumsId == "Easa Workspace") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`)
-            if (JSON.parse(cacheObj)[0].IsProjectRegInEdit) {
-                if (!JSON.parse(cacheObj)[0].dirtyFlag) {
-                    var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                    a.href = "#";
-                    document.getElementById('idhomeBreadcurm').click();
-                    storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`);
-                }
-                else {
-                    var jsonValue = [{ IsProjectRegInEdit: true, IsHomeClick: true, dirtyFlag: true, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`, newJson);
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "PMDBProjectRegister");
-                    $('#unsavedChanges').modal('show');
-                }
-            }
-            else {
-                var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                a.href = "#";
-                document.getElementById('idhomeBreadcurm').click();
-                storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`);
-            }
-        }
-        else if (breadcrumsId == "Design Data Transmittal Letter") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`)
-            if (JSON.parse(cacheObj)[0].IsDDTLInEdit) {
-                if (!JSON.parse(cacheObj)[0].dirtyFlag) {
-                    var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                    a.href = "#";
-                    document.getElementById('idhomeBreadcurm').click();
-                    storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`);
-                }
-                else {
-                    var jsonValue = [{ IsDDTLInEdit: true, IsHomeClick: true, dirtyFlag: true, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`, newJson)
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "PMDBDDTL");
-                    $('#unsavedChanges').modal('show');
-                }
-            }
-            else {
-                var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                a.href = "#";
-                document.getElementById('idhomeBreadcurm').click();
-                storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`);
-            }
-
-        }
-        else if (breadcrumsId == "EASA Design Change") {
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-            this.handleBreadcrumsNavigation(breadcrumsId);
-        }
-        else if (breadcrumsId == "SB Design Change") {
-
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`)
-            if (JSON.parse(cacheObj)[0].IsSBInEdit) {
-                var mainDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlag
-                var DataSuppliedDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagDataSupplied
-                var effectivityDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagEffectivity
-                var partsDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagParts
-                if (JSON.parse(cacheObj)[0].dirtyFlag || JSON.parse(cacheObj)[0].dirtyFlagDataSupplied || JSON.parse(cacheObj)[0].dirtyFlagEffectivity || JSON.parse(cacheObj)[0].dirtyFlagParts) {
-                    var jsonValue = [{ "IsSBInEdit": true, IsHomeClick: true, "dirtyFlag": mainDirtyFlag, "dirtyFlagDataSupplied": DataSuppliedDirtyFlag, "dirtyFlagParts": partsDirtyFlag, "dirtyFlagEffectivity": effectivityDirtyFlag, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`, newJson);
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "ServiceBulletin");
-                    $('#unsavedChanges').modal('show');
-                }
-                else {
-                    var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                    a.href = "#";
-                    document.getElementById('idhomeBreadcurm').click();
-                    storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`);
-
-                }
-            }
-            else {
-                var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                a.href = "#";
-                document.getElementById('idhomeBreadcurm').click();
-                storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`);
-            }
-        }
-        else if (breadcrumsId == "Approved Design Changes") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`)
-            if (JSON.parse(cacheObj)[0].IsADCInEdit) {
-                var criDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagCRI
-                var osdDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagOSD
-                var mainDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlag
-                var masterDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagMaster
-                if (JSON.parse(cacheObj)[0].dirtyFlag || JSON.parse(cacheObj)[0].dirtyFlagOSD || JSON.parse(cacheObj)[0].dirtyFlagCRI || JSON.parse(cacheObj)[0].dirtyFlagMaster) {
-                    var jsonValue = [{ IsADCInEdit: true, IsHomeClick: true, dirtyFlag: mainDirtyFlag, dirtyFlagOSD: osdDirtyFlag, dirtyFlagCRI: criDirtyFlag, dirtyFlagMaster: masterDirtyFlag, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`, newJson);
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "ApproveDesign");
-                    $('#unsavedChanges').modal('show');
-                }
-                else {
-                    var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                    a.href = "#";
-                    document.getElementById('idhomeBreadcurm').click();
-                    storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`);
-
-                }
-            }
-            else {
-                var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                a.href = "#";
-                document.getElementById('idhomeBreadcurm').click();
-                storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`);
-            }
-        }
-    }
-
-    resetApplicationDataByKeyForProjectRegister() {
-        var storageService = new StorageService();
-        var jsonValue = [{ IsProjectRegInEdit: false }];
-        var newJson = JSON.stringify(jsonValue);
-        storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`, newJson);
-    }
-
-    resetApplicationDataByKeyForDDTL() {
-        var storageService = new StorageService();
-        var jsonValue = [{ IsDDTLInEdit: false }];
-        var newJson = JSON.stringify(jsonValue);
-        storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`, newJson);
-
-    }
-    resetApplicationDataByKeyForSB() {
-        var storageService = new StorageService();
-        var jsonValue = [{ IsSBInEdit: true, dirtyFlag: false, dirtyFlagDataSupplied: false, dirtyFlagParts: false, dirtyFlagEffectivity: false }];
-        var newJson = JSON.stringify(jsonValue);
-        storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`, newJson);
-
-    }
-    resetApplicationDataByKeyForADC() {
-        var storageService = new StorageService();
-        var jsonValue = [{ IsADCInEdit: true, dirtyFlag: false, dirtyFlagOSD: false, dirtyFlagCRI: false, dirtyFlagMaster: false }];
-        var newJson = JSON.stringify(jsonValue);
-        storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`, newJson);
-    }
-
-    handleEASABreadcrumsClick(breadcrumsId) {
-        var storageService = new StorageService();
-
-        if (breadcrumsId == "Project Register" || breadcrumsId == "Easa Workspace" || breadcrumsId == "Cert Tool") {
-          var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`)
-            if (JSON.parse(cacheObj)[0].IsProjectRegInEdit) {
-                if (!JSON.parse(cacheObj)[0].dirtyFlag) {
-                      if ((window.location.href.indexOf(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL) > -1)|| (window.location.href.indexOf(WorkAppRoutes.CertTool.APP_ROUTE + "/#" + WorkAppRoutes.CertTool.WORK_APPS_DETAILS) > -1)) {
-                      singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_WORKSPACE_HOME);
-                    } else {
-                        singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.PREGISTER_HOME);
-                    }
-                    this.handleBreadcrumsNavigation(breadcrumsId);
-                    this.resetApplicationDataByKeyForProjectRegister();
-                }
-                else {
-                    var jsonValue = [{ IsProjectRegInEdit: true, IsHomeClick: false, dirtyFlag: true, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`, newJson);
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "PMDBProjectRegister");
-                    $('#unsavedChanges').modal('show');
-                }
-            }
-            else {
-                singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.PREGISTER_HOME);
-                this.handleBreadcrumsNavigation(breadcrumsId);
-                this.resetApplicationDataByKeyForProjectRegister();
-            }
-            } else if (breadcrumsId == "EasaProjectDetails") {
-
-        }
-        else if (breadcrumsId == "Design Data Transmittal Letter") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`)
-            if (JSON.parse(cacheObj)[0].IsDDTLInEdit) {
-                if (!JSON.parse(cacheObj)[0].dirtyFlag) {
-                    singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + WorkAppRoutes.PMDB_DDTL.DDTL_HOME);
-                    this.handleBreadcrumsNavigation(breadcrumsId);
-                    this.resetApplicationDataByKeyForDDTL();
-                }
-                else {
-                    var jsonValue = [{ IsDDTLInEdit: true, IsHomeClick: false, dirtyFlag: true, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`, newJson)
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "PMDBDDTL");
-                    $('#unsavedChanges').modal('show');
-                }
-            }
-            else {
-                singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + WorkAppRoutes.PMDB_DDTL.DDTL_HOME);
-                this.handleBreadcrumsNavigation(breadcrumsId);
-                this.resetApplicationDataByKeyForDDTL();
-            }
-
-        }
-        else if (breadcrumsId == "EASA Design Change") {
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-            this.handleBreadcrumsNavigation(breadcrumsId);
-        }
-
-        else if (breadcrumsId == "SB Design Change") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`)
-            if (JSON.parse(cacheObj)[0].IsSBInEdit) {
-                var mainDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlag
-                var DataSuppliedDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagDataSupplied
-                var effectivityDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagEffectivity
-                var partsDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagParts
-                if (JSON.parse(cacheObj)[0].dirtyFlag || JSON.parse(cacheObj)[0].dirtyFlagDataSupplied || JSON.parse(cacheObj)[0].dirtyFlagEffectivity || JSON.parse(cacheObj)[0].dirtyFlagParts) {
-                    var jsonValue = [{ "IsSBInEdit": true, IsHomeClick: true, "dirtyFlag": mainDirtyFlag, "dirtyFlagDataSupplied": DataSuppliedDirtyFlag, "dirtyFlagParts": partsDirtyFlag, "dirtyFlagEffectivity": effectivityDirtyFlag, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`, newJson);
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "ServiceBulletin");
-                    $('#unsavedChanges').modal('show');
-                }
-                else {
-                    singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_SBDesign.EASA_SBDesign_HOME);
-                    this.handleBreadcrumsNavigation(breadcrumsId);
-                    this.resetApplicationDataByKeyForSB();
-                }
-            }
-            else {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_SBDesign.EASA_SBDesign_HOME);
-                this.handleBreadcrumsNavigation(breadcrumsId);
-                this.resetApplicationDataByKeyForSB();
-            }
-
-        }
-        else if (breadcrumsId == "Approved Design Changes") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`)
-            if (JSON.parse(cacheObj)[0].IsADCInEdit) {
-                var criDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagCRI
-                var osdDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagOSD
-                var mainDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlag
-                var masterDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagMaster
-                if (JSON.parse(cacheObj)[0].dirtyFlag || JSON.parse(cacheObj)[0].dirtyFlagOSD || JSON.parse(cacheObj)[0].dirtyFlagCRI || JSON.parse(cacheObj)[0].dirtyFlagMaster) {
-                    var jsonValue = [{ IsADCInEdit: true, IsHomeClick: false, dirtyFlag: mainDirtyFlag, dirtyFlagOSD: osdDirtyFlag, dirtyFlagCRI: criDirtyFlag, dirtyFlagMaster: masterDirtyFlag, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`, newJson);
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "ApproveDesign");
-                    $('#unsavedChanges').modal('show');
-                }
-                else {
-                    singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_ApproveDesign.EASA_ApproveDesign_HOME);
-                    this.handleBreadcrumsNavigation(breadcrumsId);
-                    this.resetApplicationDataByKeyForADC();
-                }
-            }
-            else {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_ApproveDesign.EASA_ApproveDesign_HOME);
-                this.handleBreadcrumsNavigation(breadcrumsId);
-                this.resetApplicationDataByKeyForADC();
-            }
-        }
+import React, { useEffect, useState } from 'react';
+import { Grid as DataGrid, GridCellProps, GridColumn, GridColumnMenuFilter, GridToolbar, GridColumnMenuSort, GridCustomHeaderCellProps, GridDataStateChangeEvent, GridDetailRowProps, GridEvent, GridItemChangeEvent, GridPageChangeEvent, isColumnMenuFilterActive, isColumnMenuSortActive } from "@progress/kendo-react-grid";
+import { filterIcon } from "@progress/kendo-svg-icons";
+import { CSRReportStage, GetCRIMappingResponse, GetCSRReportStatusResponse } from '../../../model/Model';
+import './CRIMappingGrid.scss';
+import { logFilterAction } from '@boeing-fsit/react-oss-adobe-analytics-lib';
+import { process, State } from '@progress/kendo-data-query';
+import StorageService from "../../../utils/StorageService";
+import EnvDetail from '../../../utils/EnvDetail';
+import { SaveCRIMappingPayload } from "../../../model/Model";
+import CclBuilderGridService from "../project-grid/CclBuilderGridService";
+import { showSnackbar } from "../../core/snackbar/CustomSnackBarSlice";
+import { useDispatch } from "react-redux";
+import { Button } from "@mui/material";
+import HeaderDetails from '../header-details/HeaderDetails';
+import { CCLTEMPLATEID, CCLTEMPLATENAME, MarkAsCompleteButton, navigateToCSRReportIDPage } from '../overview-home/Overview';
+import { useOutletContext } from 'react-router-dom';
+import { OverallDataContext } from '../overview-home/Overview';
+import MainDrawerService from '../drawer-home/MainDrawerService';
+import { userDefinedConfirm } from '../utils/ConfirmDialog';
+import { handleDirtyFlag } from '../drawer-home/Drawer';
 
 
-    }
+// interface CRIMappingGridProps {
+//   data: GetCRIMappingResponse | undefined;
+//   setData: React.Dispatch<React.SetStateAction<GetCRIMappingResponse | undefined>>;
+//   handleDirtyFlag: (templateFlag: any) => void;
+// }
 
-    receiveWorkappData(tempWorkAppData) {
-        if (process.env.REACT_APP_DDTL == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_Project_Register") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ddtl");
-            this.handleBreadcrumsNavigation("Project Register");
-        }
-        else if (process.env.REACT_APP_PMDB_ProjectRegister == tempWorkAppData["AppName"] && ["BacktoUI"].includes(tempWorkAppData["Action"])) {
-            let routeDataArray = window.location.hash.split('&').length > 1;
-            var url = window.location.href;
-            if (url.includes("&ddtl")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + WorkAppRoutes.PMDB_DDTL.DDTL_HOME);
-                this.handleBreadcrumsNavigation("Design Data Transmittal Letter");
-            }
-            else if (url.includes("&ESWS")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-                this.handleBreadcrumsNavigation("EASA Design Change");
-            }
-            else if (url.includes("&EADC")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_ApproveDesign.EASA_ApproveDesign_HOME);
-                this.handleBreadcrumsNavigation("Approved Design Changes");
-            }
-            else if (url.includes("&ESB")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_SBDesign.EASA_SBDesign_HOME);
-                this.handleBreadcrumsNavigation("SB Design Change");
-            }
-            else {
-                if (window.location.href.indexOf(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + '/#' + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL) > -1) {
-                    this.handleBreadcrumsNavigation("Easa Workspace");
-                    singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_WORKSPACE_HOME);
-                } else {
-                    this.handleBreadcrumsNavigation("Project Register");
-                    singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.PREGISTER_HOME);
-                }
-            }
-        } else if (process.env.REACT_APP_DDTL == tempWorkAppData["AppName"] && ["Cancel"].includes(tempWorkAppData["Action"])) {
-            var url = window.location.href;
-            if (url.includes("&ESWS")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-                this.handleBreadcrumsNavigation("EASA Design Change");
-            } else {
-                singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + WorkAppRoutes.PMDB_DDTL.DDTL_HOME);
-                this.handleBreadcrumsNavigation("Design Data Transmittal Letter");
-            }
-        }
-        else if (process.env.REACT_APP_EASA_ApproveDesign == tempWorkAppData["AppName"] && ["Cancel"].includes(tempWorkAppData["Action"])) {
-            var url = window.location.href;
-            if (url.includes("&ESWS")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-                this.handleBreadcrumsNavigation("EASA Design Change");
-            } else {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_ApproveDesign.EASA_ApproveDesign_HOME);
-                this.handleBreadcrumsNavigation("Approved Design Changes");
-            }
-        }
-        else if (process.env.REACT_APP_EASA_SBDesign == tempWorkAppData["AppName"] && ["Cancel"].includes(tempWorkAppData["Action"])) {
-            var url = window.location.href;
-            if (url.includes("&ESWS")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-                this.handleBreadcrumsNavigation("EASA Design Change");
-            } else {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_SBDesign.EASA_SBDesign_HOME);
-                this.handleBreadcrumsNavigation("SB Design Change");
-            }
-        }
-        else if (process.env.REACT_APP_EASAWorkSpace == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_Project_Register") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ESWS");
-            this.handleBreadcrumsNavigation("Project Register");
-        }
-        else if (process.env.REACT_APP_EASAWorkSpace == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_DDTL") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ESWS");
-            this.handleBreadcrumsNavigation("Design Data Transmittal Letter");
-        }
-        else if (process.env.REACT_APP_EASAWorkSpace == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_ADC") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ESWS");
-            this.handleBreadcrumsNavigation("Approved Design Changes");
-        }
-        else if (process.env.REACT_APP_EASAWorkSpace == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_SB") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ESWS");
-            this.handleBreadcrumsNavigation("SB Design Change");
-        }
-        else if (process.env.REACT_APP_EASA_SBDesign == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_Project_Register") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ESB");
-            this.handleBreadcrumsNavigation("Project Register");
-        }
-        else if (process.env.REACT_APP_EASA_ApproveDesign == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_Project_Register") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&EADC");
-            this.handleBreadcrumsNavigation("Project Register");
-        }
-        else if (process.env.REACT_APP_DDTL == tempWorkAppData["AppName"]) {
-            this.handleBreadcrumsNavigation("Design Data Transmittal Letter");
-            this.setBreadCrumbs(tempWorkAppData);
-        }
-        else if (process.env.REACT_APP_PMDB_ProjectRegister == tempWorkAppData["AppName"]) {
-            if (window.location.href.indexOf(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + '/#' + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL) > -1) {
-                this.handleBreadcrumsNavigation("Easa Workspace");
-            } else {
-                this.handleBreadcrumsNavigation("Project Register");
-            }
-            this.setBreadCrumbs(tempWorkAppData);
-             this.setValueInLocalStorageForCertTool(tempWorkAppData);
-        }
-        else if (process.env.REACT_APP_EASA_ApproveDesign == tempWorkAppData["AppName"]) {
-            this.handleBreadcrumsNavigation("Approved Design Changes");
-            this.setBreadCrumbs(tempWorkAppData);
-        }
-        else if (process.env.REACT_APP_EASA_SBDesign == tempWorkAppData["AppName"]) {
-            this.handleBreadcrumsNavigation("SB Design Change");
-            this.setBreadCrumbs(tempWorkAppData);
-        }
-        else if (process.env.REACT_APP_EASA_CertTool == tempWorkAppData["AppName"]) {
-            this.handleBreadcrumsNavigation("Easa Workspace");
-        }
-    }
-    setBreadCrumbs(tempWorkAppData) {
-        let tempPageData = tempWorkAppData["Detail"];
-        const storageServiceTemp = new StorageService();
-        let newBreadcrumbs = tempPageData["BerdCrumb"];
-        if(newBreadcrumbs.includes('Edit Project Register')){
-            newBreadcrumbs += `-${tempPageData["Revision"]}`;
-        }
-        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentProjectBreadcrumbs', newBreadcrumbs);
-        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaProjectNo', tempPageData["EasaProjectNo"]);
-        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaRevision', tempPageData["Revision"]);
-        if (["Create", "Edit", "Save"].includes(tempWorkAppData["Action"])) {
-            $('#oss-menu-breadcrums')
-                .append($('<div>').addClass("gg-chevron-right"))
-                .append($('<div>').addClass("breadcrumsStyles").text(newBreadcrumbs));
-        }
-    }
+// function CRIMappingGrid({ data, setData, handleDirtyFlag }: CRIMappingGridProps) {
+function CRIMappingGrid() {
+  const { cclData, markedAsCompleteData, refreshDrawerData } = useOutletContext<OverallDataContext>();
+  const [criMappingGridData, setcriMappingGridData] = useState<GetCRIMappingResponse>();
+  const [dataStateCLI, setDataStateCLI] = useState<State>({});
+  const [newData, setNewData] = useState<GetCRIMappingResponse | undefined>(undefined);
 
-        setValueInLocalStorageForCertTool(tempWorkAppData) {
-        let tempPageData = tempWorkAppData["Detail"];
-        if (["Create", "Edit", "Save"].includes(tempWorkAppData["Action"])) {
-            localStorage.setItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolProjectNo`, tempPageData["EasaProjectNo"]);
-            localStorage.setItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolRevision`, tempPageData["Revision"])
-        }
-    }
-}
+  const dispatch = useDispatch();
 
-export default EASAWorkapp;
+  useEffect(() => {
+    loadCRIMappingData();
+  }, []);
 
-export const checkForCertToolUnsavedChanges = () => {
+  const loadCRIMappingData = async () => {
     const storageServiceTemp = new StorageService();
-    var cacheObj = storageServiceTemp.getApplicationDataByKey(
-        `${process.env.REACT_APP_ROOT_NAME}`,
-        `${process.env.REACT_APP_EASA_CertTool}`
+    const projNum = storageServiceTemp.getApplicationDataByKey(
+      `${EnvDetail.ParentAppName}-easaActiveSubMenu`,
+      'easamyworkspaceprojectid'
     );
-    if (cacheObj) {
-        if (JSON.parse(cacheObj)[0].IsCertToolInEdit) {
-            if (JSON.parse(cacheObj)[0].templatedirtyFlag) {
-                return false;
-            } else {
-                resetApplicationDataForCertTool();
-                return true;
-            }
-        } else {
-            resetApplicationDataForCertTool();
-            return true;
+
+    try {
+      const criMappingResp = await CclBuilderGridService.GetCRIMapping(projNum);
+
+     
+
+      if (criMappingResp.data) {
+        console.clear();
+        const newTempData: GetCRIMappingResponse = {
+          ...criMappingResp.data,
+          Models: criMappingResp.data.Models.filter(x => x !== "")
+        };
+        setcriMappingGridData(newTempData);
+
+       
+
+
+      }
+    } catch (error) { }
+  };
+
+  const saveCriData = async (showSnackbarFlag = true) => {
+    try {
+      const storageServiceTemp = new StorageService();
+      const docName = localStorage.getItem(`${EnvDetail.ParentAppName}-CertToolReportId`)!;
+
+      const projNum = storageServiceTemp.getApplicationDataByKey(
+        `${EnvDetail.ParentAppName}-easaActiveSubMenu`,
+        'easamyworkspaceprojectid'
+      );
+
+      const payload: SaveCRIMappingPayload = {
+        ProjRegId: projNum,
+        CriMappingData: criMappingGridData?.CriMappingData || [],
+        CCL_Report_Id: docName
+      };
+
+      await CclBuilderGridService.SaveCRIMappingData(payload);
+      await loadCRIMappingData();
+      if (showSnackbar)
+        dispatch(
+          showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: "Saved CRI successfully",
+          })
+        );
+
+      handleDirtyFlag(false);
+      return true;
+
+    } catch (error: any) {
+      const errText =
+        error?.response?.data?.message ||
+        error?.response?.data ||
+        error?.message ||
+        String(error);
+
+      if (errText?.includes('Create matrix data for project')) {
+        dispatch(
+          showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Create matrix data for project",
+          })
+        );
+      } else {
+        dispatch(
+          showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Error saving data",
+          })
+        );
+      }
+
+      return false;
+    }
+  };
+
+  const markAsComplete = async () => {
+    const saved = await saveCriData(false);
+    if (!saved)
+      return;
+    const storageServiceTemp = new StorageService();
+    const projNum = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+    const projId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easaprojectno');
+    const bu = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunit');
+    const di = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentdiscipline');
+    const buid = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunitid');
+    const discid = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentdisciplineid');
+    const docName = localStorage.getItem(`${EnvDetail.ParentAppName}-CertToolReportId`)!;
+    let bothCompleting = markedAsCompleteData.ccl;
+    try {
+      if (!bothCompleting) {
+        const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+          Project_Number: projNum,
+          Project_Id: projId,
+          Document_Name: docName,
+          Business_Unit_Name: bu,
+          Discipline_Name: di,
+          Business_Unit_Id: buid,
+          Discipline_Id: discid,
+        }, false, true);
+        dispatch(
+          showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: `Marked CRI Applicabilty as completed successfully`,
+          })
+        );
+        await refreshDrawerData();
+        return;
+      }
+      const currentStatus = await CclBuilderGridService.GetCSRReportStatus(projNum, bu, di);
+      const reportStatusDetails: GetCSRReportStatusResponse | null = currentStatus.data;
+      if (currentStatus.status == 204) {
+        const response = await CclBuilderGridService.PushToCA({
+          Project_Number: projNum,
+          Project_Id: projId,
+          Document_Name: docName,
+          Business_Unit_Name: bu,
+          Discipline_Name: di,
+          Business_Unit_Id: buid,
+          Discipline_Id: discid,
+        });
+        const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+          Project_Number: projNum,
+          Project_Id: projId,
+          Document_Name: docName,
+          Business_Unit_Name: bu,
+          Discipline_Name: di,
+          Business_Unit_Id: buid,
+          Discipline_Id: discid,
+        }, false, true);
+        if (response) {
+          navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+          dispatch(
+            showSnackbar({
+              snackbarOpen: true,
+              snackbarType: "success",
+              snackbarMessage: "Generated CCL Document successfully",
+            })
+          );
         }
+      } else if (reportStatusDetails?.RptStatus == CSRReportStage.CREATE) {
+        const confirmation = await userDefinedConfirm({
+          message: "Report already exists, do you want to overwrite the data?",
+          okBtnText: "Confirm",
+          cancelBtnText: "Cancel",
+        }).catch(() => { });
+        if (confirmation) {
+          const response = await CclBuilderGridService.DeleteAndPushToCA({
+            Project_Number: projNum,
+            Project_Id: projId,
+            Document_Name: docName,
+            Business_Unit_Name: bu,
+            Discipline_Name: di,
+            Business_Unit_Id: buid,
+            Discipline_Id: discid,
+          });
+          const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+            Project_Number: projNum,
+            Project_Id: projId,
+            Document_Name: docName,
+            Business_Unit_Name: bu,
+            Discipline_Name: di,
+            Business_Unit_Id: buid,
+            Discipline_Id: discid,
+          }, false, true);
+          if (response) {
+            navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+            dispatch(
+              showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Updated CCL Document successfully",
+              })
+            );
+          }
+        } else {
+          return;
+        }
+      } else if (reportStatusDetails?.RptStatus == CSRReportStage.EDIT) {
+        // create minor revision
+        const confirmation = await userDefinedConfirm({
+          message: "Report is being Edited, do you want to create a minor revision?",
+          okBtnText: "Confirm",
+          cancelBtnText: "Cancel",
+        }).catch(() => { });
+        if (confirmation) {
+          const response = await CclBuilderGridService.CreateCSRMinorRevision(docName, projId, projNum, buid, discid, bu, di);
+          const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+            Project_Number: projNum,
+            Project_Id: projId,
+            Document_Name: docName,
+            Business_Unit_Name: bu,
+            Discipline_Name: di,
+            Business_Unit_Id: buid,
+            Discipline_Id: discid,
+          }, false, true);
+          if (response && response.data != 0) {
+            navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+            dispatch(
+              showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Succesfully created minor revision",
+              })
+            );
+          }
+        } else {
+          return;
+        }
+
+      } else if (reportStatusDetails?.RptStatus == CSRReportStage.RELEASE) {
+        // create revision
+        const confirmation = await userDefinedConfirm({
+          message: "Report is released, do you want to create a revision?",
+          okBtnText: "Confirm",
+          cancelBtnText: "Cancel",
+        }).catch(() => { });
+        if (confirmation) {
+          const response = await CclBuilderGridService.CreateCSRRevision(docName, projId, projNum, buid, discid, bu, di);
+          const updateResp = await MainDrawerService.UpdateMarkAsComplete({
+            Project_Number: projNum,
+            Project_Id: projId,
+            Document_Name: docName,
+            Business_Unit_Name: bu,
+            Discipline_Name: di,
+            Business_Unit_Id: buid,
+            Discipline_Id: discid,
+          }, false, true);
+          if (response && response.data != 0) {
+            navigateToCSRReportIDPage(response.data, CCLTEMPLATENAME, CCLTEMPLATEID);
+            dispatch(
+              showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Succesfully created revision",
+              })
+            );
+          }
+        } else {
+          return;
+        }
+      } else {
+        const confirmation = await userDefinedConfirm({
+          editorUnSavedDataCheck: true,
+          message: "Report is already in review",
+          cancelBtnText: "Ok"
+        }).catch(() => { });;
+        if (confirmation) {
+
+        } else {
+          return;
+        }
+      }
+    } catch (error) {
+      dispatch(
+        showSnackbar({
+          snackbarOpen: true,
+          snackbarType: "error",
+          snackbarMessage: "Error marking as complete",
+        })
+      );
+    } finally {
+      await refreshDrawerData();
+    }
+  };
+
+
+  // Keep newData in sync when `criMappingGridData` changes. Only run when `criMappingGridData` changes.
+  useEffect(() => {
+    if (!criMappingGridData) {
+      setNewData(undefined);
+      return;
+    }
+    // If user has not visited and there is exactly one model, ensure CriMappingData includes all CRIs for that model
+    if (!criMappingGridData.CRIFlag && criMappingGridData.Models?.length === 1) {
+      const model = criMappingGridData.Models[0];
+      const allCriIds = criMappingGridData.CRI_Data?.map(ci => ci.Cri_Id) ?? [];
+      const payloadCriMapping = allCriIds.map(id => ({ Cri_Id: id, MINOR_MODEL: model }));
+
+      setNewData({
+        ...criMappingGridData,
+        CriMappingData: payloadCriMapping
+      });
     } else {
-        return true;
+      // Otherwise keep the criMappingGridData as-is
+      setNewData(criMappingGridData);
     }
-};
+  }, [criMappingGridData]);
 
-export function handleCertToolBreadcrumbClick(switchCaseValue, forwardValue) {
-    const storageServiceTemp = new StorageService();
-    const dirtyflag = !checkForCertToolUnsavedChanges();
-    if (switchCaseValue == "home") {
-        if (dirtyflag) {
-            const newJson = {
-                home: forwardValue,
-                easaworkspace: false,
-                projdetails: false,
-            };
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_CertTool}-breadcrumbs`, newJson);
-            $('#unsavedChanges').modal('show');
-        } else {
-            const easaWorkappTemp = new EASAWorkapp();
-            easaWorkappTemp.handleEASAHomeBreadcrumsClick(forwardValue);
-        }
-    } else if(switchCaseValue == "easaworkspace") {
-        if (dirtyflag) {
-            const newJson = {
-                home: false,
-                easaworkspace: forwardValue,
-                projdetails: false,
-            };
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_CertTool}-breadcrumbs`, newJson);
-            $('#unsavedChanges').modal('show');
-        } else {
-            const easaWorkappTemp = new EASAWorkapp();
-            easaWorkappTemp.handleEASABreadcrumsClick(forwardValue);
-        }
-    } else if (switchCaseValue == "projdetails") {
-        if (dirtyflag) {
-            const newJson = {
-                home: false,
-                easaworkspace: false,
-                projdetails: forwardValue,
-            };
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_CertTool}-breadcrumbs`, newJson);
-            $('#unsavedChanges').modal('show');
-        } else {
-            const menuSubmenu = new easaMenuSubmenu();
-            menuSubmenu.handleSubMenuButtonClick(forwardValue);
-        }
-    } else if (switchCaseValue == "menusubmenu") {
-        const menuSubmenu = new easaMenuSubmenu();
-        menuSubmenu.handleSubMenuButtonClick(forwardValue);
+  // helpers for column menu + active state
+  const columnProps = (field) => {
+    return {
+      field: field,
+      columnMenu: ColumnMenu,
+      headerClassName: isColumnActive(field, dataStateCLI) ? "active" : "",
+    };
+  };
+  const ColumnMenu = props => {
+    return <div>
+      <GridColumnMenuSort {...props} />
+      <GridColumnMenuFilter {...props} expanded={true} />
+    </div>;
+  };
+  const isColumnActive = (field, dataState) => {
+    return (
+      isColumnMenuFilterActive(field, dataState?.filter) ||
+      isColumnMenuSortActive(field, dataState?.sort)
+    );
+  };
+
+  const datastatechange = (event: GridDataStateChangeEvent) => {
+    logFilterAction(event);
+    setDataStateCLI(event.dataState);
+  };
+
+  const criRowsState = newData?.CRI_Data ?? [];
+  const criModelData = newData?.Models ?? [];
+
+  useEffect(() => {
+  }, [newData]);
+
+
+  const mappingExists = (criId: number | string, model: string) =>
+    !!newData && (newData.CriMappingData ?? []).some((x: any) => x.Cri_Id === criId && x.MINOR_MODEL === model);
+  const toggleColumn = (model: string, checked: boolean) => {
+    if (!newData) return;
+    const criIds = criRowsState.map(c => c.Cri_Id);
+    let newCriMappingData = newData.CriMappingData.filter((m: any) => m.MINOR_MODEL !== model);
+
+    if (checked) {
+      const additions = criIds.map(id => ({ Cri_Id: id, MINOR_MODEL: model }));
+      newCriMappingData = [...newCriMappingData, ...additions];
+    }
+
+    const updated = { ...newData, CriMappingData: newCriMappingData };
+    setcriMappingGridData(updated);
+    setNewData(updated);
+    handleDirtyFlag(true);
+  };
+
+  const makeHeaderCell = (model: string): React.ComponentType<GridCustomHeaderCellProps> =>
+    (props) => {
+      const allChecked =
+        criRowsState.length > 0 &&
+        criRowsState.every(ci =>
+          newData?.CriMappingData.some(m => m.Cri_Id === ci.Cri_Id && m.MINOR_MODEL === model)
+        );
+
+      const onHeaderToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+        toggleColumn(model, e.target.checked);
+      };
+
+      return (
+        <th {...props.thProps} style={{ paddingBottom: '0px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingLeft: criModelData?.length > 1 ? "30px" : "15px", height: "16px" }}>
+            {/* <input type="checkbox" checked={allChecked} onChange={onHeaderToggle} /> */}
+            {props.title}
+          </div>
+        </th>
+      );
+    };
+  return (
+    <div style={{ height: '100%', overflow: "hidden" }}>
+      <div>
+        <HeaderDetails data={cclData} />
+      </div>
+      <div
+        className="oss-ccl-crimatrix"
+        style={{ height: (cclData.status != "" && cclData.reportId) ? 'calc(100vh - 230px)' : 'calc(100vh - 135px)' }}
+      >
+        <DataGrid
+          id="oss-ccl-crimatrix"
+          data={process(newData?.CRI_Data ?? [], dataStateCLI).data}
+          columnMenuIcon={filterIcon}
+          sortable={true}
+          onDataStateChange={datastatechange}
+          scrollable={"scrollable"}
+          className='ccl-overflowAuto'
+        >
+          <GridToolbar>
+            <div className="oss-ccl-cri-toolbar">
+              <Button
+                variant="outlined"
+                color="inherit"
+                sx={{ textTransform: "capitalize" }}
+                className="oss-ccl-btn-primary"
+                size="small"
+                onClick={() => saveCriData()}
+                disabled={markedAsCompleteData.cri}
+              >
+                Save
+              </Button>
+              <div className="oss-ccl-action-bar-divider"></div>
+              {
+                (
+                  <MarkAsCompleteButton complete={markedAsCompleteData.cri} onClick={markAsComplete} />
+                )
+              }
+            </div>
+          </GridToolbar>
+
+          <GridColumn
+            {...columnProps("Moc")}
+            field="Moc"
+            title="CRI #"
+            width="200px"
+            // cell={(props) => {
+            //   console.log("Data:", props.dataItem);
+            //   return (
+            //     <td title={props.dataItem.Moc}>
+            //       {props.dataItem.Moc}
+            //     </td>
+            //   )
+            // }}
+            cell={(props) => (
+              <td className="cri-columns" title={props.dataItem.Moc}>
+                {props.dataItem.Moc}
+              </td>
+            )
+            }
+          />
+
+          <GridColumn
+            {...columnProps("Type")}
+            field="Type"
+            title="Type"
+            width="120px"
+            cell={(props) => (
+              <td className="cri-columns" title={props.dataItem.Type}>
+                {props.dataItem.Type}
+              </td>
+            )}
+          />
+          {
+            (newData?.Models?.length ?? 0) < 4 ?
+              <GridColumn
+                {...columnProps("Description")}
+                field="Description"
+                title="Name"
+                cell={(props) => (
+                  <td className="cri-columns" style={{ minWidth: "300px" }} title={props.dataItem.Description}>
+                    {props.dataItem.Description}
+                  </td>
+                )}
+              />
+              :
+              <GridColumn
+                {...columnProps("Description")}
+                field="Description"
+                title="Name"
+                width="640px"
+                cell={(props) => (
+                  <td className="cri-columns" style={{ minWidth: "300px" }} title={props.dataItem.Description}>
+                    {props.dataItem.Description}
+                  </td>
+                )}
+              />
+          }
+
+          <GridColumn title="Applicability">
+            {criModelData?.map(def => {
+              let title = "";
+              const split = def.split("-");
+              if (split.length > 1) {
+                const split2 = split[1].trim().split(" ");
+                title = "-" + split2[0];
+              } else {
+                title = def;
+              }
+              return (
+                <GridColumn
+                  width="110px"
+                  key={def}
+                  title={title}
+                  field={def}
+                  headerCell={makeHeaderCell(def)}
+                  cell={(props: GridCellProps) => {
+                    const criId = (props.dataItem as any).Cri_Id;
+                    const isDefaultAllChecked = !newData?.CRIFlag && (criModelData?.length ?? 0) === 1;
+                    const checked = isDefaultAllChecked ? true : !!newData && mappingExists(criId, def);
+
+                    return (
+                      <td className="cri-columns" style={{ textAlign: 'center' }}>
+                        <input
+                          disabled={markedAsCompleteData.cri}
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            if (!newData) return;
+                            const isDefaultAllChecked = !newData?.CRIFlag && (criModelData?.length ?? 0) === 1;
+                            const currentMapping = isDefaultAllChecked
+                              ? (criRowsState.map(ci => ({ Cri_Id: ci.Cri_Id, MINOR_MODEL: def })))
+                              : (newData.CriMappingData ?? []);
+
+                            const exists = currentMapping.some((x: any) => x.Cri_Id === criId && x.MINOR_MODEL === def);
+                            let newCriMappingData = currentMapping.filter(
+                              (x: any) => !(x.Cri_Id === criId && x.MINOR_MODEL === def)
+                            );
+
+                            if (!exists && e.target.checked) {
+                              newCriMappingData = [...newCriMappingData, { Cri_Id: criId, MINOR_MODEL: def }];
+                            }
+                            let mergedMapping = newCriMappingData;
+                            if (isDefaultAllChecked) {
+                              const explicit = (newData.CriMappingData ?? []).filter((m: any) => m.MINOR_MODEL !== def);
+                              mergedMapping = [...explicit, ...newCriMappingData];
+                            }
+                            const updated = { ...newData, CriMappingData: mergedMapping, UserVisitingFlag: true, CRIFlag: true };
+                            setcriMappingGridData(updated);
+                            setNewData(updated);
+                            handleDirtyFlag(true);
+                          }}
+                        />
+                      </td>
+                    );
+                  }}
+                />
+              )
+            })}
+          </GridColumn>
+        </DataGrid>
+      </div>
+    </div>
+  );
+}
+
+export default CRIMappingGrid;
+.oss-ccl-crimatrix {
+  .k-filterable {
+    vertical-align: top;
+
+    .k-cell-inner {
+      border-bottom: 1px solid rgb(0, 0, 0, 0.08);
+    }
+  }
+  // height: calc(100% - 56px);
+  .ccl-overflowAuto {
+    height: 100%;
+    overflow: auto;
+  }
+}
+
+th.k-header.active .k-grid-column-menu {
+  color: #fff;
+  background-color: #ff6358;
+}
+
+
+#oss-ccl-crimatrix {
+    border-left: 4px solid #0033A1;
+    border-radius: 4px 0px 0px 4px;
+
+
+    .oss-ccl-cri-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      width: 100%;
+    }
+
+    .oss-ccl-action-bar-divider {
+      width: 1px;
+      height: 27px;
+      background-color: #d1d5db;
+      margin: 0 16px;
+    }
+
+     // td {
+  //     max-height: 32px;
+  //     padding: 0px 12px;
+  //     overflow: hidden;
+  //     text-overflow: ellipsis;
+  // }
+
+  // .oss-ccl-cri-td {
+  //     max-height: 32px;
+  //     display: block;
+  //     // justify-content: flex-start;
+  //     // align-items: center;
+  //     overflow: hidden;
+  //     text-overflow: ellipsis;
+  //     white-space: nowrap;
+  // }
+    .k-grid-toolbar {
+      border-color: inherit;
+      box-shadow: none;
+      background-color: rgb(255, 255, 255);
+    }
+
+    .k-grid-header th {
+      padding-top: 0px;
+      padding-bottom: 6px;
+    }
+
+     table tr td {
+    padding-block: 5px !important;
     }
 }
 
-export const resetApplicationDataForCertTool = () => {
-    var storageService = new StorageService();
-    var jsonValue = [
-        {
-            IsCertToolInEdit: false,
-            templatedirtyFlag: false,
-            moduledirtyFlag: false,
-            hoursdirtyFlag: false,
-        },
-    ];
-    var newJson = JSON.stringify(jsonValue);
-    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`,
-        `${process.env.REACT_APP_EASA_CertTool}`,
-        newJson
-    );
-};
+.oss-ccl-crimatrix .k-filterable .k-cell-inner {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  margin-bottom: 24px !important;
+  padding-top: 9px !important;
+}
+.oss-ccl-crimatrix .k-grid-header .k-cell-inner{
+  padding-top: 8px !important;
+
+  .k-link {
+     padding-block: 6px !important;
+  }
+}
+
+.cri-columns {
+  // height: 32px !important;
+  border-bottom: 1px solid #ededed !important;
+  color: #253746 !important;
+}
