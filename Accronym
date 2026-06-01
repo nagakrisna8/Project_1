@@ -201,7 +201,6 @@ class easaMenuSubmenu {
             });
 
             visibleSubMenus.forEach((subItem, idx) => {
-                  console.log(subItem, 'subItem');
                 // const hasPermission = this.hasPermission(workapps, subItem.AppName, subItem.WorkAppName);
                 // add workapp haspermission here, if required
                 // if (true) {
@@ -230,8 +229,8 @@ class easaMenuSubmenu {
                         storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
                         // storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', subItem.Title);
 
-                        submenuDropdown.hide();                      
-                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', "Cert Strategy");
+                        submenuDropdown.hide();
+                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', subItem.Title);
                         this.handleSubMenuButtonClick(subItem.SubMenuUIId);
                     });
 
