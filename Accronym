@@ -1,11 +1,12 @@
-let currentTitle = storageServiceTemp.getApplicationDataByKey(
-   `${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`,
-   'easaActiveSubMenuTitle'
-);
+.click(() => {
 
-if (
-    currentTitle &&
-    currentTitle.toLowerCase() === "airworthiness"
-) {
-    currentTitle = "Cert Strategy";
-}
+    if (
+        currentTitle &&
+        currentTitle.toLowerCase() === "cert strategy"
+    ) {
+        EASAMenuSubmenu.handleSubMenuButtonClick("cclbuilderbttn");
+    }
+    else {
+        EASAMenuSubmenu.handleSubMenuButtonClick(currentActiveDesignDocTab);
+    }
+})
