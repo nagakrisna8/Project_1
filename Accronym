@@ -3033,14 +3033,11 @@ export function handleBreadcrumsNavigation(value) {
 
             const userTokenTemp = new UserToken();
             const currentGroupBU = userTokenTemp.getGroupBU();
-             if (currentGroupBU === GroupBU.EASA) {
+            if (currentGroupBU === GroupBU.EASA) {
                 setMenuSectionVisibility(false);
                 EASAMenuSubmenu.setMenuSectionVisibility(true);
                 const storageServiceTemp = new StorageService();
-                const isFromNavigation = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "isfromnavigation");
-                let originalTitle = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle');
-                const isFromCertStrategy = (isFromNavigation && originalTitle && (originalTitle === "Airworthiness"));
-                const currentTitle = isFromCertStrategy ? "Cert Strategy" : originalTitle;
+                const currentTitle = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle');
                 const currentProject = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentProjectBreadcrumbs');
                 const currentActiveDesignDocTab = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu');
                 $('#oss-menu-breadcrums').html('');
@@ -3056,23 +3053,20 @@ export function handleBreadcrumsNavigation(value) {
                     }))
                     .append($('<div>').addClass("gg-chevron-right"))
                     .append($('<div>').addClass("breadcrumsStyles ").text(currentTitle).attr("id", `oss-csrsearch-breadcrums`).click(() => {
-                        if (isFromCertStrategy) {
-                            EASAMenuSubmenu.handleSubMenuButtonClick("cclbuilderbttn");
-                        } else {
-                            EASAMenuSubmenu.handleSubMenuButtonClick(currentActiveDesignDocTab);
-                        }
+                        EASAMenuSubmenu.handleSubMenuButtonClick(currentActiveDesignDocTab);
+                        // singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH.replace(':groupId', currentActiveDesignDocTab));
                     }))
                     .append($('<div>').addClass("gg-chevron-right"))
                     .append($('<div>').addClass("breadcrumsStyles").text(`Document Number: ${docNumber ? docNumber : ''}`).attr("id", `oss-csr-docnumber`).click(() => {
                         if (window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.MANAGE_REGULATION) > -1) {
                             let reportId = storageService.getApplicationDataByKey(process.env.REACT_APP_ROOT_NAME + '-' + process.env.REACT_APP_FIND_CSR, 'reportId');
-                                singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId);
+                            singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_REPORT + "/" + reportId);
                         }
                     }))
                     ;
-                if (docRev && docRev != "" && docRev.toLowerCase() !== '00') {
-                    document.getElementById("oss-csr-docnumber").innerHTML += `<span> Rev ${docRev}</span>`;
-                } // Rev in red
+                    if (docRev && docRev != "" && docRev.toLowerCase() !== '00') {
+                        document.getElementById("oss-csr-docnumber").innerHTML += `<span> Rev ${docRev}</span>`;
+                    } // Rev in red
                 if (window.location.hash.indexOf(WorkAppRoutes.FIND_CSR.MANAGE_REGULATION) > -1) {
                     $('#oss-menu-breadcrums')
                         .append($('<div>').addClass("gg-chevron-right"));
