@@ -1,640 +1,345 @@
 import * as singleSpa from 'single-spa';
+import * as WorkAppRoutes from '../../js/workAppRoutes.js';
+import UserToken from '../userToken.js';
 import { StorageService } from '../StorageService.js';
-import * as WorkAppRoutes from '../workAppRoutes.js'
-import easaMenuSubmenu from './easaMenuSubmenu.js';
+import { checkForCertToolUnsavedChanges } from './easaWorkapp.js';
 
-class EASAWorkapp {
+const fullShellAppName = `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_NAME}`;
+class easaMenuSubmenu {
+    appName = '';
+    constructor() {
+        this.appName = process.env.REACT_APP_ROOT_NAME;
+    }
 
-    handleBreadcrumsNavigation(value) {
-        const menuSubmenu = new easaMenuSubmenu();
+    setMenuSectionVisibility(isMenuSectionVisible) {
+        if (isMenuSectionVisible) {
+            // SHOW THE MENU HEADER SECTION AND EASA MENU SECTION, AND HIDE FAA MY WORKSPACE MENU SECTION
+            $("#oss-header-menu-setion").show();
+            $("#oss-nav-tab").hide();
+            $("#oss-easa-nav-tab").show();
+        } else {
+            // HIDE THE MENU HEADER SECTION AND EASA MENU SECTION, AND SHOW FAA MY WORKSPACE MENU SECTION
+            $("#oss-header-menu-setion").hide();
+            $("#oss-nav-tab").show();
+            $("#oss-easa-nav-tab").hide();
+        }
+    }
+
+    handleSubMenuButtonClick(subMenuId) {
         const storageServiceTemp = new StorageService();
-        if (value === "Easa Workspace") {
-            if (window.location.href.indexOf(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL) > -1)
-                 {
-                // PROJECT DETAILS PAGE OF EASA WORKSPACE
-                let routeDataArray = window.location.hash.split('/');
-                window.easaMyWorkspaceProjectId = routeDataArray[routeDataArray.length - 1];
-                storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaMyWorkspaceProjectId', routeDataArray[routeDataArray.length - 1]);
-                menuSubmenu.setMenuSectionVisibility(true);
-                storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaProjectDtl-tab");
-                storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', "projectDetailsBttn")                
-                menuSubmenu.activateSubmenuButton();
-                $('#oss-menu-breadcrums').html('');
-                $('#oss-menu-breadcrums')
-                    .append($('<a>').text('Home').addClass("homeBreadcurm clickable")
-                        .attr("id", "idhomeBreadcurm")
-                        .click(() => this.handleEASAHomeBreadcrumsClick(value)))
-                    .append($('<div>').addClass("gg-chevron-right"))
-                    .append($('<div>').addClass("breadcrumsStyles clickable").text("EASA My Workspace")
-                        .attr("id", value)
-                        .click(() => this.handleEASABreadcrumsClick(value))
-                    );
-             }
-                else if (window.location.href.indexOf("/#" + WorkAppRoutes.CertTool.WORK_APPS_DETAILS) > -1) {
-                    var projectNo = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolProjectNo`);
-                    var CertToolReportId = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolReportId`);
-                    storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
-                    storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', "cclBuilderBttn")
-                    menuSubmenu.activateSubmenuButton();
-                    const newBreadcrumbs = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentProjectBreadcrumbs');
-                    menuSubmenu.setMenuSectionVisibility(true);
-                    $("#oss-home-gridster").hide();
-                    $('#oss-menu-breadcrums').html('');
-                    $('#oss-menu-breadcrums')
-                        .append($('<a>').text('Home').addClass("homeBreadcurm clickable")
-                            .attr("id", "idhomeBreadcurm")
-                            .click(() => handleCertToolBreadcrumbClick("home", value)))
-                        .append($('<div>').addClass("gg-chevron-right"))
-                        .append($('<div>').addClass("breadcrumsStyles clickable").text("EASA My Workspace")
-                            .attr("id", value)
-                            .click(() => handleCertToolBreadcrumbClick("easaworkspace", value))
-                        ).append($('<div>').addClass("gg-chevron-right"))
-                        .append($('<div>').addClass("breadcrumsStyles clickable").text(newBreadcrumbs)
-                            .attr("id", value)
-                            .click(() => handleCertToolBreadcrumbClick("projdetails", "projectDetailsBttn"))
-                        ).append($('<div>').addClass("gg-chevron-right")).append($('<div>').addClass("breadcrumsStyles").text("Cert Strategy"))
-            }
-            else if (window.location.href.indexOf(WorkAppRoutes.PROJECTSCHEDULE_DETAILS.APP_ROUTE) > -1) {
-                const newBreadcrumbs = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentProjectBreadcrumbs');
-                $('#oss-menu-breadcrums').html('');
-                $('#oss-menu-breadcrums')
-                .append($('<a>').text('Home').addClass("homeBreadcurm clickable")
-                    .attr("id", "idhomeBreadcurm")
-                    .click(() => this.handleEASAHomeBreadcrumsClick(value)))
-                .append($('<div>').addClass("gg-chevron-right"))
-                .append($('<div>').addClass("breadcrumsStyles clickable").text(value)
-                    .attr("id", value)
-                    .click(() => this.handleEASABreadcrumsClick(value))
-                ).append($('<div>').addClass("gg-chevron-right"))
-                .append($('<div>').addClass("breadcrumsStyles clickable").text(newBreadcrumbs)
-                    .attr("id", value)
-                    .click(() => handleCertToolBreadcrumbClick("projdetails", "projectDetailsBttn"))
-                )
-                .append($('<div>').addClass("gg-chevron-right"))
-                .append($('<div>').addClass("breadcrumsStyles clickable").text("Project Schedule")
-                );
-            }
-            else {
-                // HOMEPAGE/PROJECT LIST PAGE OF EASA WORKSPACE
-                $('#oss-menu-breadcrums').html('');
-                $('#oss-menu-breadcrums')
-                    .append($('<a>').text('Home').addClass("homeBreadcurm clickable")
-                        .attr("id", "idhomeBreadcurm")
-                        .click(() => this.handleEASAHomeBreadcrumsClick(value)))
-                    .append($('<div>').addClass("gg-chevron-right"))
-                    .append($('<div>').addClass("breadcrumsStyles clickable").text("EASA My Workspace")
-                        .attr("id", value)
-                        .click(() => this.handleEASABreadcrumsClick(value))
-                    );
-            }
+        // CHECKS FOR UNSAVED CHANGES POPUP
+        // CERT TOOL CHECKS
+        if (!checkForCertToolUnsavedChanges()) {
+            const newJson = {
+                home: false,
+                easaworkspace: false,
+                projdetails: false,
+                menusubmenu: subMenuId
+            };
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_CertTool}-breadcrumbs`, newJson);
+            $('#unsavedChanges').modal('show');
+            return;
         }
-        else if (value === "Project Register" || value === "Design Data Transmittal Letter" || value == "Approved Design Changes" || value == "SB Design Change") {
-            $('#oss-menu-breadcrums').html('');
-            $('#oss-menu-breadcrums')
-                .append($('<a>').text('Home').addClass("homeBreadcurm clickable")
-                    .attr("id", "idhomeBreadcurm")
-                    .click(() => this.handleEASAHomeBreadcrumsClick(value)))
-                .append($('<div>').addClass("gg-chevron-right"))
-                .append($('<div>').addClass("breadcrumsStyles clickable").text(value)
-                    .attr("id", value)
-                    .click(() => this.handleEASABreadcrumsClick(value))
-                );
+        if (!isNaN(Number(subMenuId))) {
+            // NAVIGATE TO CSR USING SUBMENUID AS GROUPID (PASSED AS NUM-STRING THROUGH ARGS)
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+            const registerProjectId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+            const userTokenTemp = new UserToken();
+            userTokenTemp.setGroupBU(GroupBU.EASA);
+            userTokenTemp.setGroupId(subMenuId);
+            singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH.replace(':groupId', subMenuId).replace(":registerId", registerProjectId));
+        } else if (String(subMenuId).toLowerCase() === "projectdetailsbttn") {
+            // NAVIGATE TO EASA PROJECT DETAILS PAGE            
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaProjectDtl-tab");
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            const currentEasaProjId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaMyWorkspaceProjectId');
+            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL + '/' + currentEasaProjId);
         }
-        else if (value === "EASA Design Change") {
-            $('#oss-menu-breadcrums').html('');
+         else if (String(subMenuId).toLowerCase() === "cclbuilderbttn") {
+            // NAVIGATE TO EASA PROJECT DETAILS PAGE
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+            localStorage.setItem('easaActiveSubMenu', subMenuId);
+            var projectNo = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolProjectNo`);
+            var revision = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolRevision`);
+            var CertToolReportId = "BIL-" + projectNo.trim() + "-" + revision.trim() + "-CCL";
+            localStorage.setItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolReportId`, CertToolReportId);
+            singleSpa.navigateToUrl(WorkAppRoutes.CertTool.APP_ROUTE + "/#" + WorkAppRoutes.CertTool.WORK_APPS_DETAILS);
         }
-        menuSubmenu.activateSubmenuButton();
+        else if (String(subMenuId).toUpperCase() === "PROJECTSCHEDULEBTN") {
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaProjectDtl-tab");
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            const currentEasaProjId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaMyWorkspaceProjectId');
+            singleSpa.navigateToUrl(WorkAppRoutes.PROJECTSCHEDULE_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.PROJECTSCHEDULE_DETAILS.EASA_SCHEDULE_SUMMARY_PID.replace(":pid", currentEasaProjId));
+        }
+        this.activateSubmenuButton();
     }
 
-    handleEASABreadcrumsFromPopup(breadcrumsId) {
-        if (breadcrumsId == "Project Register") {
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.PREGISTER_HOME);
-            this.resetApplicationDataByKeyForProjectRegister();
-        }
-        else if (breadcrumsId == "Design Data Transmittal Letter") {
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + WorkAppRoutes.PMDB_DDTL.DDTL_HOME);
-            this.resetApplicationDataByKeyForDDTL();
-        }
-        else if (breadcrumsId == "EASA Design Change") {
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-        }
-        else if (breadcrumsId == "Approved Design Changes") {
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_ApproveDesign.EASA_ApproveDesign_HOME);
-            this.resetApplicationDataByKeyForADC();
-        }
-        else if (breadcrumsId == "SB Design Change") {
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_SBDesign.EASA_SBDesign_HOME);
+    bindMenuSubmenu = (data) => {
+        var workapps = new UserToken().getWorkapps();
+        $('#oss-easa-nav-tab').empty();
+        $('#oss-nav-tabContent').empty();
 
-        }
+        $.each(data, (index, item) => {
 
-        this.handleBreadcrumsNavigation(breadcrumsId);
-    }
+            let isShowMainMenuCounter = 0;
+            var menuUIId = item.MenuUIId;
 
-    handleEASAHomeBreadcrumsFromPopup(breadcrumsId) {
-        var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-        a.href = "#";
-        document.getElementById('idhomeBreadcurm').click();
-    }
+            // add workapp haspermission here, if required
+            // if (true) {
+            let visibleSubMenus = item.SubMenuDetailEntityList;
+            // .filter(subItem => {
+            //     return usPerson || !subItem.IsItar;
+            // });                
 
-    handleEASAHomeBreadcrumsClick(breadcrumsId) {
-        var storageService = new StorageService();
-        if (breadcrumsId == "Project Register" || breadcrumsId == "Easa Workspace") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`)
-            if (JSON.parse(cacheObj)[0].IsProjectRegInEdit) {
-                if (!JSON.parse(cacheObj)[0].dirtyFlag) {
-                    var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                    a.href = "#";
-                    document.getElementById('idhomeBreadcurm').click();
-                    storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`);
-                }
-                else {
-                    var jsonValue = [{ IsProjectRegInEdit: true, IsHomeClick: true, dirtyFlag: true, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`, newJson);
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "PMDBProjectRegister");
-                    $('#unsavedChanges').modal('show');
-                }
-            }
-            else {
-                var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                a.href = "#";
-                document.getElementById('idhomeBreadcurm').click();
-                storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`);
-            }
-        }
-        else if (breadcrumsId == "Design Data Transmittal Letter") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`)
-            if (JSON.parse(cacheObj)[0].IsDDTLInEdit) {
-                if (!JSON.parse(cacheObj)[0].dirtyFlag) {
-                    var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                    a.href = "#";
-                    document.getElementById('idhomeBreadcurm').click();
-                    storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`);
-                }
-                else {
-                    var jsonValue = [{ IsDDTLInEdit: true, IsHomeClick: true, dirtyFlag: true, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`, newJson)
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "PMDBDDTL");
-                    $('#unsavedChanges').modal('show');
-                }
-            }
-            else {
-                var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                a.href = "#";
-                document.getElementById('idhomeBreadcurm').click();
-                storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`);
+            if (visibleSubMenus.length === 0) {
+                return;
             }
 
-        }
-        else if (breadcrumsId == "EASA Design Change") {
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-            this.handleBreadcrumsNavigation(breadcrumsId);
-        }
-        else if (breadcrumsId == "SB Design Change") {
+            // Create a wrapper div with dropdown class
+            let mainMenuWrapper = $('<div>').addClass('dropdown').css('display', 'inline-block');
 
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`)
-            if (JSON.parse(cacheObj)[0].IsSBInEdit) {
-                var mainDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlag
-                var DataSuppliedDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagDataSupplied
-                var effectivityDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagEffectivity
-                var partsDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagParts
-                if (JSON.parse(cacheObj)[0].dirtyFlag || JSON.parse(cacheObj)[0].dirtyFlagDataSupplied || JSON.parse(cacheObj)[0].dirtyFlagEffectivity || JSON.parse(cacheObj)[0].dirtyFlagParts) {
-                    var jsonValue = [{ "IsSBInEdit": true, IsHomeClick: true, "dirtyFlag": mainDirtyFlag, "dirtyFlagDataSupplied": DataSuppliedDirtyFlag, "dirtyFlagParts": partsDirtyFlag, "dirtyFlagEffectivity": effectivityDirtyFlag, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`, newJson);
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "ServiceBulletin");
-                    $('#unsavedChanges').modal('show');
-                }
-                else {
-                    var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                    a.href = "#";
-                    document.getElementById('idhomeBreadcurm').click();
-                    storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`);
-
-                }
+            let newMenuUIIdName = menuUIId;
+            if (menuUIId == "designDoc") {
+                newMenuUIIdName = "easaDesignDoc";
+            } else if (menuUIId == "projectDtl") {
+                newMenuUIIdName = "easaProjectDtl"
             }
-            else {
-                var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                a.href = "#";
-                document.getElementById('idhomeBreadcurm').click();
-                storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`);
-            }
-        }
-        else if (breadcrumsId == "Approved Design Changes") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`)
-            if (JSON.parse(cacheObj)[0].IsADCInEdit) {
-                var criDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagCRI
-                var osdDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagOSD
-                var mainDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlag
-                var masterDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagMaster
-                if (JSON.parse(cacheObj)[0].dirtyFlag || JSON.parse(cacheObj)[0].dirtyFlagOSD || JSON.parse(cacheObj)[0].dirtyFlagCRI || JSON.parse(cacheObj)[0].dirtyFlagMaster) {
-                    var jsonValue = [{ IsADCInEdit: true, IsHomeClick: true, dirtyFlag: mainDirtyFlag, dirtyFlagOSD: osdDirtyFlag, dirtyFlagCRI: criDirtyFlag, dirtyFlagMaster: masterDirtyFlag, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`, newJson);
+            let mainMenuButton = $('<button>')
+                .addClass('btn dropdown-toggle')
+                .attr('id', `nav-${this.appName}-${newMenuUIIdName}-tab`)
+                .attr('type', 'button')
+                .attr('data-bs-toggle', 'dropdown')
+                .attr('aria-expanded', 'false')
+                .text(item.MenuTitle);
 
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "ApproveDesign");
-                    $('#unsavedChanges').modal('show');
-                }
-                else {
-                    var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                    a.href = "#";
-                    document.getElementById('idhomeBreadcurm').click();
-                    storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`);
+            let submenuDropdown = $('<div>')
+                .addClass('submenu-dropdown border dropdown-menu rounded mt-0 p-3 bg-white shadow')
+                .attr('id', `nav-${this.appName}-${menuUIId}-dropdown`)
+                .attr('aria-labelledby', `nav-${this.appName}-${menuUIId}-tab`)
+                .css({
+                    'position': 'absolute',
+                    'z-index': 1000,
+                    'display': 'none',
+                    'width': '100%', // full width of parent container
+                    'left': 0,
+                    'top': '100%', // just below the button
+                    'box-sizing': 'border-box'
+                });
+            //mainMenuWrapper.append(mainMenuButton).append(submenuDropdown);
+            $('#oss-easa-nav-tab').append(mainMenuWrapper);
+            $('#oss-easa-nav-tab').css('position', 'relative');
 
-                }
-            }
-            else {
-                var a = document.getElementById('idhomeBreadcurm'); //or grab it by tagname etc
-                a.href = "#";
-                document.getElementById('idhomeBreadcurm').click();
-                storageService.removeApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`);
-            }
-        }
-    }
+            mainMenuButton.on('click', (e) => {
+                e.stopPropagation();
+                // Hide all other submenu dropdowns except the current one
+                $('.submenu-dropdown').not(submenuDropdown).hide();
+                // Get stored active main menu ID
+                const storedActiveMainMenuId = localStorage.getItem('activeMainMenuId');
+                if (storedActiveMainMenuId !== menuUIId) {
+                    // New main menu clicked, update active main menu ID
+                    //localStorage.setItem('activeMainMenuId', menuUIId);
 
-    resetApplicationDataByKeyForProjectRegister() {
-        var storageService = new StorageService();
-        var jsonValue = [{ IsProjectRegInEdit: false }];
-        var newJson = JSON.stringify(jsonValue);
-        storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`, newJson);
-    }
+                    // Clear previous active submenu ID
+                    //localStorage.removeItem('activeEASASubMenuId');
 
-    resetApplicationDataByKeyForDDTL() {
-        var storageService = new StorageService();
-        var jsonValue = [{ IsDDTLInEdit: false }];
-        var newJson = JSON.stringify(jsonValue);
-        storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`, newJson);
+                    // Find the first submenu button inside the current dropdown
+                    const firstSubmenuBtn = submenuDropdown.find('button').first();
 
-    }
-    resetApplicationDataByKeyForSB() {
-        var storageService = new StorageService();
-        var jsonValue = [{ IsSBInEdit: true, dirtyFlag: false, dirtyFlagDataSupplied: false, dirtyFlagParts: false, dirtyFlagEffectivity: false }];
-        var newJson = JSON.stringify(jsonValue);
-        storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`, newJson);
+                    if (firstSubmenuBtn.length) {
+                        // Cache the container for submenu buttons to limit DOM queries
+                        const submenuContainer = $('#oss-easa-nav-tab');
 
-    }
-    resetApplicationDataByKeyForADC() {
-        var storageService = new StorageService();
-        var jsonValue = [{ IsADCInEdit: true, dirtyFlag: false, dirtyFlagOSD: false, dirtyFlagCRI: false, dirtyFlagMaster: false }];
-        var newJson = JSON.stringify(jsonValue);
-        storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`, newJson);
-    }
+                        // Remove active class from all submenu buttons within the container
+                        //submenuContainer.find('button').removeClass('activeSubmenuBtn');
 
-    handleEASABreadcrumsClick(breadcrumsId) {
-        var storageService = new StorageService();
+                        // Add active class to the first submenu button
+                        //firstSubmenuBtn.addClass('activeSubmenuBtn');
 
-        if (breadcrumsId == "Project Register" || breadcrumsId == "Easa Workspace" || breadcrumsId == "Cert Tool") {
-          var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`)
-            if (JSON.parse(cacheObj)[0].IsProjectRegInEdit) {
-                if (!JSON.parse(cacheObj)[0].dirtyFlag) {
-                      if ((window.location.href.indexOf(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL) > -1)|| (window.location.href.indexOf(WorkAppRoutes.CertTool.APP_ROUTE + "/#" + WorkAppRoutes.CertTool.WORK_APPS_DETAILS) > -1)) {
-                      singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_WORKSPACE_HOME);
-                    } else {
-                        singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.PREGISTER_HOME);
+                        // Show the submenu dropdown first
+                        submenuDropdown.show();
+
+                        // Extract submenu ID and store it
+                        const firstSubmenuId = firstSubmenuBtn.attr('id')
+                            .replace(`${this.appName}-`, '')
+                            .replace('nav-div-', '')
+                            .replace('-wrap', '');
+
+                        //localStorage.setItem('activeEASASubMenuId', firstSubmenuId);
+
+
+                        return; // Exit to prevent toggling again below
                     }
-                    this.handleBreadcrumsNavigation(breadcrumsId);
-                    this.resetApplicationDataByKeyForProjectRegister();
-                }
-                else {
-                    var jsonValue = [{ IsProjectRegInEdit: true, IsHomeClick: false, dirtyFlag: true, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_PMDB_ProjectRegister}`, newJson);
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "PMDBProjectRegister");
-                    $('#unsavedChanges').modal('show');
-                }
-            }
-            else {
-                singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.PREGISTER_HOME);
-                this.handleBreadcrumsNavigation(breadcrumsId);
-                this.resetApplicationDataByKeyForProjectRegister();
-            }
-            } else if (breadcrumsId == "EasaProjectDetails") {
-
-        }
-        else if (breadcrumsId == "Design Data Transmittal Letter") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`)
-            if (JSON.parse(cacheObj)[0].IsDDTLInEdit) {
-                if (!JSON.parse(cacheObj)[0].dirtyFlag) {
-                    singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + WorkAppRoutes.PMDB_DDTL.DDTL_HOME);
-                    this.handleBreadcrumsNavigation(breadcrumsId);
-                    this.resetApplicationDataByKeyForDDTL();
-                }
-                else {
-                    var jsonValue = [{ IsDDTLInEdit: true, IsHomeClick: false, dirtyFlag: true, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_DDTL}`, newJson)
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "PMDBDDTL");
-                    $('#unsavedChanges').modal('show');
-                }
-            }
-            else {
-                singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + WorkAppRoutes.PMDB_DDTL.DDTL_HOME);
-                this.handleBreadcrumsNavigation(breadcrumsId);
-                this.resetApplicationDataByKeyForDDTL();
-            }
-
-        }
-        else if (breadcrumsId == "EASA Design Change") {
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-            this.handleBreadcrumsNavigation(breadcrumsId);
-        }
-
-        else if (breadcrumsId == "SB Design Change") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`)
-            if (JSON.parse(cacheObj)[0].IsSBInEdit) {
-                var mainDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlag
-                var DataSuppliedDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagDataSupplied
-                var effectivityDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagEffectivity
-                var partsDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagParts
-                if (JSON.parse(cacheObj)[0].dirtyFlag || JSON.parse(cacheObj)[0].dirtyFlagDataSupplied || JSON.parse(cacheObj)[0].dirtyFlagEffectivity || JSON.parse(cacheObj)[0].dirtyFlagParts) {
-                    var jsonValue = [{ "IsSBInEdit": true, IsHomeClick: true, "dirtyFlag": mainDirtyFlag, "dirtyFlagDataSupplied": DataSuppliedDirtyFlag, "dirtyFlagParts": partsDirtyFlag, "dirtyFlagEffectivity": effectivityDirtyFlag, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_SBDesign}`, newJson);
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "ServiceBulletin");
-                    $('#unsavedChanges').modal('show');
-                }
-                else {
-                    singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_SBDesign.EASA_SBDesign_HOME);
-                    this.handleBreadcrumsNavigation(breadcrumsId);
-                    this.resetApplicationDataByKeyForSB();
-                }
-            }
-            else {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_SBDesign.EASA_SBDesign_HOME);
-                this.handleBreadcrumsNavigation(breadcrumsId);
-                this.resetApplicationDataByKeyForSB();
-            }
-
-        }
-        else if (breadcrumsId == "Approved Design Changes") {
-            var cacheObj = storageService.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`)
-            if (JSON.parse(cacheObj)[0].IsADCInEdit) {
-                var criDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagCRI
-                var osdDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagOSD
-                var mainDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlag
-                var masterDirtyFlag = JSON.parse(cacheObj)[0].dirtyFlagMaster
-                if (JSON.parse(cacheObj)[0].dirtyFlag || JSON.parse(cacheObj)[0].dirtyFlagOSD || JSON.parse(cacheObj)[0].dirtyFlagCRI || JSON.parse(cacheObj)[0].dirtyFlagMaster) {
-                    var jsonValue = [{ IsADCInEdit: true, IsHomeClick: false, dirtyFlag: mainDirtyFlag, dirtyFlagOSD: osdDirtyFlag, dirtyFlagCRI: criDirtyFlag, dirtyFlagMaster: masterDirtyFlag, breadcrumsid: breadcrumsId }];
-                    var newJson = JSON.stringify(jsonValue);
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_ApproveDesign}`, newJson);
-
-                    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, "currentbreadcrumbclick", "ApproveDesign");
-                    $('#unsavedChanges').modal('show');
-                }
-                else {
-                    singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_ApproveDesign.EASA_ApproveDesign_HOME);
-                    this.handleBreadcrumsNavigation(breadcrumsId);
-                    this.resetApplicationDataByKeyForADC();
-                }
-            }
-            else {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_ApproveDesign.EASA_ApproveDesign_HOME);
-                this.handleBreadcrumsNavigation(breadcrumsId);
-                this.resetApplicationDataByKeyForADC();
-            }
-        }
-
-
-    }
-
-    receiveWorkappData(tempWorkAppData) {
-        if (process.env.REACT_APP_DDTL == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_Project_Register") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ddtl");
-            this.handleBreadcrumsNavigation("Project Register");
-        }
-        else if (process.env.REACT_APP_PMDB_ProjectRegister == tempWorkAppData["AppName"] && ["BacktoUI"].includes(tempWorkAppData["Action"])) {
-            let routeDataArray = window.location.hash.split('&').length > 1;
-            var url = window.location.href;
-            if (url.includes("&ddtl")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + WorkAppRoutes.PMDB_DDTL.DDTL_HOME);
-                this.handleBreadcrumsNavigation("Design Data Transmittal Letter");
-            }
-            else if (url.includes("&ESWS")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-                this.handleBreadcrumsNavigation("EASA Design Change");
-            }
-            else if (url.includes("&EADC")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_ApproveDesign.EASA_ApproveDesign_HOME);
-                this.handleBreadcrumsNavigation("Approved Design Changes");
-            }
-            else if (url.includes("&ESB")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_SBDesign.EASA_SBDesign_HOME);
-                this.handleBreadcrumsNavigation("SB Design Change");
-            }
-            else {
-                if (window.location.href.indexOf(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + '/#' + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL) > -1) {
-                    this.handleBreadcrumsNavigation("Easa Workspace");
-                    singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_WORKSPACE_HOME);
                 } else {
-                    this.handleBreadcrumsNavigation("Project Register");
-                    singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.PREGISTER_HOME);
+                    // Same main menu clicked, just toggle the submenu dropdown visibility
+                    submenuDropdown.toggle();
+
+                    if (submenuDropdown.is(':visible')) {
+                        // Get currently active submenu button inside this dropdown
+                        const activeSubmenuBtn = submenuDropdown.find('button.activeSubmenuBtn').first();
+                        if (activeSubmenuBtn.length) {
+                            const activeSubmenuId = activeSubmenuBtn.attr('id')
+                                .replace(`${this.appName}-`, '')
+                                .replace('nav-div-', '')
+                                .replace('-wrap', '');
+
+                        }
+                    }
+                }
+            });
+
+            $(document).on('click', () => {
+                submenuDropdown.hide();
+            });
+
+            // Create a container for columns inside dropdown
+            let columnsContainer = $('<div>').addClass('columncontainerEasa').css({
+                // 'display': 'flex',
+                // 'flex-wrap': 'wrap',
+                // 'gap': '8px'
+            });
+
+            visibleSubMenus.forEach((subItem, idx) => {
+                // const hasPermission = this.hasPermission(workapps, subItem.AppName, subItem.WorkAppName);
+                // add workapp haspermission here, if required
+                // if (true) {
+                isShowMainMenuCounter++;
+                let submenuBtn;
+                submenuBtn = $('<button>')
+                    .addClass('btn btn-sm btn-outline-secondary sub-menu-btn text-start mb-2 d-flex align-items-center')
+                    .css({
+                        'box-sizing': 'border-box'
+                    })
+                    .attr('id', `nav-div-${subItem.SubMenuUIId}-wrap`)
+                    .on('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        $('#oss-easa-nav-tab').find('button').removeClass('activeSubmenuBtn');
+                        //submenuDropdown.find('.sub-menu-btn').removeClass('activeSubmenuBtn');
+                        // Remove active class from all submenu buttons within this dropdown
+                        // submenuDropdown.find('button').removeClass('activeSubmenuBtn');
+                        // Add active class to the clicked button
+                        $(e.currentTarget).addClass('activeSubmenuBtn');
+                        //console.log('Clicked element:', e.currentTarget);
+                        const storageServiceTemp = new StorageService();
+
+                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
+                        // localStorage.setItem('activeMainMenuId', menuUIId);
+                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
+                        // storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', subItem.Title);
+
+                        submenuDropdown.hide();
+                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', subItem.Title);
+                        this.handleSubMenuButtonClick(subItem.SubMenuUIId);
+                    });
+
+                // let icon = $('<img>')
+                //     .attr('src', `assets/images/${subItem.ImageName}`)
+                //     .attr('width', 24)
+                //     .attr('height', 24)
+                //     .addClass('me-2');
+
+
+                submenuBtn.append(subItem.Title);
+                const storedActiveSubMenuId = new StorageService().getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu');
+                if (subItem.SubMenuUIId === storedActiveSubMenuId) {
+                    submenuBtn.addClass('activeSubmenuBtn');
+                    new StorageService().setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
+                }
+
+                if (submenuBtn) {
+                    // Distribute submenu buttons into columns round-robin
+                    columnsContainer.append(submenuBtn);
+                }
+                // }
+            });
+
+            // Append columns to container
+            // Set dynamic column count based on submenu length
+            const maxItemsPerColumn = 8;
+            const totalItems = visibleSubMenus.length;
+            const columnsNeeded = Math.ceil(totalItems / maxItemsPerColumn);
+            columnsContainer.css('column-count', columnsNeeded > 1 ? columnsNeeded : 1);
+            // Create header div with main menu title
+            let submenuHeader = $('<div>')
+                .addClass('submenu-header')
+                .text(item.MenuTitle)
+                .css({
+                    'font-weight': '600',
+                    'font-size': '14px',
+                    'padding-bottom': '8px',
+                    'color': '#0033A1',
+                    'display': 'none'
+                });
+            // Append header and columns container to submenuDropdown
+            submenuDropdown.append(submenuHeader);
+            submenuDropdown.append(columnsContainer);
+
+            // Append Main Menu only when it has atleast 1 submenu is accessible or does not have any sub menu
+            if (isShowMainMenuCounter > 0) {
+                // Append button and dropdown inside wrapper
+                mainMenuWrapper.append(mainMenuButton).append(submenuDropdown);
+                // Append wrapper to main container
+                $('#oss-easa-nav-tab').append(mainMenuWrapper);
+            }
+            // }
+        });
+    }
+
+    activateSubmenuButton() {
+        const storageServiceTemp = new StorageService();
+        const storedEasaActiveId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu');
+        const storedEasaActiveMenuId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu');
+        if (storedEasaActiveMenuId) {
+            $('#oss-easa-nav-tab').find('.dropdown-toggle').removeClass('active');
+            $('#oss-easa-nav-tab').find(storedEasaActiveMenuId).addClass('active');
+        }
+        if (storedEasaActiveId) {
+            $('#oss-easa-nav-tab').find('button').removeClass('activeSubmenuBtn');
+            $(`[id='nav-div-${storedEasaActiveId}-wrap']`).addClass('activeSubmenuBtn');
+        }
+    }
+
+    hasPermission = (workapps, menuAppName, menuWorkappname) => {
+        if (new UserToken().isCurrentUserAdmin())
+            return true;
+
+        if (menuAppName == undefined || menuWorkappname == undefined) return true;
+
+        let hasPermisionToWorkApp = false;
+
+        for (let i = 0; i < workapps?.length; i++) {
+            if (workapps[i].AppName != null) {
+                let appName = workapps[i].AppName.toLowerCase();
+                let workAppName = workapps[i].WorkappName.toLowerCase();
+                let selectedBusinessUnit = new StorageService().getApplicationDataByKey(fullShellAppName, 'CurrentBusinessUnit');
+                let selectedDiscipline = new StorageService().getApplicationDataByKey(fullShellAppName, 'CurrentDiscipline');
+
+                let workAppBusinessUnitDisciplineList = workapps[i].BusinessUnitDisciplineList;
+                for (let j = 0; j < workAppBusinessUnitDisciplineList.length; j++) {
+                    let buDisciplineList = workAppBusinessUnitDisciplineList[j];
+
+                    if (buDisciplineList && buDisciplineList["BusinessunitName"]?.toLowerCase() == selectedBusinessUnit?.toLowerCase()) {
+                        let assignedDiscipline = buDisciplineList?.DisciplineNameList;
+                        if (appName.toLowerCase() == menuAppName.toLowerCase() && workAppName.toLowerCase() == menuWorkappname.toLowerCase()) {
+                            if (assignedDiscipline.indexOf(selectedDiscipline) > -1) {
+                                hasPermisionToWorkApp = true;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
-        } else if (process.env.REACT_APP_DDTL == tempWorkAppData["AppName"] && ["Cancel"].includes(tempWorkAppData["Action"])) {
-            var url = window.location.href;
-            if (url.includes("&ESWS")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-                this.handleBreadcrumsNavigation("EASA Design Change");
-            } else {
-                singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + WorkAppRoutes.PMDB_DDTL.DDTL_HOME);
-                this.handleBreadcrumsNavigation("Design Data Transmittal Letter");
-            }
-        }
-        else if (process.env.REACT_APP_EASA_ApproveDesign == tempWorkAppData["AppName"] && ["Cancel"].includes(tempWorkAppData["Action"])) {
-            var url = window.location.href;
-            if (url.includes("&ESWS")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-                this.handleBreadcrumsNavigation("EASA Design Change");
-            } else {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_ApproveDesign.EASA_ApproveDesign_HOME);
-                this.handleBreadcrumsNavigation("Approved Design Changes");
-            }
-        }
-        else if (process.env.REACT_APP_EASA_SBDesign == tempWorkAppData["AppName"] && ["Cancel"].includes(tempWorkAppData["Action"])) {
-            var url = window.location.href;
-            if (url.includes("&ESWS")) {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_WorkSapce.APP_ROOT + "/#" + WorkAppRoutes.EASA_WorkSapce.EASAWorkSapce_HOME);
-                this.handleBreadcrumsNavigation("EASA Design Change");
-            } else {
-                singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + WorkAppRoutes.EASA_SBDesign.EASA_SBDesign_HOME);
-                this.handleBreadcrumsNavigation("SB Design Change");
-            }
-        }
-        else if (process.env.REACT_APP_EASAWorkSpace == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_Project_Register") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ESWS");
-            this.handleBreadcrumsNavigation("Project Register");
-        }
-        else if (process.env.REACT_APP_EASAWorkSpace == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_DDTL") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_DDTL.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ESWS");
-            this.handleBreadcrumsNavigation("Design Data Transmittal Letter");
-        }
-        else if (process.env.REACT_APP_EASAWorkSpace == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_ADC") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_ApproveDesign.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ESWS");
-            this.handleBreadcrumsNavigation("Approved Design Changes");
-        }
-        else if (process.env.REACT_APP_EASAWorkSpace == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_SB") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.EASA_SBDesign.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ESWS");
-            this.handleBreadcrumsNavigation("SB Design Change");
-        }
-        else if (process.env.REACT_APP_EASA_SBDesign == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_Project_Register") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&ESB");
-            this.handleBreadcrumsNavigation("Project Register");
-        }
-        else if (process.env.REACT_APP_EASA_ApproveDesign == tempWorkAppData["AppName"] && tempWorkAppData["Action"] == "Navigate_Project_Register") {
-            let navigationTo = tempWorkAppData["Detail"];
-            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + navigationTo["BerdCrumb"] + "&EADC");
-            this.handleBreadcrumsNavigation("Project Register");
-        }
-        else if (process.env.REACT_APP_DDTL == tempWorkAppData["AppName"]) {
-            this.handleBreadcrumsNavigation("Design Data Transmittal Letter");
-            this.setBreadCrumbs(tempWorkAppData);
-        }
-        else if (process.env.REACT_APP_PMDB_ProjectRegister == tempWorkAppData["AppName"]) {
-            if (window.location.href.indexOf(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + '/#' + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL) > -1) {
-                this.handleBreadcrumsNavigation("Easa Workspace");
-            } else {
-                this.handleBreadcrumsNavigation("Project Register");
-            }
-            this.setBreadCrumbs(tempWorkAppData);
-             this.setValueInLocalStorageForCertTool(tempWorkAppData);
-        }
-        else if (process.env.REACT_APP_EASA_ApproveDesign == tempWorkAppData["AppName"]) {
-            this.handleBreadcrumsNavigation("Approved Design Changes");
-            this.setBreadCrumbs(tempWorkAppData);
-        }
-        else if (process.env.REACT_APP_EASA_SBDesign == tempWorkAppData["AppName"]) {
-            this.handleBreadcrumsNavigation("SB Design Change");
-            this.setBreadCrumbs(tempWorkAppData);
-        }
-        else if (process.env.REACT_APP_EASA_CertTool == tempWorkAppData["AppName"]) {
-            this.handleBreadcrumsNavigation("Easa Workspace");
-        }
-    }
-    setBreadCrumbs(tempWorkAppData) {
-        let tempPageData = tempWorkAppData["Detail"];
-        const storageServiceTemp = new StorageService();
-        let newBreadcrumbs = tempPageData["BerdCrumb"];
-        if(newBreadcrumbs.includes('Edit Project Register')){
-            newBreadcrumbs += `-${tempPageData["Revision"]}`;
-        }
-        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'currentProjectBreadcrumbs', newBreadcrumbs);
-        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaProjectNo', tempPageData["EasaProjectNo"]);
-        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaRevision', tempPageData["Revision"]);
-        if (["Create", "Edit", "Save"].includes(tempWorkAppData["Action"])) {
-            $('#oss-menu-breadcrums')
-                .append($('<div>').addClass("gg-chevron-right"))
-                .append($('<div>').addClass("breadcrumsStyles").text(newBreadcrumbs));
-        }
-    }
 
-        setValueInLocalStorageForCertTool(tempWorkAppData) {
-        let tempPageData = tempWorkAppData["Detail"];
-        if (["Create", "Edit", "Save"].includes(tempWorkAppData["Action"])) {
-            localStorage.setItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolProjectNo`, tempPageData["EasaProjectNo"]);
-            localStorage.setItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolRevision`, tempPageData["Revision"])
         }
+        return hasPermisionToWorkApp;
     }
 }
 
-export default EASAWorkapp;
+export default easaMenuSubmenu;
 
-export const checkForCertToolUnsavedChanges = () => {
-    const storageServiceTemp = new StorageService();
-    var cacheObj = storageServiceTemp.getApplicationDataByKey(
-        `${process.env.REACT_APP_ROOT_NAME}`,
-        `${process.env.REACT_APP_EASA_CertTool}`
-    );
-    if (cacheObj) {
-        if (JSON.parse(cacheObj)[0].IsCertToolInEdit) {
-            if (JSON.parse(cacheObj)[0].templatedirtyFlag) {
-                return false;
-            } else {
-                resetApplicationDataForCertTool();
-                return true;
-            }
-        } else {
-            resetApplicationDataForCertTool();
-            return true;
-        }
-    } else {
-        return true;
-    }
-};
-
-export function handleCertToolBreadcrumbClick(switchCaseValue, forwardValue) {
-    const storageServiceTemp = new StorageService();
-    const dirtyflag = !checkForCertToolUnsavedChanges();
-    if (switchCaseValue == "home") {
-        if (dirtyflag) {
-            const newJson = {
-                home: forwardValue,
-                easaworkspace: false,
-                projdetails: false,
-            };
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_CertTool}-breadcrumbs`, newJson);
-            $('#unsavedChanges').modal('show');
-        } else {
-            const easaWorkappTemp = new EASAWorkapp();
-            easaWorkappTemp.handleEASAHomeBreadcrumsClick(forwardValue);
-        }
-    } else if(switchCaseValue == "easaworkspace") {
-        if (dirtyflag) {
-            const newJson = {
-                home: false,
-                easaworkspace: forwardValue,
-                projdetails: false,
-            };
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_CertTool}-breadcrumbs`, newJson);
-            $('#unsavedChanges').modal('show');
-        } else {
-            const easaWorkappTemp = new EASAWorkapp();
-            easaWorkappTemp.handleEASABreadcrumsClick(forwardValue);
-        }
-    } else if (switchCaseValue == "projdetails") {
-        if (dirtyflag) {
-            const newJson = {
-                home: false,
-                easaworkspace: false,
-                projdetails: forwardValue,
-            };
-            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_CertTool}-breadcrumbs`, newJson);
-            $('#unsavedChanges').modal('show');
-        } else {
-            const menuSubmenu = new easaMenuSubmenu();
-            menuSubmenu.handleSubMenuButtonClick(forwardValue);
-        }
-    } else if (switchCaseValue == "menusubmenu") {
-        const menuSubmenu = new easaMenuSubmenu();
-        menuSubmenu.handleSubMenuButtonClick(forwardValue);
-    }
+export const GroupBU = {
+    FAA: "FAA",
+    EASA: "EASA",
 }
-
-export const resetApplicationDataForCertTool = () => {
-    var storageService = new StorageService();
-    var jsonValue = [
-        {
-            IsCertToolInEdit: false,
-            templatedirtyFlag: false,
-            moduledirtyFlag: false,
-            hoursdirtyFlag: false,
-        },
-    ];
-    var newJson = JSON.stringify(jsonValue);
-    storageService.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`,
-        `${process.env.REACT_APP_EASA_CertTool}`,
-        newJson
-    );
-};
