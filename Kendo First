@@ -9,7 +9,352 @@ import { ReportStepId } from '../../../../../model/Model';
 import SpeakerNotesOutlinedIcon from '@mui/icons-material/SpeakerNotesOutlined';
 import AuthorizationService from '../../../../core/services/AuthorizationService';
 import StorageService from '../../../../../utils/StorageService';
-import EnvDetail from '../../../../../utils/EnvDetail';
+import EnvDetail from '../../../../../utils/EnvDetail';import * as singleSpa from 'single-spa';
+import * as WorkAppRoutes from '../../js/workAppRoutes.js';
+import UserToken from '../userToken.js';
+import { StorageService } from '../StorageService.js';
+import { checkForCertToolUnsavedChanges } from './easaWorkapp.js';
+
+const fullShellAppName = `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_NAME}`;
+class easaMenuSubmenu {
+    appName = '';
+    constructor() {
+        this.appName = process.env.REACT_APP_ROOT_NAME;
+    }
+
+    setMenuSectionVisibility(isMenuSectionVisible) {
+        if (isMenuSectionVisible) {
+            // SHOW THE MENU HEADER SECTION AND EASA MENU SECTION, AND HIDE FAA MY WORKSPACE MENU SECTION
+            $("#oss-header-menu-setion").show();
+            $("#oss-nav-tab").hide();
+            $("#oss-easa-nav-tab").show();
+        } else {
+            // HIDE THE MENU HEADER SECTION AND EASA MENU SECTION, AND SHOW FAA MY WORKSPACE MENU SECTION
+            $("#oss-header-menu-setion").hide();
+            $("#oss-nav-tab").show();
+            $("#oss-easa-nav-tab").hide();
+        }
+    }
+
+    handleSubMenuButtonClick(subMenuId) {
+        const storageServiceTemp = new StorageService();
+        // CHECKS FOR UNSAVED CHANGES POPUP
+        // CERT TOOL CHECKS
+        if (!checkForCertToolUnsavedChanges()) {
+            const newJson = {
+                home: false,
+                easaworkspace: false,
+                projdetails: false,
+                menusubmenu: subMenuId
+            };
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}`, `${process.env.REACT_APP_EASA_CertTool}-breadcrumbs`, newJson);
+            $('#unsavedChanges').modal('show');
+            return;
+        }
+        if (!isNaN(Number(subMenuId))) {
+            // NAVIGATE TO CSR USING SUBMENUID AS GROUPID (PASSED AS NUM-STRING THROUGH ARGS)
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+            const registerProjectId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+            const userTokenTemp = new UserToken();
+            userTokenTemp.setGroupBU(GroupBU.EASA);
+            userTokenTemp.setGroupId(subMenuId);
+            singleSpa.navigateToUrl(WorkAppRoutes.FIND_CSR.APP_ROUTE + "/#" + WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH.replace(':groupId', subMenuId).replace(":registerId", registerProjectId));
+        } else if (String(subMenuId).toLowerCase() === "projectdetailsbttn") {
+            // NAVIGATE TO EASA PROJECT DETAILS PAGE            
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaProjectDtl-tab");
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            const currentEasaProjId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaMyWorkspaceProjectId');
+            singleSpa.navigateToUrl(WorkAppRoutes.PMDB_ProjectRegister.APP_ROOT + "/#" + WorkAppRoutes.PMDB_ProjectRegister.EASA_PROJECT_DETAIL + '/' + currentEasaProjId);
+        }
+         else if (String(subMenuId).toLowerCase() === "cclbuilderbttn") {
+            // NAVIGATE TO EASA PROJECT DETAILS PAGE
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+            localStorage.setItem('easaActiveSubMenu', subMenuId);
+            var projectNo = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolProjectNo`);
+            var revision = localStorage.getItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolRevision`);
+            var CertToolReportId = "BIL-" + projectNo.trim() + "-" + revision.trim() + "-CCL";
+            localStorage.setItem(`${process.env.REACT_APP_ROOT_NAME}-CertToolReportId`, CertToolReportId);
+            singleSpa.navigateToUrl(WorkAppRoutes.CertTool.APP_ROUTE + "/#" + WorkAppRoutes.CertTool.WORK_APPS_DETAILS);
+        }
+        else if (String(subMenuId).toUpperCase() === "PROJECTSCHEDULEBTN") {
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaProjectDtl-tab");
+            storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', subMenuId);
+            const currentEasaProjId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaMyWorkspaceProjectId');
+            singleSpa.navigateToUrl(WorkAppRoutes.PROJECTSCHEDULE_DETAILS.APP_ROUTE + "/#" + WorkAppRoutes.PROJECTSCHEDULE_DETAILS.EASA_SCHEDULE_SUMMARY_PID.replace(":pid", currentEasaProjId));
+        }
+        this.activateSubmenuButton();
+    }
+
+    bindMenuSubmenu = (data) => {
+        var workapps = new UserToken().getWorkapps();
+        $('#oss-easa-nav-tab').empty();
+        $('#oss-nav-tabContent').empty();
+
+        $.each(data, (index, item) => {
+
+            let isShowMainMenuCounter = 0;
+            var menuUIId = item.MenuUIId;
+
+            // add workapp haspermission here, if required
+            // if (true) {
+            let visibleSubMenus = item.SubMenuDetailEntityList;
+            // .filter(subItem => {
+            //     return usPerson || !subItem.IsItar;
+            // });                
+
+            if (visibleSubMenus.length === 0) {
+                return;
+            }
+
+            // Create a wrapper div with dropdown class
+            let mainMenuWrapper = $('<div>').addClass('dropdown').css('display', 'inline-block');
+
+            let newMenuUIIdName = menuUIId;
+            if (menuUIId == "designDoc") {
+                newMenuUIIdName = "easaDesignDoc";
+            } else if (menuUIId == "projectDtl") {
+                newMenuUIIdName = "easaProjectDtl"
+            }
+            let mainMenuButton = $('<button>')
+                .addClass('btn dropdown-toggle')
+                .attr('id', `nav-${this.appName}-${newMenuUIIdName}-tab`)
+                .attr('type', 'button')
+                .attr('data-bs-toggle', 'dropdown')
+                .attr('aria-expanded', 'false')
+                .text(item.MenuTitle);
+
+            let submenuDropdown = $('<div>')
+                .addClass('submenu-dropdown border dropdown-menu rounded mt-0 p-3 bg-white shadow')
+                .attr('id', `nav-${this.appName}-${menuUIId}-dropdown`)
+                .attr('aria-labelledby', `nav-${this.appName}-${menuUIId}-tab`)
+                .css({
+                    'position': 'absolute',
+                    'z-index': 1000,
+                    'display': 'none',
+                    'width': '100%', // full width of parent container
+                    'left': 0,
+                    'top': '100%', // just below the button
+                    'box-sizing': 'border-box'
+                });
+            //mainMenuWrapper.append(mainMenuButton).append(submenuDropdown);
+            $('#oss-easa-nav-tab').append(mainMenuWrapper);
+            $('#oss-easa-nav-tab').css('position', 'relative');
+
+            mainMenuButton.on('click', (e) => {
+                e.stopPropagation();
+                // Hide all other submenu dropdowns except the current one
+                $('.submenu-dropdown').not(submenuDropdown).hide();
+                // Get stored active main menu ID
+                const storedActiveMainMenuId = localStorage.getItem('activeMainMenuId');
+                if (storedActiveMainMenuId !== menuUIId) {
+                    // New main menu clicked, update active main menu ID
+                    //localStorage.setItem('activeMainMenuId', menuUIId);
+
+                    // Clear previous active submenu ID
+                    //localStorage.removeItem('activeEASASubMenuId');
+
+                    // Find the first submenu button inside the current dropdown
+                    const firstSubmenuBtn = submenuDropdown.find('button').first();
+
+                    if (firstSubmenuBtn.length) {
+                        // Cache the container for submenu buttons to limit DOM queries
+                        const submenuContainer = $('#oss-easa-nav-tab');
+
+                        // Remove active class from all submenu buttons within the container
+                        //submenuContainer.find('button').removeClass('activeSubmenuBtn');
+
+                        // Add active class to the first submenu button
+                        //firstSubmenuBtn.addClass('activeSubmenuBtn');
+
+                        // Show the submenu dropdown first
+                        submenuDropdown.show();
+
+                        // Extract submenu ID and store it
+                        const firstSubmenuId = firstSubmenuBtn.attr('id')
+                            .replace(`${this.appName}-`, '')
+                            .replace('nav-div-', '')
+                            .replace('-wrap', '');
+
+                        //localStorage.setItem('activeEASASubMenuId', firstSubmenuId);
+
+
+                        return; // Exit to prevent toggling again below
+                    }
+                } else {
+                    // Same main menu clicked, just toggle the submenu dropdown visibility
+                    submenuDropdown.toggle();
+
+                    if (submenuDropdown.is(':visible')) {
+                        // Get currently active submenu button inside this dropdown
+                        const activeSubmenuBtn = submenuDropdown.find('button.activeSubmenuBtn').first();
+                        if (activeSubmenuBtn.length) {
+                            const activeSubmenuId = activeSubmenuBtn.attr('id')
+                                .replace(`${this.appName}-`, '')
+                                .replace('nav-div-', '')
+                                .replace('-wrap', '');
+
+                        }
+                    }
+                }
+            });
+
+            $(document).on('click', () => {
+                submenuDropdown.hide();
+            });
+
+            // Create a container for columns inside dropdown
+            let columnsContainer = $('<div>').addClass('columncontainerEasa').css({
+                // 'display': 'flex',
+                // 'flex-wrap': 'wrap',
+                // 'gap': '8px'
+            });
+
+            visibleSubMenus.forEach((subItem, idx) => {
+                // const hasPermission = this.hasPermission(workapps, subItem.AppName, subItem.WorkAppName);
+                // add workapp haspermission here, if required
+                // if (true) {
+                isShowMainMenuCounter++;
+                let submenuBtn;
+                submenuBtn = $('<button>')
+                    .addClass('btn btn-sm btn-outline-secondary sub-menu-btn text-start mb-2 d-flex align-items-center')
+                    .css({
+                        'box-sizing': 'border-box'
+                    })
+                    .attr('id', `nav-div-${subItem.SubMenuUIId}-wrap`)
+                    .on('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        $('#oss-easa-nav-tab').find('button').removeClass('activeSubmenuBtn');
+                        //submenuDropdown.find('.sub-menu-btn').removeClass('activeSubmenuBtn');
+                        // Remove active class from all submenu buttons within this dropdown
+                        // submenuDropdown.find('button').removeClass('activeSubmenuBtn');
+                        // Add active class to the clicked button
+                        $(e.currentTarget).addClass('activeSubmenuBtn');
+                        //console.log('Clicked element:', e.currentTarget);
+                        const storageServiceTemp = new StorageService();
+
+                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
+                        // localStorage.setItem('activeMainMenuId', menuUIId);
+                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
+                        // storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', subItem.Title);
+
+                        submenuDropdown.hide();
+                        storageServiceTemp.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle', subItem.Title);
+                        this.handleSubMenuButtonClick(subItem.SubMenuUIId);
+                    });
+
+                // let icon = $('<img>')
+                //     .attr('src', `assets/images/${subItem.ImageName}`)
+                //     .attr('width', 24)
+                //     .attr('height', 24)
+                //     .addClass('me-2');
+
+
+                submenuBtn.append(subItem.Title);
+                const storedActiveSubMenuId = new StorageService().getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu');
+                if (subItem.SubMenuUIId === storedActiveSubMenuId) {
+                    submenuBtn.addClass('activeSubmenuBtn');
+                    new StorageService().setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu', subItem.SubMenuUIId);
+                }
+
+                if (submenuBtn) {
+                    // Distribute submenu buttons into columns round-robin
+                    columnsContainer.append(submenuBtn);
+                }
+                // }
+            });
+
+            // Append columns to container
+            // Set dynamic column count based on submenu length
+            const maxItemsPerColumn = 8;
+            const totalItems = visibleSubMenus.length;
+            const columnsNeeded = Math.ceil(totalItems / maxItemsPerColumn);
+            columnsContainer.css('column-count', columnsNeeded > 1 ? columnsNeeded : 1);
+            // Create header div with main menu title
+            let submenuHeader = $('<div>')
+                .addClass('submenu-header')
+                .text(item.MenuTitle)
+                .css({
+                    'font-weight': '600',
+                    'font-size': '14px',
+                    'padding-bottom': '8px',
+                    'color': '#0033A1',
+                    'display': 'none'
+                });
+            // Append header and columns container to submenuDropdown
+            submenuDropdown.append(submenuHeader);
+            submenuDropdown.append(columnsContainer);
+
+            // Append Main Menu only when it has atleast 1 submenu is accessible or does not have any sub menu
+            if (isShowMainMenuCounter > 0) {
+                // Append button and dropdown inside wrapper
+                mainMenuWrapper.append(mainMenuButton).append(submenuDropdown);
+                // Append wrapper to main container
+                $('#oss-easa-nav-tab').append(mainMenuWrapper);
+            }
+            // }
+        });
+    }
+
+    activateSubmenuButton() {
+        const storageServiceTemp = new StorageService();
+        const storedEasaActiveId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu');
+        const storedEasaActiveMenuId = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu');
+        if (storedEasaActiveMenuId) {
+            $('#oss-easa-nav-tab').find('.dropdown-toggle').removeClass('active');
+            $('#oss-easa-nav-tab').find(storedEasaActiveMenuId).addClass('active');
+        }
+        if (storedEasaActiveId) {
+            $('#oss-easa-nav-tab').find('button').removeClass('activeSubmenuBtn');
+            $(`[id='nav-div-${storedEasaActiveId}-wrap']`).addClass('activeSubmenuBtn');
+        }
+    }
+
+    hasPermission = (workapps, menuAppName, menuWorkappname) => {
+        if (new UserToken().isCurrentUserAdmin())
+            return true;
+
+        if (menuAppName == undefined || menuWorkappname == undefined) return true;
+
+        let hasPermisionToWorkApp = false;
+
+        for (let i = 0; i < workapps?.length; i++) {
+            if (workapps[i].AppName != null) {
+                let appName = workapps[i].AppName.toLowerCase();
+                let workAppName = workapps[i].WorkappName.toLowerCase();
+                let selectedBusinessUnit = new StorageService().getApplicationDataByKey(fullShellAppName, 'CurrentBusinessUnit');
+                let selectedDiscipline = new StorageService().getApplicationDataByKey(fullShellAppName, 'CurrentDiscipline');
+
+                let workAppBusinessUnitDisciplineList = workapps[i].BusinessUnitDisciplineList;
+                for (let j = 0; j < workAppBusinessUnitDisciplineList.length; j++) {
+                    let buDisciplineList = workAppBusinessUnitDisciplineList[j];
+
+                    if (buDisciplineList && buDisciplineList["BusinessunitName"]?.toLowerCase() == selectedBusinessUnit?.toLowerCase()) {
+                        let assignedDiscipline = buDisciplineList?.DisciplineNameList;
+                        if (appName.toLowerCase() == menuAppName.toLowerCase() && workAppName.toLowerCase() == menuWorkappname.toLowerCase()) {
+                            if (assignedDiscipline.indexOf(selectedDiscipline) > -1) {
+                                hasPermisionToWorkApp = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+        return hasPermisionToWorkApp;
+    }
+}
+
+export default easaMenuSubmenu;
+
+export const GroupBU = {
+    FAA: "FAA",
+    EASA: "EASA",
+}
+
 import { userDefinedConfirm } from '../../../../../utils/ConfirmDialog';
 import CustomStrikethrough from './CustomStrikethrough';
 import { addMentionNodes, addTagNodes, getMentionsPlugin } from 'prosemirror-mentions';
