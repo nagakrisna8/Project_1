@@ -4324,6 +4324,14 @@ export function handleBreadcrumsNavigation(value) {
                 .append($('<div>').addClass("breadcrumsStyles").text(currentProject).attr("id", `oss-csrsearch-breadcrums`).click(() => {
                     EASAMenuSubmenu.handleSubMenuButtonClick("projectdetailsbttn");
                 }))
+                 .append($('<div>')
+                            .addClass("breadcrumsStyles")
+                            .text("Cert Strategy")
+                            .click(() => {
+                                EASAMenuSubmenu.handleSubMenuButtonClick("cclbuilderbttn");
+                            })
+                        )
+                        .append($('<div>').addClass("gg-chevron-right"))
                 .append($('<div>').addClass("gg-chevron-right"))
                 .append($('<div>').addClass("breadcrumsStyles").text(currentTitle).attr("id", `oss-csrsearch-breadcrums`));
         } else {
