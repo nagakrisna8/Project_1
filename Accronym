@@ -1,23 +1,70 @@
- const breadcrumbContainer = document.getElementById('oss-menu-breadcrums') || document.getElementById('oss-myworkspace-breadcrums');
-    const storageServiceTemp = new StorageService();
-    const isFromNavigation = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, "isfromnavigation");
-    let originalTitle = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenuTitle');
-    let isEasactiveSubmenu = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu') !== "projectDetailsBttn";
-    let isSubMenuCertStrategy = storageServiceTemp.getApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaactivesubmenu') === "cclBuilderBttn";
-    const isFromCertStrategy = (isFromNavigation && originalTitle && (originalTitle === "Airworthiness") && !isSubMenuCertStrategy);
-    const isCsrListSearchRoute = window.location.hash.includes(WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH) || window.location.hash.includes(WorkAppRoutes.FIND_CSR.CSR_REPORT);
-    const $breadcrumb = $('#oss-menu-breadcrums');
-    if ($breadcrumb.length && !$breadcrumb.find('.cert-strategy-item').length && isFromCertStrategy && isEasactiveSubmenu && isCsrListSearchRoute) {
-        const $arrow = $('<div>')
-        const $label = $('<div>').addClass("breadcrumsStyles cert-strategy-item").text("Cert Strategy")
-            .click(() => {
-                EASAMenuSubmenu.handleSubMenuButtonClick("cclbuilderbttn");
-            });
-        const $arrow2 = $('<div>').addClass("gg-chevron-right cert-strategy-item");
-        const $airworthiness = $breadcrumb.find(':contains("Airworthiness")').first();
-        if ($airworthiness.length) {
-            $airworthiness.before($arrow, $label, $arrow2);
-        } else {
-            $breadcrumb.append($arrow).append($label).append($arrow2);
-        }
-    }
+ <GridColumn title="Applicability">
+            {criMappingGridData?.Models?.map(def => {
+              let title = "";
+              const split = def.split("-");
+              if (split.length > 1) {
+                const split2 = split[1].trim().split(" ");
+                title = "-" + split2[0];
+              } else {
+                title = def;
+              }
+              return (
+                <GridColumn
+                  width="110px"
+                  key={def}
+                  title={title}
+                  field={def}
+                  headerCell={makeHeaderCell(def)}
+                  cell={(props: GridCellProps) => {
+                    const criId = (props.dataItem as any).Cri_Id;
+                    // const isDefaultAllChecked = !newData?.CRIFlag && (criModelData?.length ?? 0) === 1;
+                    const checked = !!criMappingGridData && mappingExists(criId, def);
+
+                    return (
+                      <td className="cri-columns" style={{ textAlign: 'center' }}>
+                        <input
+                          key={`${criId}-${def}`}
+                          disabled={markedAsCompleteData.cri}
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            const newCheckedState = e.target.checked;
+                            if (!criMappingGridData) return;
+                            // const isDefaultAllChecked = !newData?.CRIFlag && (criModelData?.length ?? 0) === 1;
+                            // const currentMapping = isDefaultAllChecked
+                            //   ? (criRowsState.map(ci => ({ Cri_Id: ci.Cri_Id, MINOR_MODEL: def })))
+                            //   : (newData.CriMappingData ?? []);
+
+                            // const exists = currentMapping.some((x: any) => x.Cri_Id === criId && x.MINOR_MODEL === def);
+                            // let newCriMappingData = currentMapping.filter(
+                            //   (x: any) => !(x.Cri_Id === criId && x.MINOR_MODEL === def)
+                            // );
+                            let newCriMappingData;
+                            if (criMappingGridData) {
+                              if (newCheckedState) {
+                                newCriMappingData = [...criMappingGridData.CriMappingData, { Cri_Id: criId, MINOR_MODEL: def }];
+                              } else {
+                                newCriMappingData = criMappingGridData.CriMappingData.filter(x => x.Cri_Id != criId && x.MINOR_MODEL == def);
+                              }
+                            }
+                            // if (!exists && e.target.checked) {
+                            //   newCriMappingData = [...newCriMappingData, { Cri_Id: criId, MINOR_MODEL: def }];
+                            // }
+                            // let mergedMapping = newCriMappingData;
+                            // if (isDefaultAllChecked) {
+                            //   const explicit = (newData.CriMappingData ?? []).filter((m: any) => m.MINOR_MODEL !== def);
+                            //   mergedMapping = [...explicit, ...newCriMappingData];
+                            // }
+                            const updated = { ...criMappingGridData, CriMappingData: newCriMappingData, UserVisitingFlag: true, CRIFlag: true };
+                            setcriMappingGridData(updated);
+                            setNewData(updated);
+                            handleDirtyFlag(true);
+                          }}
+                        />
+                      </td>
+                    );
+                  }}
+                />
+              )
+            })}
+          </GridColumn>
