@@ -1,3 +1,68 @@
+import React, { SyntheticEvent, useCallback, useEffect, useRef, useState } from "react";
+import {
+    Box,
+    FormLabel,
+    Grid,
+    Select,
+    MenuItem,
+    ListItemText,
+    Button,
+    Typography,
+    Checkbox,
+    SelectChangeEvent,
+    TextField,
+    IconButton,
+    InputAdornment,
+    Modal,
+    FormControl,
+    FormHelperText,
+    Container,
+    Card,
+    Accordion,
+    AccordionDetails,
+    Divider,
+    Tooltip
+} from "@mui/material";
+import { Input } from "@progress/kendo-react-inputs";
+import { Grid as DataGrid, GridCellProps, GridColumn, GridColumnMenuFilter, GridColumnMenuSort, GridCustomRowProps, GridDataStateChangeEvent, GridDetailRowProps, GridEvent, GridItemChangeEvent, GridPageChangeEvent, GridRowProps, GridRowsSettings, isColumnMenuFilterActive, isColumnMenuSortActive } from "@progress/kendo-react-grid";
+import SearchIcon from "@mui/icons-material/Search";
+import { filterIcon } from "@progress/kendo-svg-icons";
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { Button as Bt } from "@progress/kendo-react-buttons";
+import EditIcon from '@mui/icons-material/Edit';
+import "./CclBuilderGrid.scss";
+import CclBuilderGridService from "./CclBuilderGridService";
+import { CclReportByCveCdiIdRequest, CclReportdata, CdiItems, CmItems, CriItems, CveItemsGrid, FilterParam, FormErrors, MocItem, ModelItems, ParameterObject, RegulationItemsGrid, InsertTag, GetCSRReportStatusResponse, TaskNames, ComplianceShownList } from "../../../model/Model";
+import { useOutletContext, useParams } from "react-router-dom";
+import CvePanelPopUp from "./PopUp/CvePanelPopUp";
+import RegulationPopUp from "./PopUp/RegulationPopUp";
+import CloseIcon from "@mui/icons-material/Close";
+import { DetailExpandDescriptor } from '@progress/kendo-react-data-tools';
+import { Editor, EditorTools, ProseMirror, EditorMountEvent, EditorFocusEvent, EditorBlurEvent, EditorUtils, NodeSpec } from "@progress/kendo-react-editor";
+import { State, process } from "@progress/kendo-data-query";
+import { useDispatch } from "react-redux";
+import { showSnackbar } from "../../core/snackbar/CustomSnackBarSlice";
+import AuthorizationService from "../../core/services/AuthorizationService";
+import { Description } from "@mui/icons-material";
+import AddAcronymPopup from '../project-grid/PopUp/add-acronym-popup/AddAcronymPopup';
+import { logFilterAction, useRegisterAdobe, useLogPageViewEvent } from '@boeing-fsit/react-oss-adobe-analytics-lib';
+import StorageService from '../../../utils/StorageService';
+import EnvDetail from "../../../utils/EnvDetail";
+import { userDefinedConfirm } from "../utils/ConfirmDialog";
+import InsertTagPopUp from "./PopUp/InsertTagPopUp";
+import MentionPopup from './PopUp/MentionPopup';
+import SellIcon from '@mui/icons-material/Sell';
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ShellEventRegister from "../../../utils/ShellEventRegister";
+import { GetCRIMappingResponse } from '../../../model/Model';
+import { SaveCRIMappingPayload } from '../../../model/Model';
+import { CCLTEMPLATEID, CCLTEMPLATENAME, MarkAsCompleteButton, navigateToCSRReportIDPage, OverallDataContext } from "../overview-home/Overview";
+import HeaderDetails from "../header-details/HeaderDetails";
+import MainDrawerService from "../drawer-home/MainDrawerService";
+import { ReportStages } from "../drawer-home/MainDrawer";
+
 let rtvalue = "";
 let undovalue = "";
 let savedCursorPos: number | null = null;
@@ -257,7 +322,7 @@ const CCLBuilderGrid = () => {
         }
     };
     useEffect(() => {
-        getComplianceShownInRecords();
+         //getComplianceShownInRecords();
     }, []);
     //   setShellWorkAppContainerMaxHeight(
     //     shellClientHeight != undefined &&
@@ -382,8 +447,8 @@ const CCLBuilderGrid = () => {
     const onInsert = async (val: CveItemsGrid[]) => {
         setSelectedCvePanels(prev => [...val])
         setErrors((prevErrors) => ({ ...prevErrors, selectedCvePanels: "" }));
-        setSelectCDI([]);
-        setSelectedRegulationPanels([]);
+        //setSelectCDI([]);
+        //setSelectedRegulationPanels([]);
         if (val.length > 0) {
             const finalSelected: number[] = [];
             val.forEach(x => finalSelected.push(x.Cve_Id));
@@ -432,7 +497,7 @@ const CCLBuilderGrid = () => {
         getModeldata();
         getcclReportbyReportId();
         resetApplicationDataForCertTool();
-        GetAllInsertTag();
+       // GetAllInsertTag();
         GetCClAndCSRReportStatus();
     }, []);
 
@@ -549,17 +614,17 @@ const CCLBuilderGrid = () => {
             });
     };
     const criDropdown = () => {
-    const storageServiceTemp = new StorageService();
-    const projRegId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
-    if (projRegId) {
-        CclBuilderGridService.Getcri(projRegId)
-        .then((response) => {
-            setCri(response.data);
-        })
-        .catch((error) => {
-            console.error("Error fetching cri details:", error);
-        });
-    }
+        const storageServiceTemp = new StorageService();
+        const projRegId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+        if (projRegId) {
+            CclBuilderGridService.Getcri(projRegId)
+                .then((response) => {
+                    setCri(response.data);
+                })
+                .catch((error) => {
+                    console.error("Error fetching cri details:", error);
+                });
+        }
     };
 
     const cdiDropdown = () => {
@@ -1722,7 +1787,7 @@ const CCLBuilderGrid = () => {
             }
         } else
             setSelectCDI(event.target.value.filter(x => x != SELECT_ALL) as number[])
-        setSelectedRegulationPanels([]);
+        //setSelectedRegulationPanels([]);
         setErrors((prevErrors) => ({ ...prevErrors, selectedCDI: "" }));
     };
     const crihandleChange = async (event: SelectChangeEvent<any>) => {
@@ -2022,7 +2087,7 @@ const CCLBuilderGrid = () => {
                                 <ListItemText
                                     primary={
                                         <span title={t.TaskName}
-                                              style={{
+                                            style={{
                                                 display: 'inline-block',
                                                 maxWidth: '250px',
                                                 whiteSpace: 'nowrap',
@@ -2835,7 +2900,7 @@ const CCLBuilderGrid = () => {
                     showSnackbar({
                         snackbarOpen: true,
                         snackbarType: "error",
-                        snackbarMessage: "Matrix not generated",
+                        snackbarMessage: "CCL Matrix does not have any records",
                     })
                 );
                 return false;
@@ -3188,7 +3253,7 @@ const CCLBuilderGrid = () => {
                         showSnackbar({
                             snackbarOpen: true,
                             snackbarType: "error",
-                            snackbarMessage: "Matrix not generated",
+                            snackbarMessage: "CCL Matrix does not have any records",
                         })
                     );
                     return false;
@@ -3415,7 +3480,7 @@ const CCLBuilderGrid = () => {
             );
         }
     }, [cclGridData]);
-
+    console.log(selectCDI,selectCve, 'selectCDI');
     return (
         <div className="oss-ccl-matrixgrid-outer">
             <div>
@@ -3672,3 +3737,468 @@ const CCLBuilderGrid = () => {
                                 </div>
                             </Box>
                         </div>
+                        <Divider component="li" />
+                        <div className="cclBuilderGridWrap">
+                            <div className="ccl_builderGridSec" style={{ display: showGrid ? "block" : "none" }}>
+                                <div className="ccl_builderGrid">
+                                    <div>
+                                        {/* {cCLBuilderGrid} */}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Container ref={gridContainerRef} fixed style={{
+                                height: (gridHeight >= window.innerHeight) ? '100vh' : `${window.innerHeight}px`,
+                                maxHeight: filterAccordionExpanded ? 'calc(100vh - 326px)' : 'calc(100vh - 300px)',
+                                //maxHeight: shellWorkAppContainerMaxHeight != 0 ? shellWorkAppContainerMaxHeight : `${window.innerHeight}px`,
+                                width: `${window.innerWidth}px`,
+                                marginTop: '10px'
+                            }}>
+                                <div className="ccl-builder-main-grid" style={{ marginBottom: 24 }}>
+                                    <Grid container spacing={2} alignItems="center" style={{ marginTop: '0px' }}>
+                                        <Grid item xs={3} className="Model" style={{ paddingTop: "0", paddingBottom: "0" }}>
+                                            <Box display="flex" alignItems="center" whiteSpace={"nowrap"} gap={'8px'}>
+                                                <FormLabel>
+                                                    <Box display="flex" alignItems="center">
+                                                        <label>CVE Panel</label>
+                                                    </Box>
+                                                </FormLabel>
+
+                                                <Select
+                                                    className="cve-panel-dropdown"
+                                                    size="small" sx={{ marginLeft: 1 }}
+                                                    value={selectCve ?? ""}
+                                                    onChange={cvehandleChange}
+                                                > <MenuItem key={"All"} value={"All"}>
+                                                        <ListItemText primary={"All"} primaryTypographyProps={{
+                                                            sx: { fontSize: "14px", color: "#253746" },
+                                                        }} />
+                                                    </MenuItem>
+                                                    {gridGeneratedCvePanels.toSorted((a, b) => a.Cve_Id - b.Cve_Id).map((m) => (
+                                                        <MenuItem key={m.Cve_Id} value={m.Cve_Id}>
+                                                            <ListItemText primary={m.Panel}
+                                                                primaryTypographyProps={{
+                                                                    sx: { fontSize: "14px", color: "#253746" },
+                                                                }} />
+                                                        </MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </Box>
+                                        </Grid>
+                                        <Grid item xs={2} className="Model" style={{ paddingTop: "0", paddingBottom: "0" }}>
+                                            <Box display="flex" alignItems="center">
+                                                <FormLabel>
+                                                    <Box display="flex" alignItems="center">
+                                                        <label>CDI</label>
+                                                    </Box>
+                                                </FormLabel>
+
+                                                <Select
+                                                    className="cdi-filter-dropdown"
+                                                    size="small" sx={{ marginLeft: 1 }}
+                                                    value={secondSelectedCDI}
+                                                    onChange={secondCDIhandleChange}
+                                                // renderValue={(selected) =>
+                                                //   (selected as number[])
+                                                //     .map(id => cdi.find(m => m.Cdi_Id === id)?.Combined_Description ?? "")
+                                                //     .join(", ")
+                                                // }
+                                                >
+                                                    {
+                                                        (
+                                                            <MenuItem key={"All"} value={"All"}>
+                                                                <ListItemText primary={"All"} primaryTypographyProps={{
+                                                                    sx: { fontSize: "14px", color: "#253746" },
+                                                                }} />
+                                                            </MenuItem>
+                                                        )
+                                                    }
+                                                    {secondCDI.toSorted((a, b) => a.Cdi_Id - b.Cdi_Id).map((m) => (
+                                                        <MenuItem key={m.Cdi_Id} value={m.Combined_Description}>
+                                                            <ListItemText primary={m.Combined_Description}
+                                                                primaryTypographyProps={{
+                                                                    sx: { fontSize: "14px", color: "#253746" },
+                                                                }} />
+                                                        </MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </Box>
+                                        </Grid>
+
+                                        <Grid item xs={7} style={{ paddingBlock: '0px' }}>
+
+                                            <Box
+                                                display="flex"
+                                                justifyContent="flex-end"
+                                                mt={2}
+                                                sx={{ marginTop: "0px", marginBottom: "0px", gap: '8px' }}
+                                            >
+                                                <Button
+                                                    //className="resetform-button"
+                                                    variant="outlined"
+                                                    //title="Create Job"
+                                                    color="inherit"
+                                                    sx={{ textTransform: "capitalize", textWrap: 'nowrap' }}
+                                                    size="small"
+                                                    onClick={CreateRevision}
+                                                    disabled={!allControlEnable && disableCreateRevision}
+                                                >
+                                                    Create Revision
+                                                </Button>
+                                                <Button
+                                                    //className="resetform-button"
+                                                    variant="outlined"
+                                                    color="inherit"
+                                                    sx={{ textTransform: "capitalize" }}
+                                                    size="small"
+                                                    disabled={checkedCclGridRow?.length === 0 || !checkedCclGridRow}
+                                                    onClick={() => cloneClick()}
+                                                >
+                                                    Clone
+                                                </Button>
+                                                <Button
+                                                    //className="resetform-button"
+                                                    variant="outlined"
+                                                    color="inherit"
+                                                    sx={{ textTransform: "capitalize" }}
+                                                    size="small"
+                                                    disabled={checkedCclGridRow?.length === 0 || !checkedCclGridRow}
+                                                    onClick={() => deleteCloneClick()}
+                                                >
+                                                    Delete
+                                                </Button>
+                                                <Button
+                                                    className="save-cve-button"
+                                                    variant="outlined"
+                                                    color="inherit"
+                                                    //title="Create Job"
+                                                    sx={{ textTransform: "capitalize" }}
+                                                    size="small"
+                                                    onClick={saveData}
+                                                    disabled={allControlEnable}
+                                                >
+                                                    Save
+                                                </Button>
+                                                {
+                                                    (
+                                                        <MarkAsCompleteButton complete={markedAsCompleteData.ccl} onClick={markAsComplete} />
+                                                    )
+                                                }
+                                            </Box>
+                                        </Grid>
+                                    </Grid>
+                                </div>
+                                <Card style={{ height: shellWorkAppContainerMaxHeight != 0 ? ((cclData.status != "" && cclData.reportId) ? 'calc(100vh - 366px)' : 'calc(100vh - 289px)') : (gridHeight >= window.innerHeight ? ((cclData.status != "" && cclData.reportId) ? 'calc(100vh - 366px)' : 'calc(100vh - 289px)') : ''), borderLeft: '5px solid rgb(92, 15, 140)', position: 'relative', display: 'flex', flexFlow: 'column nowrap' }}>
+                                    {cCLBuilderGrid}
+                                    {
+                                        currentDetailExpanded.currentEdit === "compliance" &&
+                                        (
+                                            <div className="ccl-compliancestatement-drawer">
+                                                <div className="ccl-drawer-confirm">
+                                                    <span className="ccl-drawer-title">Edit Compliance Statement</span>
+                                                    <div>
+                                                        <Button
+                                                            className="save-cve-button"
+                                                            variant="outlined"
+                                                            color="inherit"
+                                                            sx={{ textTransform: "capitalize" }}
+                                                            size="small"
+                                                            onClick={() => saveEditComplianceStatement()}
+                                                        >
+                                                            Ok
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            aria-label="Edit compliance statement"
+                                                            style={{
+                                                                background: "transparent",
+                                                                border: "none",
+                                                                padding: 4,
+                                                                cursor: "pointer",
+                                                                display: "inline-flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                            }}
+                                                            onClick={() => closeEditComplianceStatement(currentDetailExpanded.id!)}
+                                                        >
+                                                            <CloseIcon style={{ marginLeft: 8, marginRight: 5, color: '#737373' }} />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                <div className="ccl-drawer-editor">
+                                                    <OpenEditor />
+                                                </div>
+                                            </div>
+                                        )
+                                    }
+                                    {
+                                        currentDetailExpanded.currentEdit === "additional" &&
+                                        (
+                                            <div className="ccl-compliancestatement-drawer">
+                                                <div className="ccl-drawer-confirm">
+                                                    <span className="ccl-drawer-title">Edit Additional Notes</span>
+                                                    <div>
+                                                        <Button
+                                                            className="save-cve-button"
+                                                            variant="outlined"
+                                                            color="inherit"
+                                                            sx={{ textTransform: "capitalize" }}
+                                                            size="small"
+                                                            onClick={() => saveEditAdditional()}
+                                                        >
+                                                            Ok
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            aria-label="Edit additional notes"
+                                                            style={{
+                                                                background: "transparent",
+                                                                border: "none",
+                                                                padding: 4,
+                                                                cursor: "pointer",
+                                                                display: "inline-flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                            }}
+                                                            onClick={() => closeEditAdditional(currentDetailExpanded.id!)}
+                                                        >
+                                                            <CloseIcon style={{ marginLeft: 8, marginRight: 5, color: '#737373' }} />
+                                                        </Button>
+                                                    </div>
+
+                                                </div>
+                                                <div className="ccl-drawer-editor">
+                                                    <OpenEditor />
+                                                </div>
+                                            </div>
+                                        )
+                                    }
+                                </Card>
+                            </Container>
+                        </div>
+                    </div >
+                ) : (
+                    <div className="cri-mapping">
+                        <div className="cclBuilderGridWrap" style={{ marginTop: '20px' }}>
+                            <Container ref={gridContainerRef} fixed style={{
+                                height: (gridHeight >= window.innerHeight) ? '100vh' : `${window.innerHeight}px`,
+                                maxHeight: filterAccordionExpanded ? 'calc(100vh - 370px)' : 'calc(100vh - 308px)',
+                                //maxHeight: shellWorkAppContainerMaxHeight != 0 ? shellWorkAppContainerMaxHeight : `${window.innerHeight}px`,
+                                width: `${window.innerWidth}px`,
+                                overflowY: 'hidden',
+                                marginTop: '16px'
+                            }}>
+                                <Card style={{ height: shellWorkAppContainerMaxHeight != 0 ? ('100%') : (gridHeight >= window.innerHeight ? '100%' : ''), borderLeft: '5px solid #E14504' }}>
+                                    <div style={{ margin: '12px' }}>
+                                        <div className="ccl-builder-main-grid">
+                                            <Grid container alignItems="center" style={{ marginTop: '0px' }}>
+                                                <Grid item xs={12} style={{ paddingBlock: '0px' }}>
+
+                                                    <Box
+                                                        display="flex"
+                                                        justifyContent="flex-end"
+                                                        mt={2}
+                                                        sx={{ marginTop: "0px", marginBottom: "0px" }}
+                                                    >
+                                                        {/* <Button
+                                                            className="save-cve-button"
+                                                            variant="contained"
+                                                            sx={{
+                                                                textTransform: "capitalize",
+                                                                backgroundColor: "#ffff",
+                                                                border: "1px solid #9E9E9E"
+                                                            }}
+                                                            size="small"
+                                                        onClick={saveCriData}
+                                                        >
+                                                            Save
+                                                        </Button> */}
+                                                    </Box>
+                                                </Grid>
+                                            </Grid>
+                                        </div>
+                                    </div>
+                                    {/* <CRIMappingGrid data={criMappingGridData} setData={setCriMappingGridData} _handleDirtyFlag={_handleDirtyFlag} /> */}
+                                </Card>
+                            </Container>
+                        </div>
+                    </div>
+                )}
+            </div >
+        </div>
+    );
+};
+
+export default CCLBuilderGrid;
+
+const convertToApiSort = (sortDataState: State): { Field: string | null, Dir: "asc" | "desc" | null | undefined } => {
+    const sortVal = {
+        Field: sortDataState?.sort != undefined && sortDataState?.sort?.length != 0 ? sortDataState?.sort[0].field : null,
+        Dir: sortDataState?.sort != undefined && sortDataState?.sort?.length != 0 ? sortDataState?.sort[0].dir : null,
+    }
+    return sortVal;
+};
+
+const convertToApiFilter = (filterDataState) => {
+    let filterVal: ParameterObject[] = [];
+    let filterObjects: FilterParam[] = [];
+
+    if (filterDataState?.filter != undefined && filterDataState?.filter?.length != 0) {
+        if (filterDataState?.filter?.filters?.length != 0) {
+            for (let i = 0; i < filterDataState?.filter?.filters?.length; i++) {
+                if (filterDataState?.filter?.filters[i]?.filters?.length != 0) {
+                    filterVal = [];
+                    for (let j = 0; j < filterDataState?.filter?.filters[i]?.filters?.length; j++) {
+                        const parameterObject: ParameterObject = {
+                            Field: filterDataState?.filter?.filters[i]?.filters[j]?.field,
+                            Operator: filterDataState?.filter?.filters[i]?.filters[j]?.operator,
+                            Value: filterDataState?.filter?.filters[i]?.filters[j]?.value
+                        };
+                        filterVal.push(parameterObject);
+                    }
+                    const filterObj: FilterParam = {
+                        FilterObject: filterVal,
+                        Logic: filterDataState?.filter?.filters[i]?.logic
+                    };
+                    filterObjects.push(filterObj);
+                    filterObjectsparam.push(filterObj);
+                }
+            }
+        }
+    }
+    return filterObjects;
+}
+
+const mapOutputToDataFormat = (initialData: any[]) => {
+    let mappedCcReport: any[] = initialData.map((item: any) => ({
+        Row_Sequence: item.Row_Sequence,
+        Report_Id: item.Report_Id,
+        Cve_Panel: item.Cve_Panel,
+        Cdi: item.Cdi,
+        Cdi_Description: item.Cdi_Description,
+        Regulation: item.Regulation,
+        Para: item.Para,
+        Moc: item.Moc,
+        Compliance_Shown_In: item.Compliance_Shown_In,
+        Compliance_statement: item.Compliance_statement,
+        Additional_Notes: item.Additional_Notes,
+        Created_By: item.Created_By,
+        Cve_Id: item.Cve_Id,
+        Cve_Description: item.Cve_Description,
+        Cdi_Id: item.Cdi_Id,
+        Reg_Id: item.Reg_Id,
+        Is_Clone: item.CloneFlag,
+        Amendment: item.Amendment,
+        Cdi_Combined: item.Cdi_Combined,
+        Cdi_Complete: `${item.Cdi} - ${item.Cdi_Description}`,
+        RegDescription: item.RegDescription,
+        TaskId: item.TaskId
+    }));
+    return mappedCcReport as CclReportdata[];
+}
+
+const { Schema, EditorState, Plugin, PluginKey, NodeSelection } = ProseMirror;
+const EditorView = ProseMirror.EditorView;
+
+const nonEditable: NodeSpec = {
+    name: 'nonEditable',
+    inline: true,
+    group: 'inline',
+    content: 'inline+',
+    marks: '',
+    attrs: {
+        contenteditable: { default: null },
+        class: { default: 'non-editable-node' },
+        //style: { default: 'color: red;' },
+        tagid: { default: null },
+        name: { default: null },
+        tagcolor: { default: null }
+    },
+    atom: true,
+    parseDOM: [
+        {
+            tag: 'span.uneditable',
+            priority: 51,
+            getAttrs: (dom: any) => ({
+                tagid: dom.getAttribute('tagid'),
+                name: dom.getAttribute('name'),
+                tagcolor: dom.getAttribute('tagcolor'),
+            }),
+        },
+    ],
+    // The styles can be added via the class as well
+    toDOM: (node) => [
+        'span',
+        {
+            contenteditable: false,
+            class: 'uneditable ' + 'onClickPointer ' + node.attrs.class,
+            tagid: node.attrs.tagid,
+            name: node.attrs.name,
+            tagcolor: node.attrs.tagcolor,
+            style: `user-select: none; opacity: 1; color: ${node.attrs.tagcolor}`,
+        },
+        0,
+    ],
+};
+
+
+function keepOneAndReverseOthers(items: any[]): any[] {
+    const groups = new Map<number, any[]>();
+    for (const it of items) {
+        const key = it.Row_Sequence;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(it);
+    }
+
+    const processed = new Set<number>();
+    const result: any[] = [];
+
+    for (const it of items) {
+        const key = it.Row_Sequence;
+        if (processed.has(key)) continue;
+
+        const group = groups.get(key)!;
+        if (group.length === 1) {
+            result.push(group[0]);
+        } else {
+            result.push(group[0]);
+            for (let i = group.length - 1; i >= 1; i--) {
+                result.push(group[i]);
+            }
+        }
+        processed.add(key);
+    }
+
+    return result;
+}
+
+const CalculateIcon = ({ width = 18, height = 18, className = "oss-ccl-calculate-icon" }) => (
+    <svg
+        width={width}
+        height={height}
+        viewBox="0 0 18 18"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className={className}
+    >
+        <g clipPath="url(#clip0_6060_9362)">
+            <path
+                d="M14.25 0.75C14.6625 0.75 15.0156 0.896875 15.3094 1.19062C15.6031 1.48437 15.75 1.8375 15.75 2.25L15.75 16.5C15.75 16.9125 15.6031 17.2656 15.3094 17.5594C15.0156 17.8531 14.6625 18 14.25 18L3.75 18C3.3375 18 2.98437 17.8531 2.69062 17.5594C2.39687 17.2656 2.25 16.9125 2.25 16.5L2.25 2.25C2.25 1.8375 2.39687 1.48438 2.69062 1.19063C2.98437 0.896876 3.3375 0.750001 3.75 0.750001L14.25 0.75ZM14.25 6L3.75 6L3.75 16.5L14.25 16.5L14.25 6ZM14.25 4.5L14.25 2.25L3.75 2.25L3.75 4.5L14.25 4.5Z"
+            //   fill={color}
+            />
+            <rect x="5.25" y="7.5" width="1.5" height="1.5" rx="0.75" />
+            <rect x="8.25" y="7.5" width="1.5" height="1.5" rx="0.75" />
+            <rect x="11.25" y="7.5" width="1.5" height="1.5" rx="0.75" />
+            <rect x="5.25" y="10.5" width="1.5" height="1.5" rx="0.75" />
+            <rect x="8.25" y="10.5" width="1.5" height="1.5" rx="0.75" />
+            <rect x="11.25" y="10.5" width="1.5" height="1.5" rx="0.75" />
+            <rect x="5.25" y="13.5" width="1.5" height="1.5" rx="0.75" />
+            <rect x="8.25" y="13.5" width="4.5" height="1.5" rx="0.75" />
+        </g>
+        <defs>
+            <clipPath id="clip0_6060_9362">
+                <rect width="18" height="18" fill="white" transform="translate(18 18) rotate(180)" />
+            </clipPath>
+        </defs>
+    </svg>
+);
