@@ -88,3 +88,17 @@ const cvehandleChange = async (event: SelectChangeEvent<string[]>) => {
         );
     }
 };
+
+const loadAllCDI = async () => {
+    try {
+        const response = await CclBuilderGridService.Getcdi(null);
+
+        // Store all CDI options
+        setSecondCDI(response.data);
+
+        // Optional: if first dropdown also uses same data
+        setCdi(response.data);
+    } catch (error) {
+        console.error("Error loading CDI", error);
+    }
+};
