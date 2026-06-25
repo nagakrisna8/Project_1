@@ -6,11 +6,11 @@ const cvehandleChange = async (event: SelectChangeEvent<string[]>) => {
             cancelBtnText: "Cancel",
         });
 
-        if (confirmed) {
-            _handleDirtyFlag(false);
-        } else {
+        if (!confirmed) {
             return;
         }
+
+        _handleDirtyFlag(false);
     }
 
     const newValue = event.target.value as string;
@@ -19,46 +19,53 @@ const cvehandleChange = async (event: SelectChangeEvent<string[]>) => {
     if (newValue === "All") {
         gridGeneratedCvePanels.forEach(x => finalSelected.push(x.Cve_Id));
     } else {
-        finalSelected.push(parseInt(newValue));
+        finalSelected.push(Number(newValue));
     }
 
     setSelectCve(event.target.value as string[]);
 
     try {
-        const CdiId =
-            Array.isArray(selectCDI) && selectCDI.length > 0
-                ? selectCDI.join(",")
-                : "0";
 
+        // ******************************
+        // Get CDI by selected CVE
+        // ******************************
         const resp = await CclBuilderGridService.GetcdiById(
             finalSelected.join(","),
-            CdiId
+            null          // <-- IMPORTANT
         );
 
-        // Filtered CDI list
-        setSecondCDI(resp.data);
+        const filteredCDI = resp.data;
 
-        // Valid CDI ids returned from API
-        const validIds = resp.data.map(x => x.Cdi_Id);
+        setSecondCDI(filteredCDI);
 
-        // Preserve selected CDI values that still exist
-        const updatedSelectedCDI = selectCDI.filter(id =>
-            validIds.includes(id)
+        // ******************************
+        // Preserve selected CDI
+        // ******************************
+        const filteredIds = filteredCDI.map(x => x.Cdi_Id);
+
+        const newSelectedCDI = selectCDI.filter(id =>
+            filteredIds.includes(id)
         );
 
-        setSelectCDI(updatedSelectedCDI);
+        setSelectCDI(newSelectedCDI);
 
-        // Update second dropdown selection
-        if (updatedSelectedCDI.length > 0) {
-            const selectedDescriptions = resp.data
-                .filter(x => updatedSelectedCDI.includes(x.Cdi_Id))
+        // Update second dropdown
+        if (newSelectedCDI.length > 0) {
+
+            const selectedDescriptions = filteredCDI
+                .filter(x => newSelectedCDI.includes(x.Cdi_Id))
                 .map(x => x.Combined_Description);
 
             setSecondSelectedCDI(
                 selectedDescriptions as unknown as string[]
             );
+
         } else {
-            setSecondSelectedCDI("All" as unknown as string[]);
+
+            setSecondSelectedCDI(
+                "All" as unknown as string[]
+            );
+
         }
 
         const reportId = localStorage.getItem("OSS-CertToolReportId")!;
@@ -68,8 +75,9 @@ const cvehandleChange = async (event: SelectChangeEvent<string[]>) => {
             "cvecdi",
             reportId,
             finalSelected.join(","),
-            updatedSelectedCDI.join(",")
+            newSelectedCDI.join(",")
         );
+
     } catch (error) {
         dispatch(
             showSnackbar({
