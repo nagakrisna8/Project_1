@@ -1,86 +1,85 @@
-  <GridColumn
-            className="grid_Task"
-            field="TaskData"
-            title="Task Name"
-            width="220px"
-            filterable={false}
-            cell={(props: any) => (
-              <td>
-                <Select
-                  multiple
-                  size="small"
-                  fullWidth
-                  disabled={allControlEnable}
-                  className="oss-ccl-dropdown-disabled-styles"
-                  value={
-                    props.dataItem.TaskData?.map(
-                      (x: any) => x.TASK_ID
-                    ) || []
-                  }
-                  renderValue={(selected: any) =>
-                    mappedTaskOptions
-                      .filter((x: any) => selected.includes(x.TaskId))
-                      .map((x: any) => x.TaskName)
-                      .join(", ")
-                  }
-                  onChange={(e) => {
-                    const selectedIds = e.target.value as number[];
-                    const existingTasks = props.dataItem.TaskData || [];
-                    const updatedTasks = mappedTaskOptions
-                      .filter((x: any) => selectedIds.includes(x.TaskId))
-                      .map((x: any) => {
-                        const existingTask = existingTasks.find(
-                          (t: any) => t.TASK_ID === x.TaskId
-                        );
+<Select
+  multiple
+  size="small"
+  fullWidth
+  disabled={allControlEnable}
+  className="oss-ccl-dropdown-disabled-styles"
+  value={
+    props.dataItem.TaskData?.filter(
+      (x: any) => x.TASK_ID !== 0
+    ).map((x: any) => x.TASK_ID) || []
+  }
+  renderValue={(selected: any) =>
+    mappedTaskOptions
+      .filter((x: any) => selected.includes(x.TaskId))
+      .map((x: any) => x.TaskName)
+      .join(", ")
+  }
+  onChange={(e) => {
+    const selectedIds = e.target.value as number[];
 
-                        return {
-                          MATRIX_ROW_ID: existingTask?.MATRIX_ROW_ID || 0,
-                          TASK_ID: x.TaskId,
-                          TASK_NAME: x.TaskName,
-                        };
-                      });
+    const existingTasks = props.dataItem.TaskData || [];
 
-                    existingTasks.forEach((task: any) => {
-                      const stillSelected = selectedIds.includes(task.TASK_ID);
+    const updatedTasks = mappedTaskOptions
+      .filter((x: any) => selectedIds.includes(x.TaskId))
+      .map((x: any) => {
+        const existingTask = existingTasks.find(
+          (t: any) => t.TASK_ID === x.TaskId
+        );
 
-                      if (!stillSelected) {
-                        updatedTasks.push({
-                          MATRIX_ROW_ID: task.MATRIX_ROW_ID,
-                          TASK_ID: 0,
-                          TASK_NAME: task.TASK_NAME,
-                        });
-                      }
-                    });
+        return {
+          MATRIX_ROW_ID: existingTask?.MATRIX_ROW_ID || 0,
+          TASK_ID: x.TaskId,
+          TASK_NAME: x.TaskName,
+        };
+      });
 
-                    handleItemChange({
-                      dataItem: props.dataItem,
-                      field: "TaskData",
-                      value: updatedTasks,
-                      syntheticEvent: e,
-                    } as any);
-                  }}
-                >
-                  {mappedTaskOptions.map((task: any) => (
-                    <MenuItem
-                      key={task.TaskId}
-                      value={task.TaskId}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={
-                          props.dataItem.TaskData?.some(
-                            (x: any) =>
-                              x.TASK_ID === task.TaskId
-                          ) || false
-                        }
-                        readOnly
-                      />
-                      <span style={{ marginLeft: 8 }}>
-                        {task.TaskName}
-                      </span>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </td>
-            )}
-          />
+    // Keep deleted tasks
+    existingTasks.forEach((task: any) => {
+      const stillSelected = selectedIds.includes(task.TASK_ID);
+
+      if (!stillSelected && task.TASK_ID !== 0) {
+        updatedTasks.push({
+          MATRIX_ROW_ID: task.MATRIX_ROW_ID,
+          TASK_ID: 0,
+          TASK_NAME: task.TASK_NAME,
+        });
+      }
+    });
+
+    handleItemChange({
+      dataItem: props.dataItem,
+      field: "TaskData",
+      value: updatedTasks,
+      syntheticEvent: e,
+    } as any);
+  }}
+  MenuProps={{
+    PaperProps: {
+      style: {
+        maxHeight: 300,
+      },
+    },
+  }}
+>
+  {mappedTaskOptions.map((task: any) => {
+    const checked =
+      props.dataItem.TaskData?.some(
+        (x: any) => x.TASK_ID === task.TaskId
+      ) || false;
+
+    return (
+      <MenuItem
+        key={task.TaskId}
+        value={task.TaskId}
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
+      >
+        <Checkbox checked={checked} />
+
+        <ListItemText primary={task.TaskName} />
+      </MenuItem>
+    );
+  })}
+</Select>
