@@ -1,85 +1,1140 @@
-<Select
-  multiple
-  size="small"
-  fullWidth
-  disabled={allControlEnable}
-  className="oss-ccl-dropdown-disabled-styles"
-  value={
-    props.dataItem.TaskData?.filter(
-      (x: any) => x.TASK_ID !== 0
-    ).map((x: any) => x.TASK_ID) || []
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Grid as DataGrid,
+  GridColumn,
+  GridColumnMenuFilter,
+  GridDataStateChangeEvent,
+  GridItemChangeEvent,
+  GridRowProps,
+  isColumnMenuFilterActive,
+  isColumnMenuSortActive,
+} from "@progress/kendo-react-grid";
+import { Select, MenuItem } from "@mui/material";
+import { process, State } from "@progress/kendo-data-query";
+import { filterIcon } from "@progress/kendo-svg-icons";
+import { GroupType } from "./RequirementMapping";
+import { CDIData, GroupDetails, PanelOption } from "./CclBuilderGrid";
+import { ComplianceShownList, MocItem } from "../../../model/Model";
+import { useOutletContext } from "react-router-dom";
+import { OverallDataContext } from "../overview-home/Overview";
+import "./CclBuilderGrid.scss"
+
+// Cheap HTML -> plain text (for cell tooltip title), cached by string. Replaces
+// `new DOMParser().parseFromString(...)` which ran per row on EVERY grid render
+// (e.g. after each dropdown selection), adding to the post-select delay.
+const htmlToTextCache = new Map<string, string>();
+let htmlToTextEl: HTMLDivElement | null = null;
+const htmlToPlainText = (html: string | null | undefined): string => {
+  if (!html) return "";
+  const cached = htmlToTextCache.get(html);
+  if (cached !== undefined) return cached;
+  if (!htmlToTextEl) htmlToTextEl = document.createElement("div");
+  htmlToTextEl.innerHTML = html;
+  const text = htmlToTextEl.textContent ?? "";
+  if (htmlToTextCache.size > 2000) htmlToTextCache.clear();
+  htmlToTextCache.set(html, text);
+  return text;
+};
+
+interface CclBuilderGridComponentProps {
+  data: any[];
+  groupData: GroupDetails;
+  panelOptions?: PanelOption[];
+  cdiOptions?: CDIData[];
+  mocOptions: MocItem[];
+  complianceShownInOptions: ComplianceShownList[];
+  onComplianceShownInOpen?: () => void;
+  complianceShownInLoading?: boolean;
+  allControlEnable?: boolean;
+  cclGridRowRender?: any;
+  total?: number;
+  cclGridData?: any[];
+  checkedCclGridRow?: any[];
+  setCheckedCclGridRow?: React.Dispatch<React.SetStateAction<any[]>>;
+  dataState: State;
+  onDataStateChange: (e: GridDataStateChangeEvent) => Promise<void>;
+  onLoadMore?: () => void;
+  columnProps?: (field: string) => any;
+  taskdropdownlist?: any;
+  mocdropdownlist?: any;
+  TextFieldCell?: any;
+  mappedTaskOptions?: any;
+  currentDetailExpanded?: {
+    id: number | null;
+    currentEdit: "additional" | "compliance" | null;
+  };
+  detailExpand?: Record<string | number, boolean>;
+  closeEditComplianceStatement?: (reportId: number) => void;
+  expandEditComplianceStatement?: (reportId: number) => void;
+  closeEditAdditional?: (reportId: number) => void;
+  expandEditAdditional?: (reportId: number) => void;
+  groupType: GroupType;
+  highlightIds?: Set<number>;
+  handleItemChange: (event: GridItemChangeEvent) => void;
+  setDrawerPosition: React.Dispatch<
+    React.SetStateAction<{
+      top: number;
+      left: number;
+    }>
+  >;
+
+}
+
+const ColumnMenu = (props: any) => {
+  return <GridColumnMenuFilter {...props} expanded={true} />;
+};
+const isColumnActive = (field: string, dataState: State) => {
+  return (
+    isColumnMenuFilterActive(field, dataState?.filter) ||
+    isColumnMenuSortActive(field, dataState?.sort)
+  );
+};
+
+// ---------------------------------------------------------------------------
+// LazyOptionsSelect - a normal-looking MUI single-select dropdown that defers
+// rendering its (potentially huge) option list until the user actually OPENS it.
+//
+// Why: MUI <Select> eagerly builds a <MenuItem> React element for every option
+// even while closed. With several dropdowns per grid row and large option lists
+// (e.g. CDI, Compliance Shown In ~3400), that is tens of thousands of mounted
+// components on expand - the fixed ~6s cost even for 6 rows.
+//
+// This keeps the dropdown LOOK/behaviour identical (box, arrow, selected value,
+// focus) - it is NOT read-only - but when closed it renders only ONE hidden
+// MenuItem for the current value (so MUI shows it), and renders the full list
+// only on open.
+// ---------------------------------------------------------------------------
+interface LazyOption { value: any; label: string; }
+interface LazyOptionsSelectProps {
+  value: any;
+  options: LazyOption[];
+  disabled?: boolean;
+  includeBlank?: boolean;
+  className?: string;
+  sx?: any;
+  menuProps?: any;
+  onChange: (value: any) => void;
+  showBlankOption?: boolean;
+}
+const LazyOptionsSelect: React.FC<LazyOptionsSelectProps> = ({
+    value, options, disabled, includeBlank = true, className, sx, menuProps, onChange, showBlankOption = true
+}) => {
+  // `editing` = the MUI <Select> is mounted. Until the user clicks the cell we
+  // render only a lightweight text display styled to look like a dropdown
+  // (value + chevron). This avoids mounting the heavy MUI Select *shell* for
+  // every cell on expand - the main remaining render cost.
+  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.value === value);
+
+  if (!editing || disabled) {
+    return (
+      <div
+        className="oss-ccl-lazy-display"
+        onClick={() => {
+          if (disabled) return;
+          setEditing(true);
+          setOpen(true);
+        }}
+        title={selected?.label ?? ""}
+        aria-disabled={disabled}
+      >
+        <span className="oss-ccl-lazy-display-text">{selected?.label ?? ""}</span>
+        <span className="oss-ccl-lazy-display-arrow" />
+      </div>
+    );
   }
-  renderValue={(selected: any) =>
+
+  // Edit mode: the Select is mounted only for THIS one cell (lazy cells), so we
+  // can simply render the full option list - no per-row cost since only one
+  // dropdown is ever mounted at a time.
+  return (
+    <Select
+      size="small"
+      fullWidth
+      autoFocus
+      disabled={disabled}
+      className={className}
+      sx={sx}
+      MenuProps={menuProps}
+      value={value ?? ""}
+      open={open}
+      onOpen={() => setOpen(true)}
+      onClose={() => { setOpen(false); setEditing(false); }}
+      onChange={(e) => {
+        onChange(e.target.value);
+        setOpen(false);
+        setEditing(false);
+      }}
+    >
+      {showBlankOption && includeBlank ? <MenuItem value=""></MenuItem> : null}
+      {options.map((o) => (
+        <MenuItem key={o.value} value={o.value}>
+          {o.label}
+        </MenuItem>
+      ))}
+    </Select>
+  );
+};
+
+// Multi-select Task dropdown with the same deferred-options behaviour.
+interface LazyTaskSelectProps {
+  taskData: any[];
+  mappedTaskOptions: any[];
+  disabled?: boolean;
+  onChange: (updatedTasks: any[]) => void;
+}
+const LazyTaskSelect: React.FC<LazyTaskSelectProps> = ({
+  taskData, mappedTaskOptions, disabled, onChange,
+}) => {
+  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
+  const selectedTaskIds: number[] = taskData?.map((x: any) => x.TASK_ID) || [];
+  const renderSelected = () =>
     mappedTaskOptions
-      .filter((x: any) => selected.includes(x.TaskId))
+      .filter((x: any) => selectedTaskIds.includes(x.TaskId))
       .map((x: any) => x.TaskName)
-      .join(", ")
+      .join(", ");
+
+  if (!editing || disabled) {
+    const text = renderSelected();
+    return (
+      <div
+        className="oss-ccl-lazy-display"
+        onClick={() => {
+          if (disabled) return;
+          setEditing(true);
+          setOpen(true);
+        }}
+        title={text}
+        aria-disabled={disabled}
+      >
+        <span className="oss-ccl-lazy-display-text">{text}</span>
+        <span className="oss-ccl-lazy-display-arrow" />
+      </div>
+    );
   }
-  onChange={(e) => {
-    const selectedIds = e.target.value as number[];
 
-    const existingTasks = props.dataItem.TaskData || [];
+  return (
+    <Select
+      multiple
+      size="small"
+      fullWidth
+      autoFocus
+      disabled={disabled}
+      className="oss-ccl-dropdown-disabled-styles"
+      value={selectedTaskIds}
+      open={open}
+      onOpen={() => setOpen(true)}
+      onClose={() => { setOpen(false); setEditing(false); }}
+      renderValue={() => renderSelected()}
+      onChange={(e) => {
+        const selectedIds = e.target.value as number[];
+        const existingTasks = taskData || [];
+        const updatedTasks = mappedTaskOptions
+          .filter((x: any) => selectedIds.includes(x.TaskId))
+          .map((x: any) => {
+            const existingTask = existingTasks.find((t: any) => t.TASK_ID === x.TaskId);
+            return {
+              MATRIX_ROW_ID: existingTask?.MATRIX_ROW_ID || 0,
+              TASK_ID: x.TaskId,
+              TASK_NAME: x.TaskName,
+            };
+          });
 
-    const updatedTasks = mappedTaskOptions
-      .filter((x: any) => selectedIds.includes(x.TaskId))
-      .map((x: any) => {
-        const existingTask = existingTasks.find(
-          (t: any) => t.TASK_ID === x.TaskId
-        );
-
-        return {
-          MATRIX_ROW_ID: existingTask?.MATRIX_ROW_ID || 0,
-          TASK_ID: x.TaskId,
-          TASK_NAME: x.TaskName,
-        };
-      });
-
-    // Keep deleted tasks
-    existingTasks.forEach((task: any) => {
-      const stillSelected = selectedIds.includes(task.TASK_ID);
-
-      if (!stillSelected && task.TASK_ID !== 0) {
-        updatedTasks.push({
-          MATRIX_ROW_ID: task.MATRIX_ROW_ID,
-          TASK_ID: 0,
-          TASK_NAME: task.TASK_NAME,
+        existingTasks.forEach((task: any) => {
+          const stillSelected = selectedIds.includes(task.TASK_ID);
+          if (!stillSelected) {
+            updatedTasks.push({
+              MATRIX_ROW_ID: task.MATRIX_ROW_ID,
+              TASK_ID: 0,
+              TASK_NAME: task.TASK_NAME,
+            });
+          }
         });
-      }
-    });
 
-    handleItemChange({
-      dataItem: props.dataItem,
-      field: "TaskData",
-      value: updatedTasks,
-      syntheticEvent: e,
-    } as any);
-  }}
-  MenuProps={{
-    PaperProps: {
-      style: {
-        maxHeight: 300,
-      },
-    },
-  }}
->
-  {mappedTaskOptions.map((task: any) => {
-    const checked =
-      props.dataItem.TaskData?.some(
-        (x: any) => x.TASK_ID === task.TaskId
-      ) || false;
+        onChange(updatedTasks);
+      }}
+    >
+      {mappedTaskOptions.map((task: any) => (
+        <MenuItem key={task.TaskId} value={task.TaskId}>
+          <input
+            type="checkbox"
+            checked={selectedTaskIds.includes(task.TaskId)}
+            readOnly
+          />
+          <span style={{ marginLeft: 8 }}>{task.TaskName}</span>
+        </MenuItem>
+      ))}
+    </Select>
+  );
+};
+
+interface ComplianceShownInCellProps {
+  dataItem: any;
+  options: ComplianceShownList[];
+  loading: boolean;
+  disabled: boolean;
+  open: boolean;
+  onOpen: () => void;
+  onClose: (reason?: string) => void;
+  onChange: (value: string) => void;
+}
+
+// Per-row "Compliance Shown In" dropdown. Manages its own open state so that:
+//  - opening the dropdown triggers the (shared) API load,
+//  - while loading it shows ONLY a "Loading..." item,
+//  - once the values arrive, if the user had opened it during loading, the
+//    dropdown stays/auto-opens showing the loaded values (no re-click needed).
+const ComplianceShownInCell: React.FC<ComplianceShownInCellProps> = ({
+  dataItem,
+  options,
+  loading,
+  disabled,
+  open,
+  onOpen,
+  onClose,
+  onChange,
+}) => {
+  const isLoadingEmpty = loading && options.length === 0;
+
+  // LAZY CELL: like Panel/CDI/MOC, render only a lightweight dropdown-styled
+  // text display until the user clicks it. This avoids mounting a MUI <Select>
+  // shell for EVERY row, which (x15 rows) re-rendered on every dropdown
+  // selection and was the main cause of the post-selection lag.
+  if (!open && !disabled) {
+    return (
+      <div
+        className="oss-ccl-lazy-display"
+        onClick={() => onOpen()}
+        title={dataItem.Compliance_Shown_In ?? ""}
+      >
+        <span className="oss-ccl-lazy-display-text">{dataItem.Compliance_Shown_In ?? ""}</span>
+        <span className="oss-ccl-lazy-display-arrow" />
+      </div>
+    );
+  }
+
+  if (disabled) {
+    return (
+      <div className="oss-ccl-lazy-display" aria-disabled="true">
+        <span className="oss-ccl-lazy-display-text">{dataItem.Compliance_Shown_In ?? ""}</span>
+        <span className="oss-ccl-lazy-display-arrow" />
+      </div>
+    );
+  }
+
+  return (
+    <Select
+      size="small"
+      fullWidth
+      autoFocus
+      disabled={disabled}
+      open={open}
+      onOpen={() => onOpen()}
+      onClose={((_event: object, reason?: string) => onClose(reason)) as any}
+      value={dataItem.Compliance_Shown_In ?? ""}
+      className="oss-ccl-dropdown-disabled-styles"
+      onChange={(e) => onChange(e.target.value as string)}
+    >
+      {/* While the API is still loading, show ONLY a "Loading..." item (plus a
+          hidden item for the saved value so it stays displayed). Otherwise show
+          the blank option + the full list. Only one Compliance Shown In Select
+          is ever open at a time, so no per-row option cost. */}
+      {isLoadingEmpty
+        ? [
+          dataItem.Compliance_Shown_In ? (
+            <MenuItem
+              key="__selected__"
+              value={dataItem.Compliance_Shown_In}
+              style={{ display: "none" }}
+            >
+              {dataItem.Compliance_Shown_In}
+            </MenuItem>
+          ) : null,
+          <MenuItem key="__loading__" value="" disabled>
+            Loading...
+          </MenuItem>,
+        ]
+        : [
+          <MenuItem key="__blank__" value=""></MenuItem>,
+          ...options.map((option) => (
+            <MenuItem
+              key={option.DocumentReference}
+              value={option.DocumentReference}
+            >
+              {option.DocumentReference}
+            </MenuItem>
+          )),
+        ]}
+    </Select>
+  );
+};
+
+const CclBuilderGridComponent: React.FC<CclBuilderGridComponentProps> = ({
+  data,
+  panelOptions = [],
+  cdiOptions = [],
+  groupData,
+  mocOptions,
+  complianceShownInOptions,
+  onComplianceShownInOpen,
+  complianceShownInLoading = false,
+  allControlEnable = false,
+  cclGridRowRender,
+  total,
+  cclGridData = data,
+  checkedCclGridRow,
+  setCheckedCclGridRow,
+  dataState,
+  onDataStateChange,
+  onLoadMore,
+  columnProps = () => ({}),
+  taskdropdownlist,
+  mocdropdownlist,
+  TextFieldCell,
+  currentDetailExpanded,
+  detailExpand = {},
+  closeEditComplianceStatement,
+  expandEditComplianceStatement,
+  closeEditAdditional,
+  expandEditAdditional,
+  setDrawerPosition,
+  groupType,
+  mappedTaskOptions,
+  handleItemChange,
+  highlightIds = new Set(),
+}) => {
+  const gridRef = useRef<any>(null);
+  const [internalCheckedRows, setInternalCheckedRows] = useState<any[]>([]);
+  // Master CVE/Panel list sorted ASC by Cve_Id (used for rule A, and as the
+  // source to filter from for rule B).
+  const sortedPanelOptions = useMemo(
+    () => [...panelOptions].sort((a, b) => a.Cve_Id - b.Cve_Id),
+    [panelOptions]
+  );
+  // Which row's "Compliance Shown In" dropdown is currently open (by Report_Id).
+  // Held at the grid level so it survives cell re-creation when the shared
+  // compliance data arrives - otherwise the dropdown closes itself on load.
+  const [openComplianceRowId, setOpenComplianceRowId] = useState<number | null>(null);
+  // Set when the user opened a dropdown while data was still loading, so the
+  // spurious MUI close fired during the items-swap can be ignored once.
+  const openedComplianceWhileLoadingRef = useRef(false);
+  const { cclData } = useOutletContext<OverallDataContext>();
+  // Apply ONLY sort/filter client-side to the accumulated loaded rows - NOT
+  // paging (no skip/take slice). Paging is server-driven via load-more on
+  // scroll. This renders ALL loaded rows in a plain scrollable grid, which
+  // avoids the virtual-scroll skip-jump that blanked the grid on fast scroll.
+  const sortedFilteredData = useMemo(
+    () => process(data, { sort: dataState.sort, filter: dataState.filter }).data,
+    [data, dataState.sort, dataState.filter]
+  );
+
+  const onDataStateChangeInner = (e: GridDataStateChangeEvent) => {
+    onDataStateChange(e);
+  };
+
+  // Load-more-on-scroll: when scrolled near the bottom and more rows exist on
+  // the server (loaded < total), ask the parent to fetch the next page.
+  // loadingMoreRef prevents duplicate fetches until the appended rows arrive.
+  const loadingMoreRef = useRef(false);
+  const lastLoadedCountRef = useRef(0);
+  if (data.length !== lastLoadedCountRef.current) {
+    lastLoadedCountRef.current = data.length;
+    loadingMoreRef.current = false;
+  }
+  const handleGridScroll = (event: any) => {
+    const el = event?.nativeEvent?.target as HTMLElement | undefined;
+    if (!el || !onLoadMore) return;
+    const hasMore = typeof total === "number" && data.length < total;
+    if (!hasMore || loadingMoreRef.current) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 150) {
+      loadingMoreRef.current = true;
+      onLoadMore();
+    }
+  };
+
+
+
+  const checkedRows = checkedCclGridRow ?? internalCheckedRows;
+  const setCheckedRows = setCheckedCclGridRow ?? setInternalCheckedRows;
+  const isUnmappedRequirements = groupData?.Id === 0;
+
+  const handleRowCheck = (checked: boolean, item: any) => {
+    if (checked) {
+      setCheckedRows((prev: any[]) => [...(prev ?? []), item]);
+    } else {
+      setCheckedRows((prev: any[]) =>
+        (prev ?? []).filter((row) => row.Report_Id !== item.Report_Id)
+      );
+    }
+  };
+
+  const handleHeaderCheck = (checked: boolean) => {
+    if (checked) {
+      setCheckedRows([...cclGridData]);
+    } else {
+      setCheckedRows([]);
+    }
+  };
+  const CustomRow = (props: GridRowProps) => {
+    const reportId = Number(props.dataItem?.Report_Id);
+    const isHighlighted = highlightIds.has(reportId);
 
     return (
-      <MenuItem
-        key={task.TaskId}
-        value={task.TaskId}
-        onClick={(e) => {
-          e.stopPropagation();
-        }}
-      >
-        <Checkbox checked={checked} />
-
-        <ListItemText primary={task.TaskName} />
-      </MenuItem>
+      <tr className={isHighlighted ? "oss-ccl-highlight" : ""}>
+        {props.children}
+      </tr>
     );
-  })}
-</Select>
+  };
+  const handleDrawerPosition = (
+    e: React.MouseEvent<HTMLElement>
+  ) => {
+    const rect = (
+      e.currentTarget as HTMLElement
+    ).getBoundingClientRect();
+    const drawerElement = document.querySelector(
+      ".ccl-compliancestatement-drawer"
+    ) as HTMLElement;
+
+    const drawerWidth = drawerElement?.offsetWidth || 550;
+    const drawerHeight = drawerElement?.offsetHeight || 300;
+    const margin = 10;
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < drawerHeight;
+
+    const top = openUpward
+      ? rect.top + window.scrollY - drawerHeight - 5
+      : rect.bottom + window.scrollY + 5;
+
+    const left = Math.max(
+      margin,
+      Math.min(
+        rect.left + window.scrollX,
+        window.innerWidth + window.scrollX - drawerWidth - margin
+      )
+    );
+
+    setDrawerPosition({
+      top,
+      left,
+    });
+  };
+  const getColumnProps = (field: string) => ({
+    ...(columnProps?.(field) || {}),
+    headerClassName: isColumnActive(field, dataState)
+      ? "active"
+      : "",
+  });
+  return (
+    <div
+      ref={gridRef}
+      style={{
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+      }}
+    >
+      <DataGrid
+        id="kgrid-oss-cclbuilder-list"
+        style={{
+          width: "100%",
+          height: "100%",
+        }}
+        data={sortedFilteredData}
+        dataItemKey="Report_Id"
+        rowHeight={32}
+        scrollable="scrollable"
+        onScroll={handleGridScroll}
+        sortable
+        resizable
+        filterable
+        columnMenuIcon={filterIcon}
+        sort={dataState.sort}
+        filter={dataState.filter}
+        onDataStateChange={onDataStateChangeInner}
+        rows={{ data: CustomRow }}
+        onItemChange={handleItemChange}
+      >
+        {/* Checkbox Column */}
+        <GridColumn
+          title=" "
+          width="40px"
+          locked={true}
+          filterable={false}
+          columnMenu={undefined}
+          cells={{
+            data: (props: any) => {
+              return (
+                <td
+                  {...props.tdProps}
+                  className="oss-ccl-sticky-td k-grid-content-sticky"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checkedRows.some(
+                      (x) => x.Report_Id === props.dataItem.Report_Id
+                    )}
+                    onChange={(e) =>
+                      handleRowCheck(e.target.checked, props.dataItem)
+                    }
+                    disabled={allControlEnable}
+                  />
+                </td>
+              );
+            },
+            headerCell: (props: any) => {
+              return (
+                <th
+                  {...props.thProps}
+                  style={{
+                    textOverflow: "clip",
+                    ...props.thProps?.style,
+                  }}
+                >
+                  {/* <input
+                    type="checkbox"
+                    checked={
+                      cclGridData.length !== 0 &&
+                      cclGridData.every((x) =>
+                        checkedRows?.some((y) => y.Report_Id === x.Report_Id)
+                      )
+                    }
+                    disabled={allControlEnable}
+                    onChange={(e) => handleHeaderCheck(e.target.checked)}
+                  /> */}
+                </th>
+              );
+            },
+          }}
+        />
+
+        {/* Panel */}
+        {(isUnmappedRequirements || groupType === "Task" || groupType === "Requirement" || groupType === "CDI") && (
+          <GridColumn
+            {...getColumnProps("Cve_Panel")}
+            field="Cve_Panel"
+            title="Panel"
+            width="100px"
+            locked={true}
+            columnMenu={ColumnMenu}
+            cell={(props: any) => {
+              // Per-row Panel options driven by TBL_OSS_CERT_CVE_REQ_MAPPING
+              // (Available_Cve_Ids, comma-separated CVE_IDs sorted ASC):
+              //  A. empty/absent -> show ALL master panels, no forced selection.
+              //  B. present      -> show ONLY those panels (sorted ASC) + a blank
+              //                     option; the selected value is whatever is
+              //                     persisted on the row (Cve_Id), which the
+              //                     backend set to the single 'P' panel or blank.
+              const availableRaw: string | null = props.dataItem.Available_Cve_Ids;
+              // Note: "".split(",") returns [""], and Number("") === 0 (not NaN),
+              // so an empty/blank value must be treated as "no mapping" up front -
+              // otherwise it would be parsed as [0] and wrongly trigger rule B.
+              const availableIds = (availableRaw ?? "")
+                .split(",")
+                .map((s: string) => Number(s.trim()))
+                .filter((n: number) => !Number.isNaN(n) && n > 0);
+
+              const hasMapping = availableRaw != null && availableRaw.trim() !== "" && availableIds.length > 0;
+              const availableIdSet = new Set<number>(availableIds);
+
+              const rowPanelOptions = hasMapping
+                ? sortedPanelOptions.filter((p) => availableIdSet.has(p.Cve_Id))
+                : sortedPanelOptions;
+
+              return (
+                <td
+                  style={props.style}
+                  className={`grid_Cve_Panel oss-ccl-sticky-td k-grid-content-sticky ${props.className || ''}`}
+                  colSpan={props.colSpan}
+                  aria-colindex={props.ariaColumnIndex}
+                  role="gridcell"
+                >
+                  <LazyOptionsSelect
+                    className="oss-ccl-dropdown-disabled-styles"
+                    disabled={allControlEnable}
+                    value={props.dataItem.Cve_Id ?? ""}
+                    options={rowPanelOptions.map((p) => ({ value: p.Cve_Id, label: p.Panel }))}
+                    onChange={(val) =>
+                      props.onChange({
+                        dataItem: props.dataItem,
+                        field: "Cve_Id",
+                        value: val === "" ? null : Number(val),
+                        syntheticEvent: {} as any,
+                      })
+                    }
+                  />
+                </td>
+              );
+            }}
+          />
+        )
+        }
+
+        {/* CDI */}
+        {(isUnmappedRequirements ||
+          groupType === "Task" ||
+          groupType === "Requirement" ||
+          groupType === "Panel") && (
+            <GridColumn
+              {...getColumnProps("Cdi")}
+              field="Cdi"
+              title="CDI"
+              width="120px"
+              locked={true}
+              columnMenu={ColumnMenu}
+              cell={(props: any) => {
+                const isMinor =
+                  cclData?.ccnDetails?.ClassificationType?.trim()?.toLowerCase() === "minor";
+                const effectiveCdiId = props.dataItem.Cdi_Id
+                  ? props.dataItem.Cdi_Id
+                  : isMinor
+                    ? cdiOptions[0]?.Cdi_Id ?? ""
+                    : "";
+                return (
+                  <td
+                    style={props.style}
+                    className={`grid_Cdi_Complete oss-ccl-sticky-td k-grid-content-sticky ${props.className || ""}`}
+                    colSpan={props.colSpan}
+                    aria-colindex={props.ariaColumnIndex}
+                    role="gridcell"
+                  >
+                    <LazyOptionsSelect
+                      className="oss-ccl-dropdown-disabled-styles"
+                      disabled={allControlEnable}
+                      value={effectiveCdiId}
+                      sx={{ fontSize: "14px" }}
+                      menuProps={{ disablePortal: false }}
+                      options={[...cdiOptions]
+                        .sort((a, b) => a.Cdi_Id - b.Cdi_Id)
+                        .map((c) => ({ value: c.Cdi_Id, label: c.Combined_Description }))}
+                      onChange={(val) => {
+                        const nextValue = val === "" ? null : Number(val);
+                        const newItem = { ...props.dataItem, Cdi_Id: nextValue };
+                        props.onChange({
+                          dataItem: newItem,
+                          field: "Cdi_Id",
+                          value: nextValue,
+                          syntheticEvent: {} as any,
+                        });
+                      }}
+                    />
+                  </td>
+                );
+              }}
+            />
+          )}
+
+        {/* Requirement */}
+        {(isUnmappedRequirements || groupType === "Task" || groupType === "Panel" || groupType === "CDI") && (
+          <GridColumn
+            {...getColumnProps("Requirement")}
+            field="Requirement"
+            title="Requirement"
+            width="85px"
+            locked={true}
+            columnMenu={ColumnMenu}
+            cells={{
+              data: (props: any) => (
+                <td
+                  {...props.tdProps}
+                  className="grid_Regulation oss-ccl-sticky-td k-grid-content-sticky"
+                  title={props.dataItem.Requirement}
+                >
+                  {props.dataItem.Requirement}
+                </td>
+              ),
+            }}
+          />
+        )}
+        {/* Para */}
+        <GridColumn
+          {...getColumnProps("Para")}
+          field="Para"
+          title="Para"
+          width="80px"
+          locked={true}
+          columnMenu={ColumnMenu}
+          cells={{
+            data: (props: any) => (
+              <td
+                {...props.tdProps}
+                className="grid_Para oss-ccl-sticky-td k-grid-content-sticky"
+                title={props.dataItem.Para}
+              >
+                {props.dataItem.Para}
+              </td>
+            ),
+          }}
+        />
+
+        {/* Description */}
+        <GridColumn
+          {...getColumnProps("ReqDescription")}
+          field="ReqDescription"
+          title="Description"
+          width="120px"
+          locked={true}
+          columnMenu={ColumnMenu}
+          cells={{
+            data: (props: any) => (
+              <td
+                {...props.tdProps}
+                className="grid_RegDescription oss-ccl-sticky-td k-grid-content-sticky"
+                title={props.dataItem.ReqDescription}
+              >
+                <div className="grid-reg-description">
+                  {props.dataItem.ReqDescription}
+                </div>
+              </td>
+            ),
+          }}
+        />
+
+
+
+        {/* Task Name */}
+        {(isUnmappedRequirements || groupType === "Panel" || groupType === "Requirement" || groupType === "CDI") && (
+          <GridColumn
+            className="grid_Task"
+            field="TaskData"
+            title="Task Name"
+            width="220px"
+            filterable={false}
+            cell={(props: any) => (
+              <td>
+                <LazyTaskSelect
+                  taskData={props.dataItem.TaskData}
+                  mappedTaskOptions={mappedTaskOptions}
+                  disabled={allControlEnable}
+                  onChange={(updatedTasks) =>
+                    handleItemChange({
+                      dataItem: props.dataItem,
+                      field: "TaskData",
+                      value: updatedTasks,
+                      syntheticEvent: {} as any,
+                    } as any)
+                  }
+                />
+              </td>
+            )}
+          />
+
+        )}
+
+        {/* MOC */}
+        <GridColumn
+          className="grid_MOC"
+          field="Moc"
+          title="MOC"
+          width="100px"
+          filterable={false}
+          cells={{
+                  headerCell: (props: any) => (
+                  <th {...props.thProps}>
+                  MOC <span style={{ color: "red" }}>*</span>
+                  </th>
+                  ),
+                  data: (props: any) => (
+            <td>
+              <LazyOptionsSelect
+                className="oss-ccl-dropdown-disabled-styles"
+                disabled={allControlEnable}
+                value={props.dataItem.Moc ?? ""}
+                              options={mocOptions.map((option) => ({
+                                  value: option.Moc,
+                                  label: option.Moc,
+                              }))}
+                showBlankOption={false}
+                onChange={(val) =>
+                  handleItemChange({
+                    dataItem: props.dataItem,
+                    field: "Moc",
+                    value: val,
+                    syntheticEvent: {} as any,
+                  } as any)
+                }
+              />
+            </td>
+                      ),
+                  }}
+              />
+
+
+        {/* Compliance Shown In */}
+        <GridColumn
+          className="grid_Compliance_Shown_In"
+          field="Compliance_Shown_In"
+          title="Compliance Shown In"
+          width="230px"
+          filterable={false}
+          cell={(props: any) => (
+            <td>
+              <ComplianceShownInCell
+                dataItem={props.dataItem}
+                options={complianceShownInOptions}
+                loading={complianceShownInLoading}
+                disabled={allControlEnable}
+                open={openComplianceRowId === props.dataItem.Report_Id}
+                onOpen={() => {
+                  onComplianceShownInOpen?.();
+                  setOpenComplianceRowId(props.dataItem.Report_Id);
+                  if (complianceShownInLoading && complianceShownInOptions.length === 0) {
+                    openedComplianceWhileLoadingRef.current = true;
+                  }
+                }}
+                onClose={(reason) => {
+                  const isUserClose =
+                    reason === "backdropClick" || reason === "escapeKeyDown";
+                  if (isUserClose) {
+                    openedComplianceWhileLoadingRef.current = false;
+                    setOpenComplianceRowId(null);
+                    return;
+                  }
+                  // Reasonless close while opened-during-loading = the spurious
+                  // close from items swapping in. Ignore it once, keep open.
+                  if (openedComplianceWhileLoadingRef.current) {
+                    openedComplianceWhileLoadingRef.current = false;
+                    return;
+                  }
+                  setOpenComplianceRowId(null);
+                }}
+                onChange={(value) => {
+                  // Selecting a value closes the dropdown.
+                  openedComplianceWhileLoadingRef.current = false;
+                  setOpenComplianceRowId(null);
+                  const newItem = {
+                    ...props.dataItem,
+                    Compliance_Shown_In: value,
+                  };
+                  handleItemChange({
+                    dataItem: newItem,
+                    field: "Compliance_Shown_In",
+                    value,
+                    syntheticEvent: {} as any,
+                  } as any);
+                }}
+              />
+            </td>
+          )}
+        />
+
+        {/* Compliance Statement */}
+        <GridColumn
+          {...getColumnProps("Compliance_statement")}
+          field="Compliance_statement"
+          title="Compliance Statement"
+          width="350px"
+          columnMenu={ColumnMenu}
+          cell={(props: any) => {
+            const content = htmlToPlainText(props.dataItem.Compliance_statement);
+
+            return (
+              <td className="grid_Compliance_statement" title={content ?? ""}>
+                <div
+                  className="oss-ccl-cell-box"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div
+                      className="ccl-richtext-outer"
+                      dangerouslySetInnerHTML={{
+                        __html: props.dataItem.Compliance_statement || "",
+                      }}
+                    />
+                  </span>
+
+                  {currentDetailExpanded?.currentEdit === "compliance" &&
+                    detailExpand[props.dataItem.Report_Id] ? (
+                    <button
+                      type="button"
+                      aria-label="Close compliance edit"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 4,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      onClick={() =>
+                        closeEditComplianceStatement?.(props.dataItem.Report_Id)
+                      }
+                    >
+                      <CloseIcon
+                        style={{
+                          marginLeft: 8,
+                          marginRight: 5,
+                          color: "#737373",
+                        }}
+                      />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label="Edit compliance"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 4,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      className="oss-ccl-grid-action-disabled"
+                      onClick={(e) => {
+                        const row =
+                          (e.currentTarget as HTMLElement).closest("tr");
+
+                        if (row) {
+                          handleDrawerPosition(e)
+                        }
+                        expandEditComplianceStatement?.(
+                          props.dataItem.Report_Id
+                        );
+                      }}
+                      disabled={allControlEnable}
+                    >
+                      <EditIcon
+                        style={{
+                          marginLeft: 8,
+                          marginRight: 5,
+                          color: "#737373",
+                        }}
+                      />
+                    </button>
+                  )}
+                </div>
+              </td>
+            );
+          }}
+        />
+
+        {/* Additional Notes */}
+        <GridColumn
+          {...getColumnProps("Additional_Notes")}
+          field="Additional_Notes"
+          title="Additional Notes"
+          width="350px"
+          columnMenu={ColumnMenu}
+          cell={(props: any) => {
+            const content = htmlToPlainText(props.dataItem.Additional_Notes);
+
+            return (
+              <td className="grid_Additional_Notes" title={content ?? ""}>
+                <div
+                  className="oss-ccl-cell-box"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div
+                      className="ccl-richtext-outer"
+                      dangerouslySetInnerHTML={{
+                        __html: props.dataItem.Additional_Notes || "",
+                      }}
+                    />
+                  </span>
+
+                  {currentDetailExpanded?.currentEdit === "additional" &&
+                    detailExpand[props.dataItem.Report_Id] ? (
+                    <button
+                      type="button"
+                      aria-label="Close additional notes edit"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 4,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      onClick={() =>
+                        closeEditAdditional?.(props.dataItem.Report_Id)
+                      }
+                    >
+                      <CloseIcon
+                        style={{
+                          marginLeft: 8,
+                          marginRight: 5,
+                          color: "#737373",
+                        }}
+                      />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label="Edit additional notes"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 4,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      className="oss-ccl-grid-action-disabled"
+                      onClick={(e) => {
+                        handleDrawerPosition(e)
+                        expandEditAdditional?.(props.dataItem.Report_Id);
+                      }}
+                      disabled={allControlEnable}
+                    >
+                      <EditIcon
+                        style={{
+                          marginLeft: 8,
+                          marginRight: 5,
+                          color: "#737373",
+                        }}
+                      />
+                    </button>
+                  )}
+                </div>
+              </td>
+            );
+          }}
+        />
+      </DataGrid>
+    </div >
+  );
+};
+
+const CloseIcon = ({ style }: { style?: React.CSSProperties }) => (
+  <span style={style}>✕</span>
+);
+
+const EditIcon = ({ style }: { style?: React.CSSProperties }) => (
+  <span style={style}>✎</span>
+);
+
+export default CclBuilderGridComponent;
